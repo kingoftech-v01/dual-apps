@@ -11,9 +11,9 @@ class TestAppGeneratorInit:
     """Test AppGenerator initialization."""
 
     def test_default_model_name(self, temp_dir):
-        """Test default model name is derived from app name."""
+        """Test default model name is derived from app name with Model suffix."""
         gen = AppGenerator(app_name="jobs", output_dir=temp_dir)
-        assert gen.model_name == "Jobs"
+        assert gen.model_name == "JobsModel"
 
     def test_custom_model_name(self, temp_dir):
         """Test custom model name."""
@@ -56,10 +56,13 @@ class TestAppGeneratorContext:
         assert ctx["app_name_kebab"] == "my-app"
 
     def test_context_has_fields(self, temp_dir):
-        """Test context contains parsed fields."""
+        """Test context contains fields."""
         gen = AppGenerator(
             app_name="products",
-            fields="name:str,price:decimal",
+            fields=[
+                ("name", "CharField", {"max_length": 200}),
+                ("price", "DecimalField", {"max_digits": 10, "decimal_places": 2}),
+            ],
             output_dir=temp_dir
         )
         ctx = gen.get_context()
@@ -86,7 +89,8 @@ class TestAppGeneratorStructure:
         assert app_dir.exists()
         assert (app_dir / "jobs").exists()
         assert (app_dir / "jobs" / "migrations").exists()
-        assert (app_dir / "jobs" / "templates" / "jobs").exists()
+        # Templates are at app_root/templates/app_name, not app_root/app_name/templates
+        assert (app_dir / "templates" / "jobs").exists()
 
     def test_create_structure_with_docker(self, temp_dir):
         """Test Docker directory is created when enabled."""
@@ -209,7 +213,11 @@ class TestAppGeneratorFullGeneration:
         gen = AppGenerator(
             app_name="products",
             model_name="Product",
-            fields="name:str,price:decimal,active:bool",
+            fields=[
+                ("name", "CharField", {"max_length": 200}),
+                ("price", "DecimalField", {"max_digits": 10, "decimal_places": 2}),
+                ("active", "BooleanField", {"default": True}),
+            ],
             docker=True,
             output_dir=temp_dir,
         )

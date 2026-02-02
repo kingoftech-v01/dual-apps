@@ -60,48 +60,63 @@ class TestNameConversions:
 
 
 class TestFieldParsing:
-    """Test field parsing utilities."""
+    """Test field parsing utilities.
 
-    def test_parse_empty_fields(self):
-        """Test parsing empty fields string."""
-        gen = BaseGenerator()
-        result = gen._parse_fields("")
-        assert result == []
+    Note: Field parsing is handled by AppGenerator, not BaseGenerator.
+    These tests verify that default fields are properly structured.
+    """
 
-    def test_parse_none_fields(self):
-        """Test parsing None fields."""
-        gen = BaseGenerator()
-        result = gen._parse_fields(None)
-        assert result == []
+    def test_default_fields_structure(self):
+        """Test that AppGenerator has properly structured default fields."""
+        from dual_apps.generators.app_generator import AppGenerator
+        gen = AppGenerator(app_name="test")
+        fields = gen.fields
+        assert len(fields) >= 1
+        # Each field should be a tuple of (name, type, options)
+        for field in fields:
+            assert len(field) == 3
+            assert isinstance(field[0], str)  # field name
+            assert isinstance(field[1], str)  # field type
+            assert isinstance(field[2], dict)  # options
 
-    def test_parse_single_field(self):
-        """Test parsing single field."""
-        gen = BaseGenerator()
-        result = gen._parse_fields("title:str")
-        assert len(result) == 1
-        assert result[0]["name"] == "title"
-        assert result[0]["type"] == "str"
+    def test_fields_have_required_attributes(self):
+        """Test fields have required attributes."""
+        from dual_apps.generators.app_generator import AppGenerator
+        gen = AppGenerator(app_name="test")
+        # Default fields should include common fields
+        field_names = [f[0] for f in gen.fields]
+        assert "title" in field_names
 
-    def test_parse_multiple_fields(self):
-        """Test parsing multiple fields."""
-        gen = BaseGenerator()
-        result = gen._parse_fields("title:str,price:decimal,active:bool")
-        assert len(result) == 3
-        assert result[0]["name"] == "title"
-        assert result[1]["name"] == "price"
-        assert result[2]["name"] == "active"
+    def test_custom_fields(self):
+        """Test custom fields can be passed."""
+        from dual_apps.generators.app_generator import AppGenerator
+        custom_fields = [
+            ("name", "CharField", {"max_length": 100}),
+            ("price", "DecimalField", {"max_digits": 10, "decimal_places": 2}),
+        ]
+        gen = AppGenerator(app_name="test", fields=custom_fields)
+        assert gen.fields == custom_fields
 
-    def test_parse_field_types(self):
-        """Test all supported field types."""
-        gen = BaseGenerator()
-        fields = "a:str,b:text,c:int,d:decimal,e:bool,f:date,g:datetime,h:uuid,i:email,j:url"
-        result = gen._parse_fields(fields)
-        assert len(result) == 10
-        assert result[0]["type"] == "str"
-        assert result[1]["type"] == "text"
-        assert result[2]["type"] == "int"
-        assert result[3]["type"] == "decimal"
-        assert result[4]["type"] == "bool"
+    def test_fields_in_context(self):
+        """Test fields are included in context."""
+        from dual_apps.generators.app_generator import AppGenerator
+        gen = AppGenerator(app_name="test")
+        ctx = gen.get_context()
+        assert "fields" in ctx
+        assert len(ctx["fields"]) >= 1
+
+    def test_field_types_supported(self):
+        """Test various Django field types can be used."""
+        from dual_apps.generators.app_generator import AppGenerator
+        fields = [
+            ("text_field", "CharField", {"max_length": 200}),
+            ("big_text", "TextField", {}),
+            ("number", "IntegerField", {}),
+            ("decimal", "DecimalField", {"max_digits": 10, "decimal_places": 2}),
+            ("flag", "BooleanField", {"default": False}),
+        ]
+        gen = AppGenerator(app_name="test", fields=fields)
+        assert len(gen.fields) == 5
 
 
 class TestDirectoryCreation:
@@ -140,8 +155,9 @@ class TestTemplateRendering:
         gen = BaseGenerator()
         ctx = gen.get_base_context()
         assert "version" in ctx
-        assert "timestamp" in ctx
-        assert "python_version" in ctx
+        assert "date" in ctx
+        assert "year" in ctx
+        assert "generator" in ctx
 
     def test_version_in_context(self):
         """Test version is correct in context."""
@@ -153,29 +169,29 @@ class TestTemplateRendering:
 class TestJinjaFilters:
     """Test custom Jinja2 filters."""
 
-    def test_snake_filter(self):
+    def test_snake_case_filter(self):
         """Test snake_case filter in templates."""
         gen = BaseGenerator()
-        template = gen.env.from_string("{{ name | snake }}")
+        template = gen.env.from_string("{{ name | snake_case }}")
         result = template.render(name="MyApp")
         assert result == "my_app"
 
-    def test_pascal_filter(self):
+    def test_pascal_case_filter(self):
         """Test pascal_case filter in templates."""
         gen = BaseGenerator()
-        template = gen.env.from_string("{{ name | pascal }}")
+        template = gen.env.from_string("{{ name | pascal_case }}")
         result = template.render(name="my_app")
         assert result == "MyApp"
 
-    def test_kebab_filter(self):
-        """Test kebab-case filter in templates."""
+    def test_kebab_case_filter(self):
+        """Test kebab_case filter in templates."""
         gen = BaseGenerator()
-        template = gen.env.from_string("{{ name | kebab }}")
+        template = gen.env.from_string("{{ name | kebab_case }}")
         result = template.render(name="my_app")
         assert result == "my-app"
 
-    def test_title_filter(self):
-        """Test title case filter in templates."""
+    def test_title_case_filter(self):
+        """Test title_case filter in templates."""
         gen = BaseGenerator()
         template = gen.env.from_string("{{ name | title_case }}")
         result = template.render(name="my_app")
