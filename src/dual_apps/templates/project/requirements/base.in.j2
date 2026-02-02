@@ -25,6 +25,14 @@ django-htmx>=1.17.0
 django-cors-headers>=4.3.0
 django-csp>=3.8
 
+{% if use_allauth %}
+# Authentication (Allauth)
+django-allauth>=0.61.0
+{% elif use_jwt %}
+# Authentication (JWT)
+djangorestframework-simplejwt>=5.3.0
+{% endif %}
+
 # Static files
 whitenoise>=6.6.0
 

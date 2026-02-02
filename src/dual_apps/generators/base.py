@@ -139,6 +139,14 @@ class BaseGenerator:
         content = self.render_template(src_template)
         self.write_file(dest_path, content)
 
+    def template_exists(self, template_name: str) -> bool:
+        """Check if a template exists."""
+        try:
+            self.env.get_template(template_name)
+            return True
+        except Exception:
+            return False
+
     def get_stats(self) -> Dict[str, int]:
         """Get generation statistics."""
         return {

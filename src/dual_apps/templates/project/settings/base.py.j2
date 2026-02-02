@@ -25,15 +25,31 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+{% if use_allauth %}
+    "django.contrib.sites",
+{% endif %}
     # Third-party
     "rest_framework",
     "django_filters",
     "corsheaders",
+{% if use_allauth %}
+    # Allauth
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
+    "allauth.socialaccount.providers.github",
+{% endif %}
     # Generated apps
 {% for app in apps %}
     "apps.{{ app }}",
 {% endfor %}
 ]
+
+{% if use_allauth %}
+# Site ID for django.contrib.sites
+SITE_ID = 1
+{% endif %}
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -45,6 +61,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+{% if use_allauth %}
+    "allauth.account.middleware.AccountMiddleware",
+{% endif %}
 ]
 
 ROOT_URLCONF = "{{ project_name }}.urls"
@@ -99,6 +118,25 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
+{% if use_allauth %}
+# Authentication backends (Allauth)
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+
+# Allauth settings
+ACCOUNT_AUTHENTICATION_METHOD = "email"
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_EMAIL_VERIFICATION = "optional"
+ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_UNIQUE_EMAIL = True
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/"
+ACCOUNT_ADAPTER = "{{ project_name }}.adapters.CustomAccountAdapter"
+SOCIALACCOUNT_ADAPTER = "{{ project_name }}.adapters.CustomSocialAccountAdapter"
+{% endif %}
 
 # Internationalization
 LANGUAGE_CODE = "en-us"

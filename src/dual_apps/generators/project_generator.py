@@ -30,12 +30,23 @@ class ProjectGenerator(BaseGenerator):
     - 64 pages documentation
     """
 
+    # Specialized templates and their corresponding apps
+    SPECIALIZED_TEMPLATES = {
+        "ecommerce": ["shop"],
+        "blog": ["blog"],
+        "saas": ["organizations", "subscriptions"],
+        "cms": ["pages", "media"],
+        "booking": ["services", "appointments"],
+        "marketplace": ["vendors", "products"],
+    }
+
     def __init__(
         self,
         project_name: str,
         apps: List[str] = None,
         template: str = "default",
         db: str = "postgres",
+        auth: str = "jwt",
         docker: bool = True,
         i18n: bool = False,
         celery: bool = False,
@@ -45,12 +56,19 @@ class ProjectGenerator(BaseGenerator):
 
         self.project_name = self._to_snake_case(project_name)
         self.project_name_display = self._to_title_case(project_name)
-        self.apps = apps or ["jobs"]
         self.template = template
         self.db = db
+        self.auth = auth
         self.docker = docker
         self.i18n = i18n
         self.celery = celery
+
+        # Handle specialized templates - auto-add apps for template
+        if template in self.SPECIALIZED_TEMPLATES:
+            template_apps = self.SPECIALIZED_TEMPLATES[template]
+            self.apps = list(set((apps or []) + template_apps))
+        else:
+            self.apps = apps or ["jobs"]
 
         # Project root directory
         self.project_root = Path(self.project_name)
@@ -73,10 +91,15 @@ class ProjectGenerator(BaseGenerator):
             ],
             "template": self.template,
             "db": self.db,
+            "auth": self.auth,
             "docker": self.docker,
             "i18n": self.i18n,
             "celery": self.celery,
             "use_postgres": self.db == "postgres",
+            "use_jwt": self.auth == "jwt",
+            "use_session": self.auth == "session",
+            "use_allauth": self.auth == "allauth",
+            "is_specialized_template": self.template in self.SPECIALIZED_TEMPLATES,
         }
 
     def create_structure(self) -> None:
@@ -124,6 +147,10 @@ class ProjectGenerator(BaseGenerator):
         self.render_and_write("project/settings/prod.py.j2", settings_dir / "prod.py", ctx)
         self.render_and_write("project/settings/security.py.j2", settings_dir / "security.py", ctx)
 
+        # Allauth settings if selected
+        if self.auth == "allauth":
+            self.render_and_write("auth/allauth/settings.py.j2", settings_dir / "allauth.py", ctx)
+
         # Project files
         self.render_and_write("project/__init__.py.j2", project_dir / "__init__.py", ctx)
         self.render_and_write("project/urls.py.j2", project_dir / "urls.py", ctx)
@@ -132,6 +159,10 @@ class ProjectGenerator(BaseGenerator):
 
         if self.celery:
             self.render_and_write("project/celery.py.j2", project_dir / "celery.py", ctx)
+
+        # Allauth adapters if selected
+        if self.auth == "allauth":
+            self.render_and_write("auth/allauth/adapters.py.j2", project_dir / "adapters.py", ctx)
 
         # Root project files
         self.render_and_write("project/manage.py.j2", self.project_root / "manage.py", ctx, executable=True)
@@ -144,18 +175,86 @@ class ProjectGenerator(BaseGenerator):
     def generate_apps(self) -> None:
         """Generate all specified apps."""
         apps_dir = self.project_root / "apps"
+        ctx = self.get_context()
 
-        for app_name in self.apps:
-            # Use AppGenerator for each app
-            app_generator = AppGenerator(
-                app_name=app_name,
-                docker=False,  # Docker is handled at project level
-                output_dir=apps_dir,
-            )
-            app_generator.create_structure()
-            app_generator.generate_django_files()
-            app_generator.generate_tests()
-            app_generator.generate_docs()
+        # Check if we're using a specialized template
+        if self.template in self.SPECIALIZED_TEMPLATES:
+            self._generate_specialized_apps(apps_dir, ctx)
+        else:
+            # Standard app generation
+            for app_name in self.apps:
+                app_generator = AppGenerator(
+                    app_name=app_name,
+                    docker=False,
+                    output_dir=apps_dir,
+                )
+                app_generator.create_structure()
+                app_generator.generate_django_files()
+                app_generator.generate_tests()
+                app_generator.generate_docs()
+
+    def _generate_specialized_apps(self, apps_dir: Path, ctx: Dict[str, Any]) -> None:
+        """Generate apps from specialized templates."""
+        template_name = self.template
+
+        # Create the main app directory for the specialized template
+        app_name = self.SPECIALIZED_TEMPLATES[template_name][0]
+        app_dir = apps_dir / app_name
+
+        # Create app directories
+        dirs = [
+            app_dir,
+            app_dir / "api",
+            app_dir / "templates" / app_name,
+            app_dir / "tests",
+            app_dir / "management" / "commands",
+            app_dir / "migrations",
+        ]
+        for d in dirs:
+            self.create_directory(d)
+
+        # Generate specialized app files
+        specialized_files = [
+            (f"specialized/{template_name}/models.py.j2", "__init__.py"),
+            (f"specialized/{template_name}/models.py.j2", "models.py"),
+            (f"specialized/{template_name}/views_api.py.j2", "api/views.py"),
+            (f"specialized/{template_name}/serializers.py.j2", "api/serializers.py"),
+            (f"specialized/{template_name}/urls.py.j2", "urls.py"),
+            (f"specialized/{template_name}/admin.py.j2", "admin.py"),
+        ]
+
+        # Check if views_frontend exists for this template
+        if self.template_exists(f"specialized/{template_name}/views_frontend.py.j2"):
+            specialized_files.append((f"specialized/{template_name}/views_frontend.py.j2", "views.py"))
+
+        for template, output in specialized_files:
+            if self.template_exists(template):
+                self.render_and_write(template, app_dir / output, ctx)
+
+        # Create __init__.py files
+        self.write_file(app_dir / "__init__.py", "")
+        self.write_file(app_dir / "api" / "__init__.py", "")
+        self.write_file(app_dir / "tests" / "__init__.py", "")
+        self.write_file(app_dir / "management" / "__init__.py", "")
+        self.write_file(app_dir / "management" / "commands" / "__init__.py", "")
+        self.write_file(app_dir / "migrations" / "__init__.py", "")
+
+        # Generate app config
+        app_ctx = {**ctx, "app_name": app_name, "app_name_pascal": self._to_pascal_case(app_name)}
+        self.render_and_write("app/apps.py.j2", app_dir / "apps.py", app_ctx)
+
+        # Generate any other standard apps
+        for additional_app in self.apps:
+            if additional_app != app_name:
+                app_generator = AppGenerator(
+                    app_name=additional_app,
+                    docker=False,
+                    output_dir=apps_dir,
+                )
+                app_generator.create_structure()
+                app_generator.generate_django_files()
+                app_generator.generate_tests()
+                app_generator.generate_docs()
 
     def generate_tests(self) -> None:
         """Generate project-level tests."""
@@ -289,6 +388,10 @@ class ProjectGenerator(BaseGenerator):
             ctx,
         )
 
+        # Allauth templates if selected
+        if self.auth == "allauth":
+            self._generate_allauth_templates(ctx)
+
         # Global static files
         self.render_and_write(
             "project/static/css/dual-base.css.j2",
@@ -300,6 +403,28 @@ class ProjectGenerator(BaseGenerator):
             self.project_root / "staticfiles" / "js" / "dual-global.js",
             ctx,
         )
+
+    def _generate_allauth_templates(self, ctx: Dict[str, Any]) -> None:
+        """Generate django-allauth authentication templates."""
+        # Create account templates directory
+        account_dir = self.project_root / "templates" / "account"
+        socialaccount_dir = self.project_root / "templates" / "socialaccount"
+        self.create_directory(account_dir)
+        self.create_directory(socialaccount_dir)
+
+        # Account templates
+        allauth_templates = [
+            ("auth/allauth/templates/account/login.html.j2", "account/login.html"),
+            ("auth/allauth/templates/account/signup.html.j2", "account/signup.html"),
+        ]
+
+        for template, output in allauth_templates:
+            if self.template_exists(template):
+                self.render_and_write(
+                    template,
+                    self.project_root / "templates" / output,
+                    ctx,
+                )
 
     def finalize(self) -> None:
         """Finalize project generation."""

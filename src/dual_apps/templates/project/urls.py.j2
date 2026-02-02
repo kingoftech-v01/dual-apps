@@ -29,6 +29,11 @@ urlpatterns = [
     # API v1 (DRF)
     path("api/v1/", include((router.urls, "api"), namespace="api")),
 
+{% if use_allauth %}
+    # Authentication (Allauth)
+    path("accounts/", include("allauth.urls")),
+{% endif %}
+
     # Frontend (HTMX)
 {% for app in apps_config %}
     path("{{ app.name }}/", include("apps.{{ app.name }}.urls")),

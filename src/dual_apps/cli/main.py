@@ -183,7 +183,7 @@ def interactive_project_setup() -> dict:
     # Authentication
     config['auth'] = Prompt.ask(
         "[yellow]Authentication[/]",
-        choices=["jwt", "session", "none"],
+        choices=["jwt", "session", "allauth", "none"],
         default="jwt"
     )
 
@@ -196,7 +196,7 @@ def interactive_project_setup() -> dict:
     # Template
     config['template'] = Prompt.ask(
         "[yellow]Project template[/]",
-        choices=["default", "saas", "api", "minimal"],
+        choices=["default", "ecommerce", "blog", "saas", "cms", "booking", "marketplace", "api"],
         default="default"
     )
 
@@ -421,7 +421,7 @@ def init_project_command(
         "default",
         "--template",
         "-t",
-        help="Project template: 'default', 'saas', 'api', 'minimal'",
+        help="Project template: 'default', 'ecommerce', 'blog', 'saas', 'cms', 'booking', 'marketplace', 'api'",
     ),
     db: str = typer.Option(
         "postgres",
@@ -431,7 +431,7 @@ def init_project_command(
     auth: str = typer.Option(
         "jwt",
         "--auth",
-        help="Authentication: 'jwt', 'session', or 'none'",
+        help="Authentication: 'jwt', 'session', 'allauth', or 'none'",
     ),
     docker: bool = typer.Option(
         True,
@@ -527,6 +527,7 @@ def init_project_command(
             apps=apps_list,
             template=template,
             db=db,
+            auth=auth,
             docker=docker,
             i18n=i18n,
             celery=celery,
