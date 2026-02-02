@@ -18,7 +18,7 @@ class {{ app_name_pascal }}Config(AppConfig):
     """
 
     default_auto_field = 'django.db.models.BigAutoField'
-    name = '{{ app_name }}'
+    name = '{{ app_full_name | default(app_name) }}'
     verbose_name = '{{ app_name_title }}'
 
     def ready(self):
@@ -29,6 +29,6 @@ class {{ app_name_pascal }}Config(AppConfig):
         """
         # Import signals for post_save hooks
         try:
-            from {{ app_name }} import signals  # noqa: F401
+            from {{ app_full_name | default(app_name) }} import signals  # noqa: F401
         except ImportError:
             pass

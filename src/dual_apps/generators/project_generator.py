@@ -188,11 +188,12 @@ class ProjectGenerator(BaseGenerator):
                     app_name=app_name,
                     docker=False,
                     output_dir=apps_dir,
+                    app_full_name=f"apps.{app_name}",
+                    standalone=False,
                 )
                 app_generator.create_structure()
                 app_generator.generate_django_files()
                 app_generator.generate_tests()
-                app_generator.generate_docs()
 
     def _generate_specialized_apps(self, apps_dir: Path, ctx: Dict[str, Any]) -> None:
         """Generate apps from specialized templates."""
@@ -205,7 +206,6 @@ class ProjectGenerator(BaseGenerator):
         # Create app directories
         dirs = [
             app_dir,
-            app_dir / "api",
             app_dir / "templates" / app_name,
             app_dir / "tests",
             app_dir / "management" / "commands",
@@ -214,34 +214,49 @@ class ProjectGenerator(BaseGenerator):
         for d in dirs:
             self.create_directory(d)
 
-        # Generate specialized app files
-        specialized_files = [
-            (f"specialized/{template_name}/models.py.j2", "__init__.py"),
-            (f"specialized/{template_name}/models.py.j2", "models.py"),
-            (f"specialized/{template_name}/views_api.py.j2", "api/views.py"),
-            (f"specialized/{template_name}/serializers.py.j2", "api/serializers.py"),
-            (f"specialized/{template_name}/urls.py.j2", "urls.py"),
-            (f"specialized/{template_name}/admin.py.j2", "admin.py"),
+        # App context for templates
+        app_ctx = {
+            **ctx,
+            "app_name": app_name,
+            "app_name_pascal": self._to_pascal_case(app_name),
+            "app_name_title": self._to_title_case(app_name),
+            "app_name_kebab": self._to_kebab_case(app_name),
+            "app_full_name": f"apps.{app_name}",
+            "model_name": f"{self._to_pascal_case(app_name)}Model",
+            "model_name_snake": self._to_snake_case(f"{app_name}_model"),
+            "model_name_plural": f"{self._to_pascal_case(app_name)}Models",
+            "has_frontend": True,
+            "has_api": True,
+        }
+
+        # Files to generate with fallback to standard app templates
+        files_to_generate = [
+            ("models.py.j2", "models.py"),
+            ("views_api.py.j2", "views_api.py"),
+            ("serializers.py.j2", "serializers.py"),
+            ("urls.py.j2", "urls.py"),
+            ("admin.py.j2", "admin.py"),
+            ("views_frontend.py.j2", "views_frontend.py"),
         ]
 
-        # Check if views_frontend exists for this template
-        if self.template_exists(f"specialized/{template_name}/views_frontend.py.j2"):
-            specialized_files.append((f"specialized/{template_name}/views_frontend.py.j2", "views.py"))
+        for template_file, output_file in files_to_generate:
+            specialized_template = f"specialized/{template_name}/{template_file}"
+            standard_template = f"app/{template_file}"
 
-        for template, output in specialized_files:
-            if self.template_exists(template):
-                self.render_and_write(template, app_dir / output, ctx)
+            # Use specialized template if it exists, otherwise fall back to standard
+            if self.template_exists(specialized_template):
+                self.render_and_write(specialized_template, app_dir / output_file, app_ctx)
+            elif self.template_exists(standard_template):
+                self.render_and_write(standard_template, app_dir / output_file, app_ctx)
 
         # Create __init__.py files
         self.write_file(app_dir / "__init__.py", "")
-        self.write_file(app_dir / "api" / "__init__.py", "")
         self.write_file(app_dir / "tests" / "__init__.py", "")
         self.write_file(app_dir / "management" / "__init__.py", "")
         self.write_file(app_dir / "management" / "commands" / "__init__.py", "")
         self.write_file(app_dir / "migrations" / "__init__.py", "")
 
         # Generate app config
-        app_ctx = {**ctx, "app_name": app_name, "app_name_pascal": self._to_pascal_case(app_name)}
         self.render_and_write("app/apps.py.j2", app_dir / "apps.py", app_ctx)
 
         # Generate any other standard apps
@@ -251,11 +266,12 @@ class ProjectGenerator(BaseGenerator):
                     app_name=additional_app,
                     docker=False,
                     output_dir=apps_dir,
+                    app_full_name=f"apps.{additional_app}",
+                    standalone=False,
                 )
                 app_generator.create_structure()
                 app_generator.generate_django_files()
                 app_generator.generate_tests()
-                app_generator.generate_docs()
 
     def generate_tests(self) -> None:
         """Generate project-level tests."""

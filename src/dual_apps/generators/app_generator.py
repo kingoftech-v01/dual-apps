@@ -40,6 +40,8 @@ class AppGenerator(BaseGenerator):
         celery: bool = False,
         auth_required: bool = True,
         output_dir: Path = Path("."),
+        app_full_name: Optional[str] = None,
+        standalone: bool = True,
     ):
         super().__init__(output_dir)
 
@@ -52,6 +54,10 @@ class AppGenerator(BaseGenerator):
         self.i18n = i18n
         self.celery = celery
         self.auth_required = auth_required
+        # Full app name for Django AppConfig (e.g., 'apps.jobs' when inside a project)
+        self.app_full_name = app_full_name
+        # Whether this is a standalone app or part of a project
+        self.standalone = standalone
 
         # App root directory
         self.app_root = Path(self.app_name)
@@ -75,7 +81,7 @@ class AppGenerator(BaseGenerator):
 
     def get_context(self) -> Dict[str, Any]:
         """Get template context for app generation."""
-        return {
+        ctx = {
             **self.get_base_context(),
             "app_name": self.app_name,
             "app_name_title": self._to_title_case(self.app_name),
@@ -95,37 +101,57 @@ class AppGenerator(BaseGenerator):
             "has_frontend": not self.api_only,
             "has_api": not self.frontend_only,
         }
+        # Add full app name if provided (for apps within a project)
+        if self.app_full_name:
+            ctx["app_full_name"] = self.app_full_name
+        return ctx
 
     def create_structure(self) -> None:
         """Create app directory structure."""
         ctx = self.get_context()
 
-        # Root directories
-        dirs = [
-            self.app_root,
-            self.app_root / self.app_name,
-            self.app_root / self.app_name / "migrations",
-            self.app_root / self.app_name / "management",
-            self.app_root / self.app_name / "management" / "commands",
-            self.app_root / "tests",
-            self.app_root / "docs",
-        ]
+        if self.standalone:
+            # Standalone app: app_name/app_name/... structure
+            dirs = [
+                self.app_root,
+                self.app_root / self.app_name,
+                self.app_root / self.app_name / "migrations",
+                self.app_root / self.app_name / "management",
+                self.app_root / self.app_name / "management" / "commands",
+                self.app_root / "tests",
+                self.app_root / "docs",
+            ]
 
-        # Frontend directories
-        if ctx["has_frontend"]:
-            dirs.extend([
-                self.app_root / "templates" / self.app_name,
-                self.app_root / "static" / self.app_name / "css",
-                self.app_root / "static" / self.app_name / "js",
-            ])
+            # Frontend directories
+            if ctx["has_frontend"]:
+                dirs.extend([
+                    self.app_root / "templates" / self.app_name,
+                    self.app_root / "static" / self.app_name / "css",
+                    self.app_root / "static" / self.app_name / "js",
+                ])
 
-        # Docker directory
-        if self.docker:
-            dirs.append(self.app_root / "docker")
+            # Docker directory
+            if self.docker:
+                dirs.append(self.app_root / "docker")
 
-        # i18n directory
-        if self.i18n:
-            dirs.append(self.app_root / "locale")
+            # i18n directory
+            if self.i18n:
+                dirs.append(self.app_root / "locale")
+        else:
+            # Project app: flat structure directly in app_name/
+            dirs = [
+                self.app_root,
+                self.app_root / "migrations",
+                self.app_root / "management",
+                self.app_root / "management" / "commands",
+                self.app_root / "tests",
+            ]
+
+            # Frontend directories
+            if ctx["has_frontend"]:
+                dirs.extend([
+                    self.app_root / "templates" / self.app_name,
+                ])
 
         for d in dirs:
             self.create_directory(d)
@@ -133,7 +159,8 @@ class AppGenerator(BaseGenerator):
     def generate_django_files(self) -> None:
         """Generate all Django app files."""
         ctx = self.get_context()
-        app_dir = self.app_root / self.app_name
+        # For standalone apps: app_root/app_name/, for project apps: app_root/
+        app_dir = self.app_root / self.app_name if self.standalone else self.app_root
 
         # Core Django files
         self.render_and_write("app/__init__.py.j2", app_dir / "__init__.py", ctx)
@@ -177,7 +204,8 @@ class AppGenerator(BaseGenerator):
         if ctx["has_frontend"]:
             self.render_and_write("app/views_frontend.py.j2", app_dir / "views_frontend.py", ctx)
             self._generate_templates(ctx)
-            self._generate_static_files(ctx)
+            if self.standalone:
+                self._generate_static_files(ctx)
 
         # Celery tasks
         if self.celery:

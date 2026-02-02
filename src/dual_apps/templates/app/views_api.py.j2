@@ -120,7 +120,7 @@ from .permissions import IsOwnerOrReadOnly
         tags=["{{ app_name_title }}"],
     ),
 )
-class {{ model_name }}ViewSet(viewsets.ModelViewSet):
+class {{ app_name_pascal }}ViewSet(viewsets.ModelViewSet):
     """
     Complete CRUD API for {{ model_name }}.
 

@@ -187,9 +187,9 @@ class TestProjectGeneratorApps:
         gen.generate_apps()
 
         apps_dir = temp_dir / "myproject" / "apps"
-        # AppGenerator creates jobs/jobs structure
-        assert (apps_dir / "jobs" / "jobs").exists()
-        assert (apps_dir / "users" / "users").exists()
+        # Project apps have flat structure (jobs/ not jobs/jobs/)
+        assert (apps_dir / "jobs").exists()
+        assert (apps_dir / "users").exists()
 
     def test_apps_have_models(self, temp_dir):
         """Test generated apps have model files."""
@@ -201,8 +201,8 @@ class TestProjectGeneratorApps:
         gen.create_structure()
         gen.generate_apps()
 
-        # AppGenerator creates jobs/jobs/models.py
-        assert (temp_dir / "myproject" / "apps" / "jobs" / "jobs" / "models.py").exists()
+        # Project apps have flat structure
+        assert (temp_dir / "myproject" / "apps" / "jobs" / "models.py").exists()
 
 
 class TestProjectGeneratorDocs:
@@ -392,9 +392,9 @@ class TestProjectGeneratorFull:
         # Check structure
         assert project_dir.exists()
         assert (project_dir / "fullproject" / "settings").exists()
-        # AppGenerator creates jobs/jobs and users/users structures
-        assert (project_dir / "apps" / "jobs" / "jobs").exists()
-        assert (project_dir / "apps" / "users" / "users").exists()
+        # Project apps have flat structure
+        assert (project_dir / "apps" / "jobs").exists()
+        assert (project_dir / "apps" / "users").exists()
         assert (project_dir / "docker").exists()
         assert (project_dir / ".github" / "workflows").exists()
 

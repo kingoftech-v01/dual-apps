@@ -16,10 +16,10 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 {% if has_api %}
-from {{ app_name }} import views_api
+from {{ app_full_name | default(app_name) }} import views_api
 {% endif %}
 {% if has_frontend %}
-from {{ app_name }} import views_frontend
+from {{ app_full_name | default(app_name) }} import views_frontend
 {% endif %}
 
 
@@ -41,7 +41,7 @@ app_name = '{{ app_name }}'
 router = DefaultRouter()
 router.register(
     r'{{ model_name_kebab }}s',
-    views_api.{{ model_name }}ViewSet,
+    views_api.{{ app_name_pascal }}ViewSet,
     basename='{{ model_name_snake }}'
 )
 
