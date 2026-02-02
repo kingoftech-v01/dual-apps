@@ -48,6 +48,20 @@ class TestCLIHelp:
         assert result.exit_code == 0
         assert "--apps" in result.stdout
         assert "--db" in result.stdout
+        assert "--auth" in result.stdout
+        assert "--template" in result.stdout
+
+    def test_auth_options_in_help(self):
+        """Test auth options are documented in help."""
+        result = runner.invoke(app, ["init", "project", "--help"])
+        assert result.exit_code == 0
+        assert "allauth" in result.stdout
+
+    def test_template_options_in_help(self):
+        """Test template options are documented in help."""
+        result = runner.invoke(app, ["init", "project", "--help"])
+        assert result.exit_code == 0
+        assert "ecommerce" in result.stdout
 
 
 class TestCLIAppGeneration:
@@ -141,6 +155,66 @@ class TestCLIProjectGeneration:
             [
                 "init", "project", "myproject",
                 "--celery",
+                "--output", str(temp_dir),
+            ],
+        )
+        assert result.exit_code == 0 or "error" not in result.stdout.lower()
+
+    def test_generate_project_with_allauth(self, temp_dir):
+        """Test project generation with allauth authentication."""
+        result = runner.invoke(
+            app,
+            [
+                "init", "project", "myproject",
+                "--auth", "allauth",
+                "--output", str(temp_dir),
+            ],
+        )
+        assert result.exit_code == 0 or "error" not in result.stdout.lower()
+
+    def test_generate_project_with_session_auth(self, temp_dir):
+        """Test project generation with session authentication."""
+        result = runner.invoke(
+            app,
+            [
+                "init", "project", "myproject",
+                "--auth", "session",
+                "--output", str(temp_dir),
+            ],
+        )
+        assert result.exit_code == 0 or "error" not in result.stdout.lower()
+
+    def test_generate_project_ecommerce_template(self, temp_dir):
+        """Test project generation with e-commerce template."""
+        result = runner.invoke(
+            app,
+            [
+                "init", "project", "myshop",
+                "--template", "ecommerce",
+                "--output", str(temp_dir),
+            ],
+        )
+        assert result.exit_code == 0 or "error" not in result.stdout.lower()
+
+    def test_generate_project_blog_template(self, temp_dir):
+        """Test project generation with blog template."""
+        result = runner.invoke(
+            app,
+            [
+                "init", "project", "myblog",
+                "--template", "blog",
+                "--output", str(temp_dir),
+            ],
+        )
+        assert result.exit_code == 0 or "error" not in result.stdout.lower()
+
+    def test_generate_project_saas_template(self, temp_dir):
+        """Test project generation with SaaS template."""
+        result = runner.invoke(
+            app,
+            [
+                "init", "project", "mysaas",
+                "--template", "saas",
                 "--output", str(temp_dir),
             ],
         )

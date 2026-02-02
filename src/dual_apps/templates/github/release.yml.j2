@@ -44,7 +44,7 @@ jobs:
 
             ### Installation
             ```bash
-            pip install {{ project_name }}==${{ steps.version.outputs.VERSION }}
+            pip install {{ project_name }}=={% raw %}${{ steps.version.outputs.VERSION }}{% endraw %}
             ```
 
             ### Changes

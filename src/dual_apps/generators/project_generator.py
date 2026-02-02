@@ -174,7 +174,8 @@ class ProjectGenerator(BaseGenerator):
 
     def generate_apps(self) -> None:
         """Generate all specified apps."""
-        apps_dir = self.project_root / "apps"
+        # Use absolute path for apps directory
+        apps_dir = self.output_dir / self.project_root / "apps"
         ctx = self.get_context()
 
         # Check if we're using a specialized template

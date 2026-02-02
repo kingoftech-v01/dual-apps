@@ -1,5 +1,6 @@
 [
 {% for app in apps_config %}
+{% set outer_loop = loop %}
 {% for i in range(3) %}
   {
     "model": "{{ app.name }}.{{ app.name }}",
@@ -11,7 +12,8 @@
       "updated_at": "2024-01-0{{ loop.index }}T10:00:00Z",
       "owner": 1
     }
-  }{% if not loop.last or not loop.parent.last %},{% endif %}
+  }{% if not (outer_loop.last and loop.last) %},{% endif %}
+
 {% endfor %}
 {% endfor %}
 ]

@@ -6,6 +6,7 @@
 - Docker & Docker Compose
 {% if use_postgres %}- PostgreSQL 15+{% endif %}
 {% if celery %}- Redis 7+{% endif %}
+{% if use_allauth %}- Social auth credentials (for Google/GitHub login){% endif %}
 
 ## Initial Setup
 
@@ -143,6 +144,37 @@ python manage.py migrate
 python manage.py demo_data --app={{ app }} --count=20
 {% endfor %}
 ```
+
+{% if use_allauth %}
+## Social Authentication Setup
+
+### Configure Social Providers
+
+1. Create OAuth apps at:
+   - Google: https://console.developers.google.com/
+   - GitHub: https://github.com/settings/developers
+
+2. Add Social Apps in Django Admin:
+   - Go to `/admin/socialaccount/socialapp/`
+   - Add new Social Application
+   - Select provider, add client ID and secret
+   - Associate with your site
+
+3. Environment Variables:
+```bash
+# .env
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-secret
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-secret
+```
+
+### Test Social Login
+
+1. Go to `/accounts/login/`
+2. Click "Sign in with Google" or "Sign in with GitHub"
+3. Verify user is created in `/admin/auth/user/`
+{% endif %}
 
 ## Common Issues
 

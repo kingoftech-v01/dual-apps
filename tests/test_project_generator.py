@@ -187,8 +187,9 @@ class TestProjectGeneratorApps:
         gen.generate_apps()
 
         apps_dir = temp_dir / "myproject" / "apps"
-        assert (apps_dir / "jobs").exists()
-        assert (apps_dir / "users").exists()
+        # AppGenerator creates jobs/jobs structure
+        assert (apps_dir / "jobs" / "jobs").exists()
+        assert (apps_dir / "users" / "users").exists()
 
     def test_apps_have_models(self, temp_dir):
         """Test generated apps have model files."""
@@ -200,6 +201,7 @@ class TestProjectGeneratorApps:
         gen.create_structure()
         gen.generate_apps()
 
+        # AppGenerator creates jobs/jobs/models.py
         assert (temp_dir / "myproject" / "apps" / "jobs" / "jobs" / "models.py").exists()
 
 
@@ -216,6 +218,146 @@ class TestProjectGeneratorDocs:
         assert (project_dir / "README.md").exists()
         assert (project_dir / "CHANGELOG.md").exists()
         assert (project_dir / "docs" / "DEVELOPMENT.md").exists()
+
+
+class TestProjectGeneratorAuth:
+    """Test ProjectGenerator authentication options."""
+
+    def test_default_auth_is_jwt(self, temp_dir):
+        """Test default auth is JWT."""
+        gen = ProjectGenerator(project_name="test", output_dir=temp_dir)
+        assert gen.auth == "jwt"
+
+    def test_auth_jwt(self, temp_dir):
+        """Test JWT authentication option."""
+        gen = ProjectGenerator(project_name="test", auth="jwt", output_dir=temp_dir)
+        ctx = gen.get_context()
+        assert ctx["use_jwt"] is True
+        assert ctx["use_allauth"] is False
+
+    def test_auth_session(self, temp_dir):
+        """Test session authentication option."""
+        gen = ProjectGenerator(project_name="test", auth="session", output_dir=temp_dir)
+        ctx = gen.get_context()
+        assert ctx["use_session"] is True
+        assert ctx["use_jwt"] is False
+
+    def test_auth_allauth(self, temp_dir):
+        """Test allauth authentication option."""
+        gen = ProjectGenerator(project_name="test", auth="allauth", output_dir=temp_dir)
+        ctx = gen.get_context()
+        assert ctx["use_allauth"] is True
+        assert ctx["use_jwt"] is False
+
+    def test_allauth_generates_adapters(self, temp_dir):
+        """Test allauth generates adapters.py."""
+        gen = ProjectGenerator(project_name="test", auth="allauth", output_dir=temp_dir)
+        gen.create_structure()
+        gen.generate_settings()
+
+        assert (temp_dir / "test" / "test" / "adapters.py").exists()
+
+    def test_allauth_generates_settings(self, temp_dir):
+        """Test allauth generates allauth.py settings."""
+        gen = ProjectGenerator(project_name="test", auth="allauth", output_dir=temp_dir)
+        gen.create_structure()
+        gen.generate_settings()
+
+        assert (temp_dir / "test" / "test" / "settings" / "allauth.py").exists()
+
+
+class TestProjectGeneratorSpecializedTemplates:
+    """Test ProjectGenerator specialized templates."""
+
+    def test_ecommerce_template_adds_shop_app(self, temp_dir):
+        """Test e-commerce template adds shop app."""
+        gen = ProjectGenerator(
+            project_name="test",
+            template="ecommerce",
+            output_dir=temp_dir
+        )
+        assert "shop" in gen.apps
+
+    def test_blog_template_adds_blog_app(self, temp_dir):
+        """Test blog template adds blog app."""
+        gen = ProjectGenerator(
+            project_name="test",
+            template="blog",
+            output_dir=temp_dir
+        )
+        assert "blog" in gen.apps
+
+    def test_saas_template_adds_apps(self, temp_dir):
+        """Test SaaS template adds required apps."""
+        gen = ProjectGenerator(
+            project_name="test",
+            template="saas",
+            output_dir=temp_dir
+        )
+        assert "organizations" in gen.apps
+        assert "subscriptions" in gen.apps
+
+    def test_cms_template_adds_apps(self, temp_dir):
+        """Test CMS template adds required apps."""
+        gen = ProjectGenerator(
+            project_name="test",
+            template="cms",
+            output_dir=temp_dir
+        )
+        assert "pages" in gen.apps
+        assert "media" in gen.apps
+
+    def test_booking_template_adds_apps(self, temp_dir):
+        """Test booking template adds required apps."""
+        gen = ProjectGenerator(
+            project_name="test",
+            template="booking",
+            output_dir=temp_dir
+        )
+        assert "services" in gen.apps
+        assert "appointments" in gen.apps
+
+    def test_marketplace_template_adds_apps(self, temp_dir):
+        """Test marketplace template adds required apps."""
+        gen = ProjectGenerator(
+            project_name="test",
+            template="marketplace",
+            output_dir=temp_dir
+        )
+        assert "vendors" in gen.apps
+        assert "products" in gen.apps
+
+    def test_specialized_template_context(self, temp_dir):
+        """Test specialized template flag in context."""
+        gen = ProjectGenerator(
+            project_name="test",
+            template="ecommerce",
+            output_dir=temp_dir
+        )
+        ctx = gen.get_context()
+        assert ctx["is_specialized_template"] is True
+
+    def test_default_template_not_specialized(self, temp_dir):
+        """Test default template is not specialized."""
+        gen = ProjectGenerator(
+            project_name="test",
+            template="default",
+            output_dir=temp_dir
+        )
+        ctx = gen.get_context()
+        assert ctx["is_specialized_template"] is False
+
+    def test_template_merges_with_custom_apps(self, temp_dir):
+        """Test template apps merge with custom apps."""
+        gen = ProjectGenerator(
+            project_name="test",
+            template="ecommerce",
+            apps=["users", "analytics"],
+            output_dir=temp_dir
+        )
+        assert "shop" in gen.apps
+        assert "users" in gen.apps
+        assert "analytics" in gen.apps
 
 
 class TestProjectGeneratorFull:
@@ -250,8 +392,9 @@ class TestProjectGeneratorFull:
         # Check structure
         assert project_dir.exists()
         assert (project_dir / "fullproject" / "settings").exists()
-        assert (project_dir / "apps" / "jobs").exists()
-        assert (project_dir / "apps" / "users").exists()
+        # AppGenerator creates jobs/jobs and users/users structures
+        assert (project_dir / "apps" / "jobs" / "jobs").exists()
+        assert (project_dir / "apps" / "users" / "users").exists()
         assert (project_dir / "docker").exists()
         assert (project_dir / ".github" / "workflows").exists()
 
@@ -261,3 +404,27 @@ class TestProjectGeneratorFull:
         assert (project_dir / "docker-compose.yml").exists()
         assert (project_dir / "pyproject.toml").exists()
         assert (project_dir / "README.md").exists()
+
+    def test_full_generation_with_allauth(self, temp_dir):
+        """Test complete project generation with allauth."""
+        gen = ProjectGenerator(
+            project_name="allauthproject",
+            apps=["jobs"],
+            auth="allauth",
+            output_dir=temp_dir,
+        )
+
+        gen.create_structure()
+        gen.generate_settings()
+        gen.generate_apps()
+        gen.generate_tests()
+        gen.generate_docs()
+        gen.finalize()
+
+        project_dir = temp_dir / "allauthproject"
+
+        # Check allauth-specific files
+        assert (project_dir / "allauthproject" / "adapters.py").exists()
+        assert (project_dir / "allauthproject" / "settings" / "allauth.py").exists()
+        assert (project_dir / "templates" / "account" / "login.html").exists()
+        assert (project_dir / "templates" / "account" / "signup.html").exists()

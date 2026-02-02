@@ -9,7 +9,28 @@
 ## Authentication
 
 All write operations require authentication.
-Use Token or Session authentication.
+
+{% if use_allauth %}
+### Session Authentication (Allauth)
+Use cookies/session after logging in at `/accounts/login/`.
+{% elif use_jwt %}
+### JWT Authentication
+```http
+Authorization: Bearer <access_token>
+```
+
+Get tokens at `/api/token/`:
+```http
+POST /api/token/
+{
+  "username": "user@example.com",
+  "password": "password"
+}
+```
+{% else %}
+### Session Authentication
+Use session cookies after logging in at `/admin/login/`.
+{% endif %}
 
 ## Endpoints
 

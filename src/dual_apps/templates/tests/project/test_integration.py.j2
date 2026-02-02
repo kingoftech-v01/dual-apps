@@ -58,6 +58,27 @@ class TestAuthentication:
         assert response.status_code == 200  # Returns to login page
         assert b"Please enter the correct" in response.content or b"error" in response.content.lower()
 
+{% if use_allauth %}
+
+class TestAllauthAuthentication:
+    """Test django-allauth authentication flows."""
+
+    def test_allauth_login_page(self, client):
+        """Test allauth login page is accessible."""
+        response = client.get("/accounts/login/")
+        assert response.status_code == 200
+
+    def test_allauth_signup_page(self, client):
+        """Test allauth signup page is accessible."""
+        response = client.get("/accounts/signup/")
+        assert response.status_code == 200
+
+    def test_allauth_logout(self, auth_client):
+        """Test allauth logout works."""
+        response = auth_client.post("/accounts/logout/", follow=True)
+        assert response.status_code == 200
+{% endif %}
+
 
 class TestAPIRoot:
     """Test API root endpoints."""
@@ -98,8 +119,9 @@ class Test{{ app.name_pascal }}Integration:
 
     def test_owner_can_update(self, auth_api_client, {{ app.name }}_instance):
         """Test owner can update their own item."""
+        instance = {{ app.name }}_instance
         response = auth_api_client.patch(
-            f"/api/v1/{{ app.name }}/{{{ app.name }}_instance.id}/",
+            f"/api/v1/{{ app.name }}/{instance.id}/",
             {"title": "Updated Title"}
         )
         assert response.status_code == 200
@@ -107,13 +129,14 @@ class Test{{ app.name_pascal }}Integration:
 
     def test_non_owner_cannot_update(self, api_client, {{ app.name }}_instance, db):
         """Test non-owner cannot update."""
+        instance = {{ app.name }}_instance
         other_user = User.objects.create_user(
             username="other",
             password="otherpass123"
         )
         api_client.force_authenticate(user=other_user)
         response = api_client.patch(
-            f"/api/v1/{{ app.name }}/{{{ app.name }}_instance.id}/",
+            f"/api/v1/{{ app.name }}/{instance.id}/",
             {"title": "Hacked"}
         )
         assert response.status_code == 403

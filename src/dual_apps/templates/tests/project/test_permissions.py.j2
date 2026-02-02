@@ -17,23 +17,25 @@ class Test{{ app.name_pascal }}Permissions:
 
     def test_owner_has_full_access(self, auth_api_client, {{ app.name }}_instance, user):
         """Test owner has full CRUD access."""
+        instance = {{ app.name }}_instance
         # Read
-        response = auth_api_client.get(f"/api/v1/{{ app.name }}/{{{ app.name }}_instance.id}/")
+        response = auth_api_client.get(f"/api/v1/{{ app.name }}/{instance.id}/")
         assert response.status_code == 200
 
         # Update
         response = auth_api_client.patch(
-            f"/api/v1/{{ app.name }}/{{{ app.name }}_instance.id}/",
+            f"/api/v1/{{ app.name }}/{instance.id}/",
             {"title": "Updated"}
         )
         assert response.status_code == 200
 
         # Delete
-        response = auth_api_client.delete(f"/api/v1/{{ app.name }}/{{{ app.name }}_instance.id}/")
+        response = auth_api_client.delete(f"/api/v1/{{ app.name }}/{instance.id}/")
         assert response.status_code == 204
 
     def test_non_owner_read_only(self, api_client, {{ app.name }}_instance, db):
         """Test non-owner has read-only access."""
+        instance = {{ app.name }}_instance
         other_user = User.objects.create_user(
             username="other_{{ app.name }}",
             password="otherpass123"
@@ -41,24 +43,25 @@ class Test{{ app.name_pascal }}Permissions:
         api_client.force_authenticate(user=other_user)
 
         # Read - allowed
-        response = api_client.get(f"/api/v1/{{ app.name }}/{{{ app.name }}_instance.id}/")
+        response = api_client.get(f"/api/v1/{{ app.name }}/{instance.id}/")
         assert response.status_code == 200
 
         # Update - denied
         response = api_client.patch(
-            f"/api/v1/{{ app.name }}/{{{ app.name }}_instance.id}/",
+            f"/api/v1/{{ app.name }}/{instance.id}/",
             {"title": "Hacked"}
         )
         assert response.status_code == 403
 
         # Delete - denied
-        response = api_client.delete(f"/api/v1/{{ app.name }}/{{{ app.name }}_instance.id}/")
+        response = api_client.delete(f"/api/v1/{{ app.name }}/{instance.id}/")
         assert response.status_code == 403
 
     def test_unauthenticated_read_only(self, api_client, {{ app.name }}_instance):
         """Test unauthenticated users have read-only access."""
+        instance = {{ app.name }}_instance
         # Read - allowed
-        response = api_client.get(f"/api/v1/{{ app.name }}/{{{ app.name }}_instance.id}/")
+        response = api_client.get(f"/api/v1/{{ app.name }}/{instance.id}/")
         assert response.status_code == 200
 
         # Create - denied
@@ -67,20 +70,21 @@ class Test{{ app.name_pascal }}Permissions:
 
         # Update - denied
         response = api_client.patch(
-            f"/api/v1/{{ app.name }}/{{{ app.name }}_instance.id}/",
+            f"/api/v1/{{ app.name }}/{instance.id}/",
             {"title": "Hacked"}
         )
         assert response.status_code in [401, 403]
 
     def test_admin_has_full_access(self, admin_api_client, {{ app.name }}_instance):
         """Test admin has full access to all objects."""
+        instance = {{ app.name }}_instance
         # Read
-        response = admin_api_client.get(f"/api/v1/{{ app.name }}/{{{ app.name }}_instance.id}/")
+        response = admin_api_client.get(f"/api/v1/{{ app.name }}/{instance.id}/")
         assert response.status_code == 200
 
         # Update
         response = admin_api_client.patch(
-            f"/api/v1/{{ app.name }}/{{{ app.name }}_instance.id}/",
+            f"/api/v1/{{ app.name }}/{instance.id}/",
             {"title": "Admin Updated"}
         )
         # Admin may or may not have permission depending on implementation

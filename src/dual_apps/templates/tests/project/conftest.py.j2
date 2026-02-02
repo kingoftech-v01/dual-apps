@@ -41,7 +41,11 @@ def client():
 def auth_client(user):
     """Authenticated Django test client."""
     client = Client()
+{% if use_allauth %}
+    client.login(email="test@example.com", password="testpass123")
+{% else %}
     client.login(username="testuser", password="testpass123")
+{% endif %}
     return client
 
 
