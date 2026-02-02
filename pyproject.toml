@@ -1,0 +1,161 @@
+# pyproject.toml for dual-apps
+# Django App & Project Generator with Dual-Layer Architecture
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dual-apps"
+version = "3.1.0"
+description = "Django App & Project Generator with Dual-Layer Architecture (Frontend HTMX + API DRF)"
+readme = "src/dual_apps/README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "dual-apps team", email = "contact@dual-apps.dev"}
+]
+maintainers = [
+    {name = "dual-apps team", email = "contact@dual-apps.dev"}
+]
+keywords = [
+    "django",
+    "generator",
+    "cli",
+    "htmx",
+    "drf",
+    "django-rest-framework",
+    "dual-layer",
+    "scaffold",
+    "boilerplate",
+    "cookiecutter",
+    "project-generator",
+    "app-generator",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Framework :: Django :: 5.0",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
+dependencies = [
+    "typer>=0.9.0",
+    "rich>=13.7.0",
+    "jinja2>=3.1.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "black>=24.1",
+    "ruff>=0.1",
+    "mypy>=1.8",
+    "pre-commit>=3.6",
+]
+all = [
+    "django>=5.0",
+    "djangorestframework>=3.14",
+    "django-filter>=23.5",
+]
+
+[project.scripts]
+dual_apps = "dual_apps.cli.main:app"
+dual-apps = "dual_apps.cli.main:app"
+
+[project.urls]
+Homepage = "https://github.com/dual-apps/dual-apps"
+Documentation = "https://dual-apps.github.io/dual-apps/"
+Repository = "https://github.com/dual-apps/dual-apps"
+Issues = "https://github.com/dual-apps/dual-apps/issues"
+Changelog = "https://github.com/dual-apps/dual-apps/blob/main/CHANGELOG.md"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+dual_apps = ["templates/**/*", "templates/**/**/*", "templates/**/**/**/*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py310', 'py311', 'py312']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | templates
+)/
+'''
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+]
+ignore = ["E501"]
+exclude = ["templates"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = ["templates"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--cov=src/dual_apps",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["src/dual_apps"]
+branch = true
+omit = ["*/templates/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]

@@ -1,0 +1,100 @@
+# {{ project_name_display }} Architecture
+
+## Overview
+
+{{ project_name_display }} follows the **Dual-Layer Architecture** pattern:
+- **Frontend Layer**: HTMX + Alpine.js + Tailwind CSS
+- **API Layer**: Django REST Framework + OpenAPI
+
+## System Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    {{ project_name_display }}           │
+├─────────────────────────────────────────────────────────┤
+│  Frontend (HTMX)          │   API (DRF)                 │
+│  /{app}/                  │   /api/v1/{app}/            │
+│  - ListView               │   - list()                  │
+│  - DetailView             │   - retrieve()              │
+│  - CreateView             │   - create()                │
+│  - UpdateView             │   - update()                │
+│  - DeleteView             │   - destroy()               │
+├─────────────────────────────────────────────────────────┤
+│                      Models                             │
+│  - UUID Primary Keys                                    │
+│  - Timestamps (created_at, updated_at)                  │
+│  - Owner relationship                                   │
+├─────────────────────────────────────────────────────────┤
+│                    Permissions                          │
+│  - IsOwnerOrReadOnly                                    │
+│  - Session + Token Auth                                 │
+├─────────────────────────────────────────────────────────┤
+│                     Database                            │
+│  - PostgreSQL (prod) / SQLite (dev)                     │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Request Flow
+
+### Frontend Flow (HTMX)
+```
+Browser → HTMX Request → Django View → Template → HTML Partial → Browser (swap)
+```
+
+### API Flow (DRF)
+```
+Client → HTTP Request → DRF ViewSet → Serializer → JSON Response → Client
+```
+
+## Apps
+
+{% for app in apps_config %}
+### {{ app.name_title }}
+
+**Files:**
+- `apps/{{ app.name }}/models.py` - Data model
+- `apps/{{ app.name }}/views_frontend.py` - HTMX views
+- `apps/{{ app.name }}/views_api.py` - DRF ViewSet
+- `apps/{{ app.name }}/serializers.py` - API serializers
+- `apps/{{ app.name }}/permissions.py` - Access control
+- `apps/{{ app.name }}/templates/` - HTML templates
+
+**URLs:**
+- Frontend: `{{ app.name }}:list`, `{{ app.name }}:detail`, etc.
+- API: `/api/v1/{{ app.name }}/`
+{% endfor %}
+
+## Security Architecture
+
+### Authentication
+- Session-based for frontend
+- Token-based for API (optional)
+
+### Authorization
+- `IsOwnerOrReadOnly` permission class
+- Object-level permissions
+
+### OWASP Compliance
+- CSRF protection
+- XSS prevention (template escaping)
+- SQL injection prevention (ORM)
+- Secure headers (CSP, HSTS, X-Frame-Options)
+
+## Scalability
+
+### Horizontal Scaling
+- Stateless application servers
+- Redis for session/cache
+- PostgreSQL with replicas
+
+### Caching Strategy
+- Redis for session storage
+- Django cache framework
+- Static file caching (WhiteNoise)
+
+{% if celery %}
+### Background Tasks
+- Celery workers for async tasks
+- Redis as message broker
+- Beat scheduler for periodic tasks
+{% endif %}

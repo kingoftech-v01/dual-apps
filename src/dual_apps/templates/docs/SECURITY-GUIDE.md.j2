@@ -1,0 +1,122 @@
+# Security Guide for {{ project_name_display }}
+
+## OWASP Compliance
+
+{{ project_name_display }} is configured with OWASP Top 10 protections.
+
+### 1. Injection Prevention
+- **SQL Injection**: Django ORM with parameterized queries
+- **Command Injection**: No shell=True, validated inputs
+- **XSS**: Template auto-escaping, CSP headers
+
+### 2. Authentication & Session Management
+- Secure session cookies (HttpOnly, Secure, SameSite)
+- Password validation enabled
+- Session timeout configured
+- CSRF protection enabled
+
+### 3. Sensitive Data Protection
+- HTTPS required in production
+- Secrets in environment variables
+- No sensitive data in logs
+
+### 4. Access Control
+- `IsOwnerOrReadOnly` permission class
+- Object-level permissions
+- Admin restricted by default
+
+## Security Headers
+
+```python
+# settings/security.py
+SECURE_SSL_REDIRECT = True
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+```
+
+## Content Security Policy
+
+```python
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "cdn.tailwindcss.com")
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "cdn.tailwindcss.com")
+CSP_FRAME_ANCESTORS = ("'none'",)
+```
+
+## Cookie Configuration
+
+```python
+SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = True
+```
+
+## API Security
+
+### Authentication
+- Session authentication for browser clients
+- Token authentication for API clients (optional)
+
+### Rate Limiting
+```python
+RATELIMIT_ENABLE = True
+# 100 requests per minute per IP
+```
+
+### CORS
+```python
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = ["https://{{ project_name }}.com"]
+```
+
+## Secret Management
+
+### Development
+```bash
+# .env file (never commit!)
+SECRET_KEY=dev-secret-key
+```
+
+### Production
+Use environment variables or secret management service:
+- AWS Secrets Manager
+- HashiCorp Vault
+- Azure Key Vault
+
+## Security Audit
+
+Run security checks:
+
+```bash
+# Run security audit script
+./scripts/security-audit.sh
+
+# Check for known vulnerabilities
+pip-audit
+
+# Django security check
+python manage.py check --deploy
+```
+
+## Vulnerability Reporting
+
+Report security issues to: security@{{ project_name }}.com
+
+## Security Updates
+
+- Keep dependencies updated
+- Review security advisories
+- Run `pip-audit` regularly
+- Enable GitHub security alerts
+
+## Incident Response
+
+1. Identify and contain the breach
+2. Assess the damage
+3. Notify affected parties
+4. Document and learn
+5. Implement preventive measures

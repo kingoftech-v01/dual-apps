@@ -1,0 +1,95 @@
+{% raw %}<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{% endraw %}{{ project_name_display }}{% raw %} - Built with dual-apps">
+    <title>{% block title %}{% endraw %}{{ project_name_display }}{% raw %}{% endblock %}</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% load static %}{% static 'css/dual-base.css' %}">
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="h-full bg-gray-50" hx-boost="true">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <a href="/" class="text-xl font-bold text-indigo-600">
+                            {% endraw %}{{ project_name_display }}{% raw %}
+                        </a>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        {% endraw %}{% for app in apps_config %}{% raw %}
+                        <a href="{% url '{% endraw %}{{ app.name }}{% raw %}:list' %}"
+                           class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                            {% endraw %}{{ app.name_title }}{% raw %}
+                        </a>
+                        {% endraw %}{% endfor %}{% raw %}
+                    </div>
+                </div>
+                <div class="hidden sm:ml-6 sm:flex sm:items-center">
+                    {% if user.is_authenticated %}
+                        <span class="text-gray-700 mr-4">{{ user.username }}</span>
+                        <a href="{% url 'admin:logout' %}" class="text-gray-500 hover:text-gray-700">Logout</a>
+                    {% else %}
+                        <a href="{% url 'admin:login' %}" class="text-indigo-600 hover:text-indigo-800">Login</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% if messages %}
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        {% for message in messages %}
+        <div class="rounded-md p-4 mb-2 {% if message.tags == 'error' %}bg-red-50 text-red-800{% elif message.tags == 'success' %}bg-green-50 text-green-800{% else %}bg-blue-50 text-blue-800{% endif %}"
+             x-data="{ show: true }"
+             x-show="show"
+             x-transition>
+            <div class="flex justify-between items-center">
+                <p>{{ message }}</p>
+                <button @click="show = false" class="ml-4">&times;</button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t mt-auto">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+            <p class="text-center text-gray-500 text-sm">
+                &copy; 2024 {% endraw %}{{ project_name_display }}{% raw %}. Built with
+                <a href="https://github.com/dual-apps/dual-apps" class="text-indigo-600 hover:text-indigo-800">dual-apps</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- HTMX Loading Indicator -->
+    <div id="htmx-indicator" class="htmx-indicator fixed top-0 left-0 w-full h-1 bg-indigo-600"></div>
+
+    <!-- Custom JS -->
+    <script src="{% load static %}{% static 'js/dual-global.js' %}"></script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>{% endraw %}
