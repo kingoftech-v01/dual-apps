@@ -193,8 +193,8 @@ class CartViewSet(viewsets.ViewSet):
         return Response(CartSerializer(cart).data, status=status.HTTP_201_CREATED)
 
     @extend_schema(summary="Update cart item", tags=["Cart"])
-    @action(detail=False, methods=["post"])
-    def update(self, request):
+    @action(detail=False, methods=["post"], url_path="update-quantity")
+    def update_quantity(self, request):
         """Update item quantity."""
         cart = self.get_cart(request)
         item_id = request.data.get("item_id")

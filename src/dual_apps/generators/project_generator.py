@@ -153,7 +153,14 @@ class ProjectGenerator(BaseGenerator):
 
         # Project files
         self.render_and_write("project/__init__.py.j2", project_dir / "__init__.py", ctx)
-        self.render_and_write("project/urls.py.j2", project_dir / "urls.py", ctx)
+
+        # Use specialized project urls.py if available
+        specialized_urls = f"specialized/{self.template}/project/urls.py.j2"
+        if self.template != "default" and self.template_exists(specialized_urls):
+            self.render_and_write(specialized_urls, project_dir / "urls.py", ctx)
+        else:
+            self.render_and_write("project/urls.py.j2", project_dir / "urls.py", ctx)
+
         self.render_and_write("project/wsgi.py.j2", project_dir / "wsgi.py", ctx)
         self.render_and_write("project/asgi.py.j2", project_dir / "asgi.py", ctx)
 
@@ -237,6 +244,8 @@ class ProjectGenerator(BaseGenerator):
             ("urls.py.j2", "urls.py"),
             ("admin.py.j2", "admin.py"),
             ("views_frontend.py.j2", "views_frontend.py"),
+            ("permissions.py.j2", "permissions.py"),
+            ("forms.py.j2", "forms.py"),
         ]
 
         for template_file, output_file in files_to_generate:
