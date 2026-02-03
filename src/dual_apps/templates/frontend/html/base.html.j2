@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ project_name_display }}{% endblock %}</title>
+    <link rel="stylesheet" href="{% raw %}{% static 'css/dual-base.css' %}{% endraw %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav>
+        <a href="{% raw %}{% url 'home' %}{% endraw %}">{{ project_name_display }}</a>
+        <ul>
+{% for app in apps %}
+            <li><a href="{% raw %}{% url '{% endraw %}{{ app }}:list{% raw %}' %}{% endraw %}">{{ app|title }}</a></li>
+{% endfor %}
+{% raw %}
+            {% if user.is_authenticated %}
+            <li><a href="{% url 'admin:index' %}">Admin</a></li>
+            <li>{{ user.username }}</li>
+            {% else %}
+            <li><a href="{% url 'admin:login' %}">Login</a></li>
+            {% endif %}
+{% endraw %}
+        </ul>
+    </nav>
+
+    <main>
+        {% raw %}
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <div class="message {{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endraw %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <p>&copy; {{ project_name_display }}</p>
+    </footer>
+
+    <script src="{% raw %}{% static 'js/dual-global.js' %}{% endraw %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -448,6 +448,12 @@ def init_project_command(
         "--celery",
         help="Add Celery async tasks",
     ),
+    frontend: str = typer.Option(
+        "htmx",
+        "--frontend",
+        "-f",
+        help="Frontend framework: 'html' (basic), 'htmx' (dynamic), 'react' (SPA)",
+    ),
     interactive: bool = typer.Option(
         False,
         "--interactive",
@@ -486,6 +492,7 @@ def init_project_command(
         docker = cfg.get('docker', docker)
         celery = cfg.get('celery', celery)
         i18n = cfg.get('i18n', i18n)
+        frontend = cfg.get('frontend', frontend)
 
     # Config file
     if config:
@@ -500,6 +507,7 @@ def init_project_command(
             docker = cfg.get('docker', docker)
             celery = cfg.get('celery', celery)
             i18n = cfg.get('i18n', i18n)
+            frontend = cfg.get('frontend', frontend)
 
     if not name:
         console.print("[red]Error: Project name is required[/]")
@@ -531,6 +539,7 @@ def init_project_command(
             docker=docker,
             i18n=i18n,
             celery=celery,
+            frontend=frontend,
             output_dir=output_dir,
         )
 
@@ -820,6 +829,7 @@ Generate production-ready Django apps and projects with dual-layer architecture
   [green]dual-apps init app myapp[/]              Create a standalone app
   [green]dual-apps init project mysite[/]         Create a full project
   [green]dual-apps init project shop -t ecommerce[/]  E-commerce project
+  [green]dual-apps init project app -f react[/]   React SPA frontend
   [green]dual-apps config[/]                      Generate config file
 
 [bold]More Info:[/]
@@ -940,6 +950,36 @@ def _show_help_templates():
     console.print("  [green]dual-apps init project myshop --template ecommerce[/]")
     console.print("  [green]dual-apps init project myblog -t blog[/]")
     console.print("  [green]dual-apps init project mysaas -t saas --apps orgs[/]")
+
+    # Frontend options
+    console.print("\n[bold cyan]Frontend Frameworks[/]\n")
+
+    frontend_table = Table(show_header=True, header_style="bold")
+    frontend_table.add_column("Frontend", style="green")
+    frontend_table.add_column("Description")
+    frontend_table.add_column("Features")
+
+    frontend_table.add_row(
+        "html",
+        "Basic Django templates",
+        "Server-side rendering, forms, no JS required"
+    )
+    frontend_table.add_row(
+        "htmx",
+        "HTMX dynamic templates (default)",
+        "Partial page updates, minimal JS, SPA-like feel"
+    )
+    frontend_table.add_row(
+        "react",
+        "React SPA",
+        "Separate frontend, Vite build, API-driven"
+    )
+    console.print(frontend_table)
+
+    console.print("\n[bold]Frontend Usage:[/]")
+    console.print("  [green]dual-apps init project mysite --frontend html[/]      [dim]# Basic HTML[/]")
+    console.print("  [green]dual-apps init project mysite --frontend htmx[/]      [dim]# HTMX (default)[/]")
+    console.print("  [green]dual-apps init project mysite --frontend react[/]     [dim]# React SPA[/]")
 
 
 def _show_help_quickstart():

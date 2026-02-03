@@ -50,6 +50,7 @@ class ProjectGenerator(BaseGenerator):
         docker: bool = True,
         i18n: bool = False,
         celery: bool = False,
+        frontend: str = "htmx",
         output_dir: Path = Path("."),
     ):
         super().__init__(output_dir)
@@ -62,6 +63,7 @@ class ProjectGenerator(BaseGenerator):
         self.docker = docker
         self.i18n = i18n
         self.celery = celery
+        self.frontend = frontend
 
         # Handle specialized templates
         if template in self.SPECIALIZED_TEMPLATES:
@@ -98,10 +100,14 @@ class ProjectGenerator(BaseGenerator):
             "docker": self.docker,
             "i18n": self.i18n,
             "celery": self.celery,
+            "frontend": self.frontend,
             "use_postgres": self.db == "postgres",
             "use_jwt": self.auth == "jwt",
             "use_session": self.auth == "session",
             "use_allauth": self.auth == "allauth",
+            "use_html": self.frontend == "html",
+            "use_htmx": self.frontend == "htmx",
+            "use_react": self.frontend == "react",
             "is_specialized_template": self.template in self.SPECIALIZED_TEMPLATES,
         }
 
@@ -133,6 +139,17 @@ class ProjectGenerator(BaseGenerator):
 
         if self.i18n:
             dirs.append(self.project_root / "locale")
+
+        # React frontend directory structure
+        if self.frontend == "react":
+            dirs.extend([
+                self.project_root / "frontend",
+                self.project_root / "frontend" / "src",
+                self.project_root / "frontend" / "src" / "components",
+                self.project_root / "frontend" / "src" / "pages",
+                self.project_root / "frontend" / "src" / "api",
+                self.project_root / "frontend" / "public",
+            ])
 
         for d in dirs:
             self.create_directory(d)
@@ -399,22 +416,16 @@ class ProjectGenerator(BaseGenerator):
         """Generate global templates and static files."""
         ctx = self.get_context()
 
-        # Global templates
-        self.render_and_write(
-            "project/templates/base.html.j2",
-            self.project_root / "templates" / "base.html",
-            ctx,
-        )
-        self.render_and_write(
-            "project/templates/404.html.j2",
-            self.project_root / "templates" / "404.html",
-            ctx,
-        )
-        self.render_and_write(
-            "project/templates/500.html.j2",
-            self.project_root / "templates" / "500.html",
-            ctx,
-        )
+        # Use frontend-specific base template if available
+        frontend_base = f"frontend/{self.frontend}/base.html.j2"
+        if self.template_exists(frontend_base):
+            self.render_and_write(frontend_base, self.project_root / "templates" / "base.html", ctx)
+        else:
+            self.render_and_write("project/templates/base.html.j2", self.project_root / "templates" / "base.html", ctx)
+
+        # Error pages
+        self.render_and_write("project/templates/404.html.j2", self.project_root / "templates" / "404.html", ctx)
+        self.render_and_write("project/templates/500.html.j2", self.project_root / "templates" / "500.html", ctx)
 
         # Allauth templates if selected
         if self.auth == "allauth":
@@ -431,6 +442,10 @@ class ProjectGenerator(BaseGenerator):
             self.project_root / "staticfiles" / "js" / "dual-global.js",
             ctx,
         )
+
+        # Generate React frontend if selected
+        if self.frontend == "react":
+            self._generate_react_frontend(ctx)
 
     def _generate_allauth_templates(self, ctx: Dict[str, Any]) -> None:
         """Generate django-allauth authentication templates."""
@@ -452,6 +467,46 @@ class ProjectGenerator(BaseGenerator):
                     template,
                     self.project_root / "templates" / output,
                     ctx,
+                )
+
+    def _generate_react_frontend(self, ctx: Dict[str, Any]) -> None:
+        """Generate React frontend files."""
+        frontend_dir = self.project_root / "frontend"
+
+        # React configuration files
+        react_files = [
+            ("frontend/react/package.json.j2", "package.json"),
+            ("frontend/react/vite.config.js.j2", "vite.config.js"),
+            ("frontend/react/index.html.j2", "index.html"),
+            ("frontend/react/.gitignore.j2", ".gitignore"),
+        ]
+
+        for template, output in react_files:
+            if self.template_exists(template):
+                self.render_and_write(template, frontend_dir / output, ctx)
+
+        # React source files
+        react_src_files = [
+            ("frontend/react/src/main.jsx.j2", "src/main.jsx"),
+            ("frontend/react/src/App.jsx.j2", "src/App.jsx"),
+            ("frontend/react/src/App.css.j2", "src/App.css"),
+            ("frontend/react/src/index.css.j2", "src/index.css"),
+            ("frontend/react/src/api/client.js.j2", "src/api/client.js"),
+        ]
+
+        for template, output in react_src_files:
+            if self.template_exists(template):
+                self.render_and_write(template, frontend_dir / output, ctx)
+
+        # Generate components for each app
+        for app_name in self.apps:
+            app_ctx = {**ctx, "app_name": app_name, "app_name_pascal": self._to_pascal_case(app_name)}
+            component_template = "frontend/react/src/components/ModelList.jsx.j2"
+            if self.template_exists(component_template):
+                self.render_and_write(
+                    component_template,
+                    frontend_dir / "src" / "components" / f"{self._to_pascal_case(app_name)}List.jsx",
+                    app_ctx,
                 )
 
     def finalize(self) -> None:

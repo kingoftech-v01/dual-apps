@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ project_name_display }}{% endblock %}</title>
+    <link rel="stylesheet" href="{% raw %}{% static 'css/dual-base.css' %}{% endraw %}">
+    <!-- HTMX for dynamic interactions -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    {% block extra_css %}{% endblock %}
+</head>
+<body hx-headers='{"X-CSRFToken": "{% raw %}{{ csrf_token }}{% endraw %}"}'>
+    <nav>
+        <a href="{% raw %}{% url 'home' %}{% endraw %}">{{ project_name_display }}</a>
+        <ul>
+{% for app in apps %}
+            <li><a href="{% raw %}{% url '{% endraw %}{{ app }}:list{% raw %}' %}{% endraw %}" hx-boost="true">{{ app|title }}</a></li>
+{% endfor %}
+{% raw %}
+            {% if user.is_authenticated %}
+            <li><a href="{% url 'admin:index' %}">Admin</a></li>
+            <li>{{ user.username }}</li>
+            {% else %}
+            <li><a href="{% url 'admin:login' %}">Login</a></li>
+            {% endif %}
+{% endraw %}
+        </ul>
+    </nav>
+
+    <main id="main-content">
+        {% raw %}
+        {% if messages %}
+        <div class="messages" id="messages">
+            {% for message in messages %}
+            <div class="message {{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endraw %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- HTMX loading indicator -->
+    <div id="loading" class="htmx-indicator">Loading...</div>
+
+    <footer>
+        <p>&copy; {{ project_name_display }}</p>
+    </footer>
+
+    <script src="{% raw %}{% static 'js/dual-global.js' %}{% endraw %}"></script>
+    <script>
+        // HTMX event handlers
+        document.body.addEventListener('htmx:beforeRequest', function(evt) {
+            document.getElementById('loading').style.display = 'block';
+        });
+        document.body.addEventListener('htmx:afterRequest', function(evt) {
+            document.getElementById('loading').style.display = 'none';
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
