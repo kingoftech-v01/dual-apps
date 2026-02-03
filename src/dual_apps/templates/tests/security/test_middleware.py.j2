@@ -1,0 +1,249 @@
+"""
+Tests for security middleware.
+
+Tests cover:
+- Security headers middleware
+- Brute force protection
+- Rate limiting
+- Request sanitization
+"""
+import pytest
+from unittest.mock import Mock, patch
+from django.test import RequestFactory, override_settings
+from django.http import HttpResponse
+from django.contrib.auth import get_user_model
+
+from apps.core.security.middleware import (
+    SecurityHeadersMiddleware,
+    BruteForceProtectionMiddleware,
+    RateLimitMiddleware,
+    RequestSanitizationMiddleware,
+)
+
+
+User = get_user_model()
+
+
+class TestSecurityHeadersMiddleware:
+    """Tests for security headers middleware."""
+
+    @pytest.fixture
+    def middleware(self):
+        def get_response(request):
+            return HttpResponse("OK")
+        return SecurityHeadersMiddleware(get_response)
+
+    @pytest.fixture
+    def request_factory(self):
+        return RequestFactory()
+
+    def test_adds_csp_header(self, middleware, request_factory):
+        """CSP header should be added to response."""
+        request = request_factory.get('/')
+        response = middleware(request)
+        assert 'Content-Security-Policy' in response
+
+    def test_adds_x_content_type_options(self, middleware, request_factory):
+        """X-Content-Type-Options header should be added."""
+        request = request_factory.get('/')
+        response = middleware(request)
+        assert response['X-Content-Type-Options'] == 'nosniff'
+
+    def test_adds_x_frame_options(self, middleware, request_factory):
+        """X-Frame-Options header should be added."""
+        request = request_factory.get('/')
+        response = middleware(request)
+        assert response['X-Frame-Options'] == 'DENY'
+
+    def test_adds_x_xss_protection(self, middleware, request_factory):
+        """X-XSS-Protection header should be added."""
+        request = request_factory.get('/')
+        response = middleware(request)
+        assert response['X-XSS-Protection'] == '1; mode=block'
+
+    def test_adds_referrer_policy(self, middleware, request_factory):
+        """Referrer-Policy header should be added."""
+        request = request_factory.get('/')
+        response = middleware(request)
+        assert 'Referrer-Policy' in response
+
+    def test_adds_permissions_policy(self, middleware, request_factory):
+        """Permissions-Policy header should be added."""
+        request = request_factory.get('/')
+        response = middleware(request)
+        assert 'Permissions-Policy' in response
+
+    @override_settings(DEBUG=False)
+    def test_adds_hsts_in_production(self, request_factory):
+        """HSTS header should be added in production."""
+        def get_response(request):
+            return HttpResponse("OK")
+        middleware = SecurityHeadersMiddleware(get_response)
+        request = request_factory.get('/')
+        response = middleware(request)
+        assert 'Strict-Transport-Security' in response
+
+    @override_settings(DEBUG=True)
+    def test_no_hsts_in_debug(self, middleware, request_factory):
+        """HSTS header should not be added in debug mode."""
+        request = request_factory.get('/')
+        response = middleware(request)
+        assert 'Strict-Transport-Security' not in response
+
+
+class TestBruteForceProtectionMiddleware:
+    """Tests for brute force protection middleware."""
+
+    @pytest.fixture
+    def middleware(self):
+        def get_response(request):
+            return HttpResponse("OK", status=200)
+        return BruteForceProtectionMiddleware(get_response)
+
+    @pytest.fixture
+    def failed_auth_middleware(self):
+        def get_response(request):
+            return HttpResponse("Unauthorized", status=401)
+        return BruteForceProtectionMiddleware(get_response)
+
+    @pytest.fixture
+    def request_factory(self):
+        return RequestFactory()
+
+    def test_allows_normal_requests(self, middleware, request_factory):
+        """Normal requests should be allowed."""
+        request = request_factory.get('/')
+        response = middleware(request)
+        assert response.status_code == 200
+
+    def test_tracks_login_path(self, middleware, request_factory):
+        """Login paths should be tracked."""
+        request = request_factory.post('/api/auth/login/')
+        assert middleware._is_tracked_path(request.path)
+
+    def test_ignores_non_login_paths(self, middleware, request_factory):
+        """Non-login paths should not be tracked."""
+        request = request_factory.get('/api/products/')
+        assert not middleware._is_tracked_path(request.path)
+
+    @patch('apps.core.security.middleware.cache')
+    def test_lockout_after_max_attempts(self, mock_cache, failed_auth_middleware, request_factory):
+        """Should lock out after max failed attempts."""
+        mock_cache.get.return_value = 5  # Already at max attempts
+
+        request = request_factory.post('/api/auth/login/')
+        request.META['REMOTE_ADDR'] = '192.168.1.1'
+
+        response = failed_auth_middleware(request)
+        assert response.status_code == 429
+
+    @patch('apps.core.security.middleware.cache')
+    def test_allows_whitelisted_ips(self, mock_cache, request_factory):
+        """Whitelisted IPs should not be rate limited."""
+        def get_response(request):
+            return HttpResponse("OK", status=401)
+
+        with override_settings(BRUTE_FORCE_PROTECTION={'WHITELIST_IPS': ['192.168.1.1']}):
+            middleware = BruteForceProtectionMiddleware(get_response)
+            request = request_factory.post('/api/auth/login/')
+            request.META['REMOTE_ADDR'] = '192.168.1.1'
+
+            response = middleware(request)
+            # Should not be locked out
+            assert response.status_code == 401
+
+    def test_gets_correct_client_ip(self, middleware, request_factory):
+        """Should extract correct client IP from headers."""
+        request = request_factory.get('/')
+        request.META['HTTP_X_FORWARDED_FOR'] = '203.0.113.1, 192.168.1.1'
+        ip = middleware._get_client_ip(request)
+        assert ip == '203.0.113.1'
+
+        request2 = request_factory.get('/')
+        request2.META['HTTP_X_REAL_IP'] = '203.0.113.2'
+        ip2 = middleware._get_client_ip(request2)
+        assert ip2 == '203.0.113.2'
+
+
+class TestRateLimitMiddleware:
+    """Tests for rate limit middleware."""
+
+    @pytest.fixture
+    def middleware(self):
+        def get_response(request):
+            return HttpResponse("OK")
+        return RateLimitMiddleware(get_response)
+
+    @pytest.fixture
+    def request_factory(self):
+        return RequestFactory()
+
+    @patch('apps.core.security.middleware.cache')
+    def test_allows_requests_within_limit(self, mock_cache, middleware, request_factory):
+        """Requests within limit should be allowed."""
+        mock_cache.get.return_value = 0
+
+        request = request_factory.get('/api/products/')
+        request.META['REMOTE_ADDR'] = '192.168.1.1'
+
+        response = middleware(request)
+        assert response.status_code == 200
+
+    @patch('apps.core.security.middleware.cache')
+    def test_blocks_requests_over_limit(self, mock_cache, middleware, request_factory):
+        """Requests over limit should be blocked."""
+        mock_cache.get.return_value = 100  # Over default limit
+
+        request = request_factory.get('/api/products/')
+        request.META['REMOTE_ADDR'] = '192.168.1.1'
+
+        response = middleware(request)
+        assert response.status_code == 429
+
+    def test_skips_whitelisted_paths(self, middleware, request_factory):
+        """Whitelisted paths should not be rate limited."""
+        request = request_factory.get('/health/')
+        assert any(request.path.startswith(p) for p in middleware.whitelist_paths)
+
+    def test_parses_rate_string(self, middleware):
+        """Rate strings should be parsed correctly."""
+        count, seconds = middleware._parse_rate('100/min')
+        assert count == 100
+        assert seconds == 60
+
+        count, seconds = middleware._parse_rate('1000/hour')
+        assert count == 1000
+        assert seconds == 3600
+
+
+class TestRequestSanitizationMiddleware:
+    """Tests for request sanitization middleware."""
+
+    @pytest.fixture
+    def middleware(self):
+        def get_response(request):
+            return HttpResponse("OK")
+        return RequestSanitizationMiddleware(get_response)
+
+    @pytest.fixture
+    def request_factory(self):
+        return RequestFactory()
+
+    def test_allows_normal_requests(self, middleware, request_factory):
+        """Normal requests should be allowed."""
+        request = request_factory.get('/api/products/')
+        response = middleware(request)
+        assert response.status_code == 200
+
+    def test_blocks_null_bytes_in_path(self, middleware, request_factory):
+        """Null bytes in path should be blocked."""
+        request = request_factory.get('/api/products/\x00malicious')
+        response = middleware(request)
+        assert response.status_code == 403
+
+    def test_blocks_null_bytes_in_query(self, middleware, request_factory):
+        """Null bytes in query string should be blocked."""
+        request = request_factory.get('/api/products/')
+        request.META['QUERY_STRING'] = 'name=test\x00evil'
+        response = middleware(request)
+        assert response.status_code == 403

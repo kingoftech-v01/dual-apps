@@ -1,0 +1,128 @@
+# CLI Reference for {{ project_name_display }}
+
+## Django Commands
+
+### Development
+
+```bash
+# Run development server
+python manage.py runserver
+
+# Create migrations
+python manage.py makemigrations
+
+# Apply migrations
+python manage.py migrate
+
+# Create superuser
+python manage.py createsuperuser
+
+# Collect static files
+python manage.py collectstatic
+```
+
+### Management Commands
+
+{% for app in apps %}
+```bash
+# Generate demo data for {{ app }}
+python manage.py demo_data --app={{ app }} --count=20
+```
+{% endfor %}
+
+### Testing
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=apps --cov-report=html
+
+# Run specific app tests
+pytest apps/{{ apps[0] }}/tests/
+
+# Run specific test file
+pytest apps/{{ apps[0] }}/tests/test_api.py
+
+# Verbose output
+pytest -v --tb=long
+```
+
+### Code Quality
+
+```bash
+# Format code
+black .
+
+# Lint code
+ruff check .
+
+# Fix linting issues
+ruff check --fix .
+
+# Type checking
+mypy apps/
+
+# Run all pre-commit hooks
+pre-commit run --all-files
+```
+
+## Docker Commands
+
+```bash
+# Start development environment
+docker-compose -f docker-compose.dev.yml up -d
+
+# Start production environment
+docker-compose -f docker-compose.prod.yml up -d
+
+# View logs
+docker-compose logs -f web
+
+# Execute command in container
+docker-compose exec web python manage.py migrate
+
+# Build images
+docker-compose build
+
+# Stop containers
+docker-compose down
+
+# Stop and remove volumes
+docker-compose down -v
+```
+
+{% if celery %}
+## Celery Commands
+
+```bash
+# Start Celery worker
+celery -A {{ project_name }} worker -l INFO
+
+# Start Celery beat (scheduler)
+celery -A {{ project_name }} beat -l INFO
+
+# Start both (development)
+celery -A {{ project_name }} worker -B -l INFO
+
+# Purge all tasks
+celery -A {{ project_name }} purge
+```
+{% endif %}
+
+## Scripts
+
+```bash
+# Initial setup
+./scripts/setup.sh
+
+# Deploy to production
+./scripts/deploy.sh
+
+# Run benchmark tests
+./scripts/benchmark.sh
+
+# Security audit
+./scripts/security-audit.sh
+```

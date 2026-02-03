@@ -1,0 +1,411 @@
+"""
+Security decorators for Django views.
+
+Provides function-based view decorators for:
+- HTTPS requirement
+- Content type validation
+- Input sanitization
+- Rate limiting
+- CSRF enforcement
+
+Usage:
+    from apps.core.security.decorators import (
+        require_https,
+        validate_content_type,
+        sanitize_input,
+        rate_limit,
+    )
+
+    @require_https
+    @rate_limit('10/min')
+    def my_view(request):
+        pass
+"""
+import html
+import time
+import logging
+from functools import wraps
+from typing import Callable, List, Optional, Union
+from django.conf import settings
+from django.core.cache import cache
+from django.http import (
+    HttpRequest,
+    HttpResponse,
+    HttpResponseForbidden,
+    JsonResponse,
+)
+from django.views.decorators.csrf import csrf_protect
+
+from .validators import SQLInjectionValidator, XSSValidator
+
+logger = logging.getLogger(__name__)
+
+
+def require_https(view_func: Callable) -> Callable:
+    """
+    Requires HTTPS for the view.
+
+    In production (DEBUG=False), rejects non-HTTPS requests.
+    In development (DEBUG=True), allows HTTP for testing.
+
+    Usage:
+        @require_https
+        def sensitive_view(request):
+            pass
+    """
+    @wraps(view_func)
+    def wrapper(request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        if not request.is_secure() and not settings.DEBUG:
+            logger.warning(
+                f"HTTP request to HTTPS-required endpoint: {request.path}"
+            )
+            return HttpResponseForbidden(
+                "This endpoint requires HTTPS. Please use a secure connection."
+            )
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def validate_content_type(
+    allowed_types: List[str],
+    methods: Optional[List[str]] = None
+) -> Callable:
+    """
+    Validates the Content-Type header for requests.
+
+    Args:
+        allowed_types: List of allowed content types
+        methods: HTTP methods to validate (default: POST, PUT, PATCH)
+
+    Usage:
+        @validate_content_type(['application/json'])
+        def api_view(request):
+            pass
+
+        @validate_content_type(['application/json', 'multipart/form-data'], methods=['POST'])
+        def upload_view(request):
+            pass
+    """
+    if methods is None:
+        methods = ['POST', 'PUT', 'PATCH']
+
+    def decorator(view_func: Callable) -> Callable:
+        @wraps(view_func)
+        def wrapper(request: HttpRequest, *args, **kwargs) -> HttpResponse:
+            if request.method in methods:
+                content_type = request.content_type
+                if content_type and not any(
+                    ct in content_type for ct in allowed_types
+                ):
+                    logger.warning(
+                        f"Invalid content type '{content_type}' for {request.path}"
+                    )
+                    return JsonResponse(
+                        {
+                            'error': 'Invalid content type',
+                            'allowed': allowed_types
+                        },
+                        status=415
+                    )
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def sanitize_input(*fields: str, strip_html: bool = False) -> Callable:
+    """
+    Sanitizes specified input fields.
+
+    Applies HTML escaping to prevent XSS attacks.
+
+    Args:
+        *fields: Field names to sanitize
+        strip_html: If True, remove HTML tags instead of escaping
+
+    Usage:
+        @sanitize_input('title', 'description')
+        def create_post(request):
+            title = request.POST.get('title')  # Already sanitized
+            pass
+
+        @sanitize_input('content', strip_html=True)
+        def plain_text_view(request):
+            pass
+    """
+    from django.utils.html import strip_tags
+
+    def decorator(view_func: Callable) -> Callable:
+        @wraps(view_func)
+        def wrapper(request: HttpRequest, *args, **kwargs) -> HttpResponse:
+            # Sanitize POST data
+            if request.method in ['POST', 'PUT', 'PATCH']:
+                mutable_post = request.POST.copy()
+                for field in fields:
+                    if field in mutable_post:
+                        value = mutable_post[field]
+                        if strip_html:
+                            mutable_post[field] = strip_tags(value)
+                        else:
+                            mutable_post[field] = html.escape(value)
+                request.POST = mutable_post
+
+            # Sanitize GET data
+            mutable_get = request.GET.copy()
+            for field in fields:
+                if field in mutable_get:
+                    value = mutable_get[field]
+                    if strip_html:
+                        mutable_get[field] = strip_tags(value)
+                    else:
+                        mutable_get[field] = html.escape(value)
+            request.GET = mutable_get
+
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def validate_input(*fields: str, validators: Optional[List] = None) -> Callable:
+    """
+    Validates input fields using specified validators.
+
+    Args:
+        *fields: Field names to validate
+        validators: List of validator instances (default: SQL and XSS validators)
+
+    Usage:
+        @validate_input('username', 'email')
+        def register(request):
+            pass
+
+        @validate_input('query', validators=[SQLInjectionValidator()])
+        def search(request):
+            pass
+    """
+    if validators is None:
+        validators = [SQLInjectionValidator(), XSSValidator(sanitize=False)]
+
+    def decorator(view_func: Callable) -> Callable:
+        @wraps(view_func)
+        def wrapper(request: HttpRequest, *args, **kwargs) -> HttpResponse:
+            # Validate POST data
+            for field in fields:
+                value = request.POST.get(field) or request.GET.get(field)
+                if value:
+                    try:
+                        for validator in validators:
+                            validator(value)
+                    except Exception as e:
+                        logger.warning(
+                            f"Input validation failed for field '{field}': {e}"
+                        )
+                        return JsonResponse(
+                            {'error': f'Invalid input for field: {field}'},
+                            status=400
+                        )
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def rate_limit(
+    rate: str,
+    key: str = 'ip',
+    block: bool = True
+) -> Callable:
+    """
+    Rate limits a view.
+
+    Args:
+        rate: Rate limit string (e.g., '10/min', '100/hour')
+        key: What to limit by ('ip', 'user', 'ip+user')
+        block: If True, return 429; if False, just log
+
+    Usage:
+        @rate_limit('10/min')
+        def api_endpoint(request):
+            pass
+
+        @rate_limit('5/hour', key='user')
+        def expensive_operation(request):
+            pass
+    """
+    def parse_rate(rate_str: str) -> tuple:
+        count, period = rate_str.split('/')
+        period_map = {'sec': 1, 'min': 60, 'hour': 3600, 'day': 86400}
+        return int(count), period_map.get(period, 60)
+
+    limit, period = parse_rate(rate)
+
+    def decorator(view_func: Callable) -> Callable:
+        @wraps(view_func)
+        def wrapper(request: HttpRequest, *args, **kwargs) -> HttpResponse:
+            # Generate cache key
+            if key == 'ip':
+                identifier = _get_client_ip(request)
+            elif key == 'user':
+                identifier = str(request.user.id) if request.user.is_authenticated else _get_client_ip(request)
+            else:  # ip+user
+                ip = _get_client_ip(request)
+                user_id = str(request.user.id) if request.user.is_authenticated else 'anon'
+                identifier = f'{ip}:{user_id}'
+
+            cache_key = f'ratelimit:{view_func.__name__}:{identifier}'
+            window_key = f'{cache_key}:{int(time.time()) // period}'
+
+            # Check current count
+            current = cache.get(window_key, 0)
+            if current >= limit:
+                logger.warning(
+                    f"Rate limit exceeded for {identifier} on {view_func.__name__}"
+                )
+                if block:
+                    return JsonResponse(
+                        {'error': 'Rate limit exceeded', 'retry_after': period},
+                        status=429
+                    )
+
+            # Increment counter
+            cache.set(window_key, current + 1, timeout=period)
+
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def _get_client_ip(request: HttpRequest) -> str:
+    """Get client IP from request."""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', '0.0.0.0')
+
+
+def log_access(action: str = None) -> Callable:
+    """
+    Logs access to a view for auditing.
+
+    Args:
+        action: Description of the action (default: view name)
+
+    Usage:
+        @log_access('view_sensitive_data')
+        def sensitive_view(request):
+            pass
+    """
+    def decorator(view_func: Callable) -> Callable:
+        @wraps(view_func)
+        def wrapper(request: HttpRequest, *args, **kwargs) -> HttpResponse:
+            log_action = action or view_func.__name__
+            logger.info(
+                f"ACCESS: {log_action} by user={request.user.id if request.user.is_authenticated else 'anon'} "
+                f"ip={_get_client_ip(request)} path={request.path}"
+            )
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def require_ajax(view_func: Callable) -> Callable:
+    """
+    Requires the request to be an AJAX request.
+
+    Usage:
+        @require_ajax
+        def ajax_only_view(request):
+            pass
+    """
+    @wraps(view_func)
+    def wrapper(request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return HttpResponseForbidden("This endpoint only accepts AJAX requests")
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def require_api_key(header_name: str = 'X-API-Key') -> Callable:
+    """
+    Requires a valid API key in request headers.
+
+    Args:
+        header_name: The header containing the API key
+
+    Usage:
+        @require_api_key()
+        def api_endpoint(request):
+            pass
+
+        @require_api_key('Authorization')
+        def custom_auth_endpoint(request):
+            pass
+    """
+    def decorator(view_func: Callable) -> Callable:
+        @wraps(view_func)
+        def wrapper(request: HttpRequest, *args, **kwargs) -> HttpResponse:
+            api_key = request.headers.get(header_name)
+            if not api_key:
+                return JsonResponse(
+                    {'error': f'Missing {header_name} header'},
+                    status=401
+                )
+
+            # Validate API key (implement your validation logic)
+            if not _validate_api_key(api_key):
+                return JsonResponse(
+                    {'error': 'Invalid API key'},
+                    status=401
+                )
+
+            return view_func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def _validate_api_key(api_key: str) -> bool:
+    """
+    Validate an API key.
+
+    Override this function with your validation logic.
+    """
+    # Example: Check against stored API keys
+    # from apps.core.models import APIKey
+    # return APIKey.objects.filter(key=api_key, is_active=True).exists()
+    return len(api_key) >= 32  # Basic length check
+
+
+def sensitive_post_parameters(*parameters: str) -> Callable:
+    """
+    Marks POST parameters as sensitive (won't be logged in errors).
+
+    Usage:
+        @sensitive_post_parameters('password', 'credit_card')
+        def payment_view(request):
+            pass
+    """
+    from django.views.decorators.debug import sensitive_post_parameters as django_sensitive
+    return django_sensitive(*parameters)
+
+
+def csrf_exempt_for_api(view_func: Callable) -> Callable:
+    """
+    Exempts a view from CSRF only for API requests with token auth.
+
+    Non-API requests still require CSRF.
+
+    Usage:
+        @csrf_exempt_for_api
+        def api_or_form_view(request):
+            pass
+    """
+    from django.views.decorators.csrf import csrf_exempt
+
+    @wraps(view_func)
+    def wrapper(request: HttpRequest, *args, **kwargs) -> HttpResponse:
+        # Check if this is an API request with token auth
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith(('Bearer ', 'Token ')):
+            # Apply csrf_exempt for token-authenticated requests
+            return csrf_exempt(view_func)(request, *args, **kwargs)
+        # Apply csrf_protect for other requests
+        return csrf_protect(view_func)(request, *args, **kwargs)
+    return wrapper

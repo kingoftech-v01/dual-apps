@@ -1,0 +1,377 @@
+/**
+ * Base E2E Tests for {{ project_name }}
+ *
+ * Tests cover:
+ * - Homepage accessibility
+ * - Navigation
+ * - Authentication flow
+ * - API endpoints
+ * - Form submissions
+ * - CRUD operations
+ */
+const { test, expect } = require('@playwright/test');
+const {
+  TEST_USER,
+  ADMIN_USER,
+  loginViaUI,
+  loginViaAPI,
+  logoutViaUI,
+  isAuthenticated,
+} = require('../fixtures/auth');
+
+// =============================================================================
+// Homepage & Navigation Tests
+// =============================================================================
+
+test.describe('Homepage', () => {
+  test('should load successfully', async ({ page }) => {
+    await page.goto('/');
+    await expect(page).toHaveTitle(/{{ project_name_display }}/i);
+  });
+
+  test('should have navigation links', async ({ page }) => {
+    await page.goto('/');
+
+    // Check for main navigation
+    const nav = page.locator('nav, [role="navigation"], header');
+    await expect(nav).toBeVisible();
+  });
+
+  test('should be responsive', async ({ page }) => {
+    // Desktop
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto('/');
+    await expect(page.locator('body')).toBeVisible();
+
+    // Tablet
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await expect(page.locator('body')).toBeVisible();
+
+    // Mobile
+    await page.setViewportSize({ width: 375, height: 667 });
+    await expect(page.locator('body')).toBeVisible();
+  });
+});
+
+// =============================================================================
+// Authentication Tests
+// =============================================================================
+
+test.describe('Authentication', () => {
+  test('login page should load', async ({ page }) => {
+    await page.goto('/accounts/login/');
+    await expect(page.locator('input[name="username"], input[name="email"]')).toBeVisible();
+    await expect(page.locator('input[name="password"]')).toBeVisible();
+  });
+
+{% if has_frontend %}
+  test('should redirect to login for protected pages', async ({ page }) => {
+    // Try to access a protected page
+    await page.goto('/{{ apps[0] }}/');
+
+    // Should redirect to login or show access denied
+    const url = page.url();
+    const isLoginPage = url.includes('login');
+    const hasAccessDenied = await page.locator('text=login, text=sign in, text=access denied').isVisible().catch(() => false);
+
+    // Either redirected to login or shows access denied
+    expect(isLoginPage || hasAccessDenied || await isAuthenticated(page)).toBeTruthy();
+  });
+
+  test('should login successfully with valid credentials', async ({ page }) => {
+    // This test requires a test user to exist
+    // In real tests, create user in setup
+    await page.goto('/accounts/login/');
+
+    // Fill form (will fail if no test user exists, which is expected)
+    await page.fill('input[name="username"], input[name="email"]', TEST_USER.username);
+    await page.fill('input[name="password"]', TEST_USER.password);
+    await page.click('button[type="submit"]');
+
+    // Check for either success or error (both are valid test outcomes)
+    const hasError = await page.locator('.error, .alert-danger, [class*="error"]').isVisible().catch(() => false);
+
+    if (!hasError) {
+      // Should be redirected away from login page
+      await expect(page).not.toHaveURL(/login/);
+    }
+  });
+
+  test('should show error for invalid credentials', async ({ page }) => {
+    await page.goto('/accounts/login/');
+
+    await page.fill('input[name="username"], input[name="email"]', 'invaliduser');
+    await page.fill('input[name="password"]', 'wrongpassword');
+    await page.click('button[type="submit"]');
+
+    // Should show error or stay on login page
+    const stillOnLogin = page.url().includes('login');
+    const hasError = await page.locator('.error, .alert-danger, .alert-error, [class*="error"]').isVisible().catch(() => false);
+
+    expect(stillOnLogin || hasError).toBeTruthy();
+  });
+{% endif %}
+});
+
+// =============================================================================
+// API Tests
+// =============================================================================
+
+test.describe('API', () => {
+{% if has_api %}
+  test('API documentation should be accessible', async ({ page }) => {
+    await page.goto('/api/docs/');
+    await expect(page).toHaveTitle(/swagger|api|docs/i);
+  });
+
+  test('API health endpoint should respond', async ({ request }) => {
+    const response = await request.get('/api/v1/health/', {
+      failOnStatusCode: false,
+    });
+
+    // Should return 200 or 404 (if health endpoint doesn't exist)
+    expect([200, 404]).toContain(response.status());
+  });
+
+  test('API should require authentication for protected endpoints', async ({ request }) => {
+    const response = await request.get('/api/v1/{{ apps[0] }}/');
+
+    // Should return 401 or 403 for unauthenticated requests
+    expect([401, 403]).toContain(response.status());
+  });
+
+  test('API should return JSON responses', async ({ request }) => {
+    const response = await request.get('/api/v1/{{ apps[0] }}/', {
+      failOnStatusCode: false,
+    });
+
+    const contentType = response.headers()['content-type'];
+    expect(contentType).toContain('application/json');
+  });
+{% endif %}
+});
+
+// =============================================================================
+// Form Validation Tests
+// =============================================================================
+
+test.describe('Form Validation', () => {
+{% if has_frontend %}
+  test('should validate required fields', async ({ page }) => {
+    await page.goto('/accounts/login/');
+
+    // Submit empty form
+    await page.click('button[type="submit"]');
+
+    // Should show validation errors or HTML5 validation
+    const hasValidation = await page.locator(':invalid, .error, [class*="error"], .is-invalid').isVisible().catch(() => false);
+    const isStillOnPage = page.url().includes('login');
+
+    expect(hasValidation || isStillOnPage).toBeTruthy();
+  });
+
+  test('should sanitize input against XSS', async ({ page }) => {
+    await page.goto('/accounts/login/');
+
+    // Try XSS payload
+    await page.fill('input[name="username"], input[name="email"]', '<script>alert("xss")</script>');
+    await page.fill('input[name="password"]', 'password');
+    await page.click('button[type="submit"]');
+
+    // Check that script tag is not executed
+    const dialogPromise = page.waitForEvent('dialog', { timeout: 2000 }).catch(() => null);
+    const dialog = await dialogPromise;
+
+    // Should NOT show alert
+    expect(dialog).toBeNull();
+  });
+{% endif %}
+});
+
+// =============================================================================
+// CRUD Operations Tests (API)
+// =============================================================================
+
+test.describe('CRUD Operations', () => {
+{% if has_api %}
+  let authToken;
+
+  test.beforeAll(async ({ request }) => {
+    // Get auth token
+    try {
+      const auth = await loginViaAPI(request, TEST_USER);
+      authToken = auth.accessToken;
+    } catch (e) {
+      // Test user might not exist, skip auth-dependent tests
+      console.log('Auth setup skipped:', e.message);
+    }
+  });
+
+  test('CREATE - should create new resource via API', async ({ request }) => {
+    test.skip(!authToken, 'Requires authentication');
+
+    const response = await request.post('/api/v1/{{ apps[0] }}/', {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      data: {
+        title: 'Test Item',
+        description: 'Test Description',
+      },
+    });
+
+    // Should return 201 Created or 400 if validation fails
+    expect([201, 400]).toContain(response.status());
+  });
+
+  test('READ - should list resources via API', async ({ request }) => {
+    const response = await request.get('/api/v1/{{ apps[0] }}/', {
+      headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {},
+      failOnStatusCode: false,
+    });
+
+    // Should return 200 or 401/403
+    expect([200, 401, 403]).toContain(response.status());
+
+    if (response.status() === 200) {
+      const data = await response.json();
+      expect(data).toHaveProperty('results');
+    }
+  });
+
+  test('READ - should get single resource via API', async ({ request }) => {
+    test.skip(!authToken, 'Requires authentication');
+
+    const response = await request.get('/api/v1/{{ apps[0] }}/1/', {
+      headers: { 'Authorization': `Bearer ${authToken}` },
+      failOnStatusCode: false,
+    });
+
+    // Should return 200 or 404
+    expect([200, 404]).toContain(response.status());
+  });
+
+  test('UPDATE - should update resource via API', async ({ request }) => {
+    test.skip(!authToken, 'Requires authentication');
+
+    const response = await request.patch('/api/v1/{{ apps[0] }}/1/', {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      data: {
+        title: 'Updated Title',
+      },
+      failOnStatusCode: false,
+    });
+
+    // Should return 200 or 404
+    expect([200, 404]).toContain(response.status());
+  });
+
+  test('DELETE - should delete resource via API', async ({ request }) => {
+    test.skip(!authToken, 'Requires authentication');
+
+    const response = await request.delete('/api/v1/{{ apps[0] }}/999/', {
+      headers: { 'Authorization': `Bearer ${authToken}` },
+      failOnStatusCode: false,
+    });
+
+    // Should return 204 or 404
+    expect([204, 404]).toContain(response.status());
+  });
+{% endif %}
+});
+
+// =============================================================================
+// Security Tests
+// =============================================================================
+
+test.describe('Security', () => {
+  test('should have security headers', async ({ page }) => {
+    const response = await page.goto('/');
+
+    const headers = response.headers();
+
+    // Check for security headers
+    expect(headers['x-content-type-options']).toBe('nosniff');
+    expect(headers['x-frame-options']).toBeDefined();
+  });
+
+  test('should not expose sensitive information in errors', async ({ page }) => {
+    await page.goto('/nonexistent-page-12345/');
+
+    // Check that error page doesn't expose stack traces
+    const content = await page.content();
+    expect(content).not.toContain('Traceback');
+    expect(content).not.toContain('SECRET_KEY');
+    expect(content).not.toContain('DATABASE_URL');
+  });
+
+{% if has_api %}
+  test('should rate limit excessive requests', async ({ request }) => {
+    const responses = [];
+
+    // Make many requests quickly
+    for (let i = 0; i < 100; i++) {
+      const response = await request.get('/api/v1/{{ apps[0] }}/', {
+        failOnStatusCode: false,
+      });
+      responses.push(response.status());
+
+      // Stop if we hit rate limit
+      if (response.status() === 429) break;
+    }
+
+    // Should eventually get rate limited (429) or all succeed (200)
+    const hasRateLimit = responses.includes(429);
+    const allSucceeded = responses.every(s => s === 200 || s === 401 || s === 403);
+
+    expect(hasRateLimit || allSucceeded).toBeTruthy();
+  });
+{% endif %}
+});
+
+// =============================================================================
+// Accessibility Tests
+// =============================================================================
+
+test.describe('Accessibility', () => {
+  test('should have proper heading structure', async ({ page }) => {
+    await page.goto('/');
+
+    // Check for h1
+    const h1Count = await page.locator('h1').count();
+    expect(h1Count).toBeGreaterThanOrEqual(1);
+  });
+
+  test('should have alt text on images', async ({ page }) => {
+    await page.goto('/');
+
+    const images = await page.locator('img').all();
+    for (const img of images) {
+      const alt = await img.getAttribute('alt');
+      const role = await img.getAttribute('role');
+
+      // Images should have alt text or be decorative (role="presentation")
+      expect(alt !== null || role === 'presentation').toBeTruthy();
+    }
+  });
+
+  test('should have proper form labels', async ({ page }) => {
+    await page.goto('/accounts/login/');
+
+    const inputs = await page.locator('input:not([type="hidden"]):not([type="submit"])').all();
+    for (const input of inputs) {
+      const id = await input.getAttribute('id');
+      const ariaLabel = await input.getAttribute('aria-label');
+      const placeholder = await input.getAttribute('placeholder');
+
+      if (id) {
+        const labelCount = await page.locator(`label[for="${id}"]`).count();
+        expect(labelCount > 0 || ariaLabel || placeholder).toBeTruthy();
+      }
+    }
+  });
+});

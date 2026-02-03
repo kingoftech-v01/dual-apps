@@ -1,0 +1,63 @@
+import { useState, useEffect } from 'react'
+import api from '../api/client'
+
+function {{ app_name_pascal }}List() {
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    loadItems()
+  }, [])
+
+  async function loadItems() {
+    try {
+      setLoading(true)
+      const data = await api.list('{{ app_name }}')
+      setItems(data.results || data)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleDelete(id) {
+    if (!confirm('Are you sure?')) return
+
+    try {
+      await api.delete('{{ app_name }}', id)
+      setItems(items.filter(item => item.id !== id))
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  if (loading) return <div className="loading">Loading...</div>
+  if (error) return <div className="error">Error: {error}</div>
+
+  return (
+    <div>
+      <h1>{{ app_name_pascal }}</h1>
+
+      {items.length === 0 ? (
+        <p>No items found.</p>
+      ) : (
+        <ul className="list">
+          {items.map(item => (
+            <li key={item.id} className="list-item">
+              <strong>{item.title || item.name || item.id}</strong>
+              <button onClick={() => handleDelete(item.id)} style={{'{{'}} marginLeft: '1rem' {{'}}'}}>
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <button onClick={loadItems}>Refresh</button>
+    </div>
+  )
+}
+
+export default {{ app_name_pascal }}List

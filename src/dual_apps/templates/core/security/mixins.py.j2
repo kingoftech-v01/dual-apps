@@ -1,0 +1,401 @@
+"""
+Security mixins for Django views and DRF viewsets.
+
+Provides reusable security patterns:
+- Input validation mixins
+- Rate limiting mixins
+- Ownership verification mixins
+- Audit logging mixins
+
+Usage:
+    from apps.core.security.mixins import (
+        SecureInputMixin,
+        OwnershipMixin,
+        AuditLogMixin,
+    )
+
+    class MyViewSet(SecureInputMixin, OwnershipMixin, viewsets.ModelViewSet):
+        queryset = MyModel.objects.all()
+"""
+import logging
+from typing import Any, Dict, List, Optional, Type
+from django.db.models import Model, QuerySet
+from django.contrib.auth import get_user_model
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.request import Request
+
+from .validators import SQLInjectionValidator, XSSValidator, sanitize_html
+
+logger = logging.getLogger(__name__)
+User = get_user_model()
+
+
+class SecureInputMixin:
+    """
+    Mixin that validates and sanitizes input data.
+
+    Automatically applies SQL injection and XSS validators to
+    string fields in request data.
+
+    Attributes:
+        secure_fields: List of field names to validate (default: all string fields)
+        sanitize_output: Whether to sanitize response data (default: False)
+        allow_html_fields: List of fields that can contain HTML
+
+    Usage:
+        class MyViewSet(SecureInputMixin, viewsets.ModelViewSet):
+            secure_fields = ['title', 'description', 'content']
+            allow_html_fields = ['content']  # Allow HTML in content field
+    """
+
+    secure_fields: Optional[List[str]] = None
+    sanitize_output: bool = False
+    allow_html_fields: List[str] = []
+
+    _sql_validator = SQLInjectionValidator(allow_quotes=True)
+    _xss_validator = XSSValidator(sanitize=True)
+
+    def get_secure_fields(self) -> Optional[List[str]]:
+        """Get the list of fields to validate."""
+        return self.secure_fields
+
+    def validate_secure_input(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate and sanitize input data.
+
+        Args:
+            data: The input data dictionary
+
+        Returns:
+            The validated and sanitized data
+
+        Raises:
+            ValidationError: If validation fails
+        """
+        validated_data = {}
+        secure_fields = self.get_secure_fields()
+
+        for key, value in data.items():
+            # Skip non-string values
+            if not isinstance(value, str):
+                validated_data[key] = value
+                continue
+
+            # Skip if not in secure_fields (when specified)
+            if secure_fields and key not in secure_fields:
+                validated_data[key] = value
+                continue
+
+            # Apply validators
+            try:
+                # SQL injection check
+                self._sql_validator(value)
+
+                # XSS sanitization (skip for allowed HTML fields)
+                if key in self.allow_html_fields:
+                    validated_data[key] = value
+                else:
+                    validated_data[key] = self._xss_validator(value)
+            except Exception as e:
+                logger.warning(
+                    f"Security validation failed for field '{key}': {e}"
+                )
+                raise
+
+        return validated_data
+
+    def create(self, request: Request, *args, **kwargs) -> Response:
+        """Override create to validate input."""
+        request._full_data = self.validate_secure_input(request.data)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request: Request, *args, **kwargs) -> Response:
+        """Override update to validate input."""
+        request._full_data = self.validate_secure_input(request.data)
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request: Request, *args, **kwargs) -> Response:
+        """Override partial_update to validate input."""
+        request._full_data = self.validate_secure_input(request.data)
+        return super().partial_update(request, *args, **kwargs)
+
+
+class OwnershipMixin:
+    """
+    Mixin that restricts queryset to objects owned by the current user.
+
+    Automatically filters querysets and validates ownership on mutations.
+
+    Attributes:
+        owner_field: The field name that references the owner (default: 'user')
+        owner_field_lookup: Lookup path for nested owner (e.g., 'organization__owner')
+        allow_staff_access: Whether staff can access all objects (default: False)
+        allow_superuser_access: Whether superusers can access all (default: True)
+
+    Usage:
+        class MyViewSet(OwnershipMixin, viewsets.ModelViewSet):
+            owner_field = 'created_by'
+            allow_staff_access = True
+    """
+
+    owner_field: str = 'user'
+    owner_field_lookup: Optional[str] = None
+    allow_staff_access: bool = False
+    allow_superuser_access: bool = True
+
+    def get_owner_field(self) -> str:
+        """Get the owner field name or lookup path."""
+        return self.owner_field_lookup or self.owner_field
+
+    def get_queryset(self) -> QuerySet:
+        """Filter queryset to owned objects."""
+        queryset = super().get_queryset()
+
+        user = self.request.user
+        if not user.is_authenticated:
+            return queryset.none()
+
+        # Superuser access
+        if self.allow_superuser_access and user.is_superuser:
+            return queryset
+
+        # Staff access
+        if self.allow_staff_access and user.is_staff:
+            return queryset
+
+        # Filter by ownership
+        owner_field = self.get_owner_field()
+        return queryset.filter(**{owner_field: user})
+
+    def perform_create(self, serializer) -> None:
+        """Set owner on create."""
+        owner_field = self.owner_field
+        if hasattr(serializer.Meta.model, owner_field):
+            serializer.save(**{owner_field: self.request.user})
+        else:
+            serializer.save()
+
+
+class OrganizationMixin:
+    """
+    Mixin for multi-tenant applications.
+
+    Filters queryset by the user's organization.
+
+    Attributes:
+        org_field: The field name for organization (default: 'organization')
+        org_user_field: Field path from user to org (default: 'organization')
+
+    Usage:
+        class MyViewSet(OrganizationMixin, viewsets.ModelViewSet):
+            org_field = 'company'
+            org_user_field = 'profile__company'
+    """
+
+    org_field: str = 'organization'
+    org_user_field: str = 'organization'
+
+    def get_organization(self):
+        """Get the user's organization."""
+        user = self.request.user
+        if not user.is_authenticated:
+            return None
+
+        # Navigate the field path
+        obj = user
+        for field in self.org_user_field.split('__'):
+            obj = getattr(obj, field, None)
+            if obj is None:
+                return None
+        return obj
+
+    def get_queryset(self) -> QuerySet:
+        """Filter queryset by organization."""
+        queryset = super().get_queryset()
+        org = self.get_organization()
+
+        if org is None:
+            return queryset.none()
+
+        return queryset.filter(**{self.org_field: org})
+
+    def perform_create(self, serializer) -> None:
+        """Set organization on create."""
+        org = self.get_organization()
+        if org:
+            serializer.save(**{self.org_field: org})
+        else:
+            serializer.save()
+
+
+class AuditLogMixin:
+    """
+    Mixin that logs all CRUD operations for auditing.
+
+    Logs:
+    - User performing the action
+    - Action type (create, update, delete)
+    - Object ID and type
+    - Changed fields (for updates)
+    - Timestamp and IP address
+
+    Usage:
+        class MyViewSet(AuditLogMixin, viewsets.ModelViewSet):
+            audit_log_name = 'product'  # Optional custom name
+    """
+
+    audit_log_name: Optional[str] = None
+
+    def get_audit_log_name(self) -> str:
+        """Get the name for audit logging."""
+        if self.audit_log_name:
+            return self.audit_log_name
+        if hasattr(self, 'queryset') and self.queryset is not None:
+            return self.queryset.model._meta.model_name
+        return 'unknown'
+
+    def _get_client_ip(self, request: Request) -> str:
+        """Get client IP from request."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR', 'unknown')
+
+    def _log_action(
+        self,
+        action: str,
+        request: Request,
+        instance: Optional[Model] = None,
+        changes: Optional[Dict] = None
+    ) -> None:
+        """Log an audit action."""
+        log_data = {
+            'action': action,
+            'model': self.get_audit_log_name(),
+            'user_id': request.user.id if request.user.is_authenticated else None,
+            'user_email': getattr(request.user, 'email', None),
+            'ip_address': self._get_client_ip(request),
+            'object_id': instance.pk if instance else None,
+        }
+        if changes:
+            log_data['changes'] = changes
+
+        logger.info(f"AUDIT: {log_data}")
+
+    def perform_create(self, serializer) -> None:
+        """Log create action."""
+        super().perform_create(serializer)
+        self._log_action('create', self.request, serializer.instance)
+
+    def perform_update(self, serializer) -> None:
+        """Log update action with changes."""
+        old_instance = self.get_object()
+        old_data = {f.name: getattr(old_instance, f.name) for f in old_instance._meta.fields}
+
+        super().perform_update(serializer)
+
+        # Calculate changes
+        new_data = {f.name: getattr(serializer.instance, f.name) for f in serializer.instance._meta.fields}
+        changes = {
+            k: {'old': str(old_data[k]), 'new': str(new_data[k])}
+            for k in old_data
+            if old_data[k] != new_data[k]
+        }
+
+        self._log_action('update', self.request, serializer.instance, changes)
+
+    def perform_destroy(self, instance: Model) -> None:
+        """Log delete action."""
+        self._log_action('delete', self.request, instance)
+        super().perform_destroy(instance)
+
+
+class SoftDeleteMixin:
+    """
+    Mixin that implements soft delete instead of hard delete.
+
+    Requires a `deleted_at` field on the model.
+
+    Usage:
+        class MyViewSet(SoftDeleteMixin, viewsets.ModelViewSet):
+            pass
+
+        # Model should have:
+        deleted_at = models.DateTimeField(null=True, blank=True)
+    """
+
+    def get_queryset(self) -> QuerySet:
+        """Exclude soft-deleted objects."""
+        queryset = super().get_queryset()
+        if hasattr(queryset.model, 'deleted_at'):
+            return queryset.filter(deleted_at__isnull=True)
+        return queryset
+
+    def perform_destroy(self, instance: Model) -> None:
+        """Soft delete by setting deleted_at."""
+        from django.utils import timezone
+
+        if hasattr(instance, 'deleted_at'):
+            instance.deleted_at = timezone.now()
+            instance.save(update_fields=['deleted_at'])
+        else:
+            super().perform_destroy(instance)
+
+
+class CacheResponseMixin:
+    """
+    Mixin that caches GET responses.
+
+    Attributes:
+        cache_timeout: Cache timeout in seconds (default: 300)
+        cache_key_prefix: Prefix for cache keys
+
+    Usage:
+        class MyViewSet(CacheResponseMixin, viewsets.ReadOnlyModelViewSet):
+            cache_timeout = 600  # 10 minutes
+    """
+
+    cache_timeout: int = 300
+    cache_key_prefix: str = 'view_cache'
+
+    def get_cache_key(self, request: Request) -> str:
+        """Generate cache key for request."""
+        from hashlib import md5
+        key_parts = [
+            self.cache_key_prefix,
+            request.path,
+            request.META.get('QUERY_STRING', ''),
+        ]
+        if request.user.is_authenticated:
+            key_parts.append(str(request.user.id))
+        key_string = ':'.join(key_parts)
+        return md5(key_string.encode()).hexdigest()
+
+    def list(self, request: Request, *args, **kwargs) -> Response:
+        """Cache list responses."""
+        from django.core.cache import cache
+
+        cache_key = self.get_cache_key(request)
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        response = super().list(request, *args, **kwargs)
+        if response.status_code == 200:
+            cache.set(cache_key, response.data, self.cache_timeout)
+        return response
+
+    def retrieve(self, request: Request, *args, **kwargs) -> Response:
+        """Cache retrieve responses."""
+        from django.core.cache import cache
+
+        cache_key = self.get_cache_key(request)
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        response = super().retrieve(request, *args, **kwargs)
+        if response.status_code == 200:
+            cache.set(cache_key, response.data, self.cache_timeout)
+        return response

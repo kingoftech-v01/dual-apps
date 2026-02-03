@@ -1,0 +1,19 @@
+[
+{% for app in apps_config %}
+{% set outer_loop = loop %}
+{% for i in range(3) %}
+  {
+    "model": "{{ app.name }}.{{ app.name }}",
+    "pk": "{{ '%08d' | format(loop.index) }}-0000-0000-0000-000000000001",
+    "fields": {
+      "title": "Demo {{ app.name_title }} {{ loop.index }}",
+      "description": "This is a demo {{ app.name }} item {{ loop.index }}.",
+      "created_at": "2024-01-0{{ loop.index }}T10:00:00Z",
+      "updated_at": "2024-01-0{{ loop.index }}T10:00:00Z",
+      "owner": 1
+    }
+  }{% if not (outer_loop.last and loop.last) %},{% endif %}
+
+{% endfor %}
+{% endfor %}
+]

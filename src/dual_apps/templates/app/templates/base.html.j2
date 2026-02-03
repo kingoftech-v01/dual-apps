@@ -1,0 +1,13 @@
+{% raw %}{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ app_name_title }} - {% block page_title %}{% endblock %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static '{% endraw %}{{ app_name }}{% raw %}/css/style.css' %}">
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static '{% endraw %}{{ app_name }}{% raw %}/js/app.js' %}"></script>
+{% endblock %}
+{% endraw %}

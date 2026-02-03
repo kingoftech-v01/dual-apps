@@ -1,0 +1,27 @@
+{
+  "name": "{{ project_name }}-e2e",
+  "version": "1.0.0",
+  "description": "E2E tests for {{ project_name }}",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report",
+    "test:chromium": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "test:mobile": "playwright test --project=mobile-chrome --project=mobile-safari",
+    "codegen": "playwright codegen http://localhost:8000",
+    "install-browsers": "playwright install"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  },
+  "keywords": [
+    "e2e",
+    "testing",
+    "playwright",
+    "{{ project_name }}"
+  ]
+}

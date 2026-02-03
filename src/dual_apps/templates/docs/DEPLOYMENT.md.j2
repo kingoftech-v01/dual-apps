@@ -1,0 +1,185 @@
+# Deployment Guide for {{ project_name_display }}
+
+## Production Checklist
+
+- [ ] Set `DEBUG=False`
+- [ ] Set strong `SECRET_KEY`
+- [ ] Configure `ALLOWED_HOSTS`
+- [ ] Enable HTTPS
+- [ ] Configure database
+- [ ] Set up static file serving
+- [ ] Configure email backend
+- [ ] Enable security headers
+- [ ] Set up monitoring (Sentry)
+- [ ] Configure backups
+
+## Docker Deployment
+
+### 1. Build Production Image
+
+```bash
+docker build -t {{ project_name }}:latest -f docker/Dockerfile.app .
+```
+
+### 2. Configure Environment
+
+```bash
+# Copy and edit production env
+cp .env.example .env.prod
+# Edit with production values
+```
+
+### 3. Start Services
+
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### 4. Run Migrations
+
+```bash
+docker-compose exec web python manage.py migrate
+docker-compose exec web python manage.py collectstatic --no-input
+```
+
+## Environment Variables (Production)
+
+```bash
+# Django
+DEBUG=False
+SECRET_KEY=your-production-secret-key-here
+ALLOWED_HOSTS={{ project_name }}.com,www.{{ project_name }}.com
+DJANGO_ENV=prod
+
+# Database
+DB_NAME={{ project_name }}_prod
+DB_USER={{ project_name }}
+DB_PASSWORD=secure-password-here
+DB_HOST=db
+DB_PORT=5432
+
+# Security
+SECURE_SSL_REDIRECT=True
+CORS_ALLOWED_ORIGINS=https://{{ project_name }}.com
+
+{% if celery %}
+# Celery
+CELERY_BROKER_URL=redis://redis:6379/0
+CELERY_RESULT_BACKEND=redis://redis:6379/0
+{% endif %}
+
+# Email
+EMAIL_HOST=smtp.sendgrid.net
+EMAIL_PORT=587
+EMAIL_HOST_USER=apikey
+EMAIL_HOST_PASSWORD=your-sendgrid-api-key
+DEFAULT_FROM_EMAIL=noreply@{{ project_name }}.com
+
+# Monitoring
+SENTRY_DSN=https://xxx@sentry.io/xxx
+```
+
+## Nginx Configuration
+
+Located at `docker/nginx/nginx.conf`. Key settings:
+
+- SSL/TLS termination
+- Static file serving
+- Proxy to Gunicorn
+- Security headers
+- Rate limiting
+
+## Gunicorn Configuration
+
+Located at `docker/gunicorn.conf.py`:
+
+```python
+workers = 4  # CPU cores * 2 + 1
+worker_class = "sync"
+bind = "0.0.0.0:8000"
+timeout = 30
+keepalive = 2
+```
+
+## Database Migrations
+
+```bash
+# Run migrations
+docker-compose exec web python manage.py migrate
+
+# Check migration status
+docker-compose exec web python manage.py showmigrations
+```
+
+## Static Files
+
+```bash
+# Collect static files
+docker-compose exec web python manage.py collectstatic --no-input
+
+# WhiteNoise serves static files in production
+```
+
+## Health Checks
+
+- `/health/` - Application health
+- `/api/v1/` - API status
+
+## Monitoring
+
+### Sentry Integration
+
+Configure `SENTRY_DSN` environment variable for error tracking.
+
+### Logging
+
+Logs are written to stdout and can be collected by Docker logging drivers.
+
+```bash
+# View logs
+docker-compose logs -f web
+```
+
+## Backup Strategy
+
+### Database Backup
+
+```bash
+# PostgreSQL dump
+docker-compose exec db pg_dump -U postgres {{ project_name }}_prod > backup.sql
+
+# Restore
+docker-compose exec -T db psql -U postgres {{ project_name }}_prod < backup.sql
+```
+
+### Automated Backups
+
+Set up cron job for daily backups:
+
+```bash
+0 2 * * * /path/to/backup-script.sh
+```
+
+## Scaling
+
+### Horizontal Scaling
+
+```bash
+# Scale web workers
+docker-compose up -d --scale web=3
+```
+
+### Load Balancing
+
+Use nginx or cloud load balancer to distribute traffic.
+
+## Rollback
+
+```bash
+# Rollback to previous version
+docker-compose pull
+docker-compose up -d --force-recreate
+
+# Rollback migrations
+docker-compose exec web python manage.py migrate app_name 0001
+```

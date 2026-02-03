@@ -1,0 +1,432 @@
+"""
+Security utility functions.
+
+Provides helper functions for:
+- Password strength checking
+- Token generation
+- IP address validation
+- Secure random generation
+- Hash comparison
+- URL validation
+
+Usage:
+    from apps.core.security.utils import (
+        check_password_strength,
+        generate_secure_token,
+        is_safe_url,
+        constant_time_compare,
+    )
+"""
+import hashlib
+import hmac
+import re
+import secrets
+import string
+from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
+
+from django.conf import settings
+
+
+def check_password_strength(password: str) -> Tuple[bool, List[str]]:
+    """
+    Check password strength and return validation result.
+
+    Checks for:
+    - Minimum length (8 characters)
+    - Maximum length (128 characters)
+    - Uppercase letter
+    - Lowercase letter
+    - Digit
+    - Special character
+    - Common patterns (sequential, repeated)
+
+    Args:
+        password: The password to check
+
+    Returns:
+        Tuple of (is_valid, list_of_errors)
+
+    Usage:
+        is_valid, errors = check_password_strength("MyP@ssw0rd!")
+        if not is_valid:
+            print("Password errors:", errors)
+    """
+    errors = []
+
+    # Length checks
+    if len(password) < 8:
+        errors.append("Password must be at least 8 characters long")
+    if len(password) > 128:
+        errors.append("Password must not exceed 128 characters")
+
+    # Character type checks
+    if not re.search(r'[a-z]', password):
+        errors.append("Password must contain at least one lowercase letter")
+    if not re.search(r'[A-Z]', password):
+        errors.append("Password must contain at least one uppercase letter")
+    if not re.search(r'\d', password):
+        errors.append("Password must contain at least one digit")
+    if not re.search(r'[@$!%*?&#^()_+=-]', password):
+        errors.append("Password must contain at least one special character (@$!%*?&#^()_+=-)")
+
+    # Common pattern checks
+    if re.search(r'(.)\1{2,}', password):
+        errors.append("Password must not contain repeated characters (3+ in a row)")
+
+    # Sequential character check
+    sequences = ['abcdefghijklmnopqrstuvwxyz', '0123456789', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm']
+    password_lower = password.lower()
+    for seq in sequences:
+        for i in range(len(seq) - 2):
+            if seq[i:i+3] in password_lower or seq[i:i+3][::-1] in password_lower:
+                errors.append("Password must not contain sequential characters")
+                break
+
+    # Common password check (basic)
+    common_passwords = {
+        'password', 'password1', '123456', '12345678', 'qwerty',
+        'admin', 'letmein', 'welcome', 'monkey', 'dragon',
+        'master', 'login', 'abc123', 'iloveyou', 'password123'
+    }
+    if password.lower() in common_passwords:
+        errors.append("Password is too common")
+
+    return len(errors) == 0, errors
+
+
+def generate_secure_token(length: int = 32, url_safe: bool = True) -> str:
+    """
+    Generate a cryptographically secure random token.
+
+    Args:
+        length: Length of the token (default: 32)
+        url_safe: If True, use URL-safe characters (default: True)
+
+    Returns:
+        A random token string
+
+    Usage:
+        token = generate_secure_token()  # URL-safe 32-char token
+        api_key = generate_secure_token(64)  # 64-char API key
+    """
+    if url_safe:
+        return secrets.token_urlsafe(length)
+    return secrets.token_hex(length // 2)
+
+
+def generate_api_key(prefix: str = "dk") -> str:
+    """
+    Generate an API key with prefix.
+
+    Format: prefix_randomstring
+
+    Args:
+        prefix: Prefix for the API key (default: "dk" for dual-key)
+
+    Returns:
+        An API key string
+
+    Usage:
+        api_key = generate_api_key()  # "dk_a1b2c3d4e5..."
+        api_key = generate_api_key("live")  # "live_a1b2c3d4e5..."
+    """
+    random_part = secrets.token_urlsafe(32)
+    return f"{prefix}_{random_part}"
+
+
+def hash_token(token: str) -> str:
+    """
+    Hash a token for secure storage.
+
+    Uses SHA-256 for hashing.
+
+    Args:
+        token: The token to hash
+
+    Returns:
+        Hexadecimal hash string
+
+    Usage:
+        hashed = hash_token(api_key)
+        # Store hashed in database
+    """
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def constant_time_compare(val1: str, val2: str) -> bool:
+    """
+    Compare two strings in constant time.
+
+    Prevents timing attacks by ensuring comparison takes
+    the same time regardless of where strings differ.
+
+    Args:
+        val1: First string
+        val2: Second string
+
+    Returns:
+        True if strings are equal
+
+    Usage:
+        if constant_time_compare(provided_token, stored_token):
+            # Valid token
+    """
+    return hmac.compare_digest(val1, val2)
+
+
+def is_safe_url(url: str, allowed_hosts: Optional[List[str]] = None) -> bool:
+    """
+    Check if a URL is safe for redirects.
+
+    Prevents open redirect vulnerabilities.
+
+    Args:
+        url: The URL to check
+        allowed_hosts: List of allowed hosts (default: settings.ALLOWED_HOSTS)
+
+    Returns:
+        True if the URL is safe
+
+    Usage:
+        next_url = request.GET.get('next', '/')
+        if is_safe_url(next_url):
+            return redirect(next_url)
+    """
+    if allowed_hosts is None:
+        allowed_hosts = list(getattr(settings, 'ALLOWED_HOSTS', []))
+        if settings.DEBUG:
+            allowed_hosts.extend(['localhost', '127.0.0.1', 'testserver'])
+
+    if not url:
+        return False
+
+    # Allow relative URLs
+    if url.startswith('/') and not url.startswith('//'):
+        return True
+
+    try:
+        parsed = urlparse(url)
+
+        # Disallow javascript: and data: URLs
+        if parsed.scheme in ('javascript', 'data', 'vbscript'):
+            return False
+
+        # Check host against allowed hosts
+        if parsed.netloc:
+            return parsed.netloc in allowed_hosts
+
+        return True
+    except Exception:
+        return False
+
+
+def mask_sensitive_data(data: str, visible_chars: int = 4) -> str:
+    """
+    Mask sensitive data for logging/display.
+
+    Shows only the last N characters.
+
+    Args:
+        data: The sensitive data to mask
+        visible_chars: Number of characters to show at the end
+
+    Returns:
+        Masked string
+
+    Usage:
+        masked_card = mask_sensitive_data("4111111111111111")
+        # Returns: "************1111"
+    """
+    if len(data) <= visible_chars:
+        return '*' * len(data)
+    masked_length = len(data) - visible_chars
+    return '*' * masked_length + data[-visible_chars:]
+
+
+def mask_email(email: str) -> str:
+    """
+    Mask an email address for privacy.
+
+    Args:
+        email: The email to mask
+
+    Returns:
+        Masked email
+
+    Usage:
+        masked = mask_email("user@example.com")
+        # Returns: "u***@e***.com"
+    """
+    if '@' not in email:
+        return mask_sensitive_data(email)
+
+    local, domain = email.rsplit('@', 1)
+    domain_parts = domain.rsplit('.', 1)
+
+    masked_local = local[0] + '***' if len(local) > 1 else '*'
+
+    if len(domain_parts) == 2:
+        masked_domain = domain_parts[0][0] + '***.' + domain_parts[1]
+    else:
+        masked_domain = '***'
+
+    return f"{masked_local}@{masked_domain}"
+
+
+def get_client_ip(request) -> str:
+    """
+    Get the real client IP address from a request.
+
+    Handles proxies and load balancers.
+
+    Args:
+        request: Django HttpRequest object
+
+    Returns:
+        Client IP address string
+
+    Usage:
+        ip = get_client_ip(request)
+    """
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+
+    x_real_ip = request.META.get('HTTP_X_REAL_IP')
+    if x_real_ip:
+        return x_real_ip
+
+    return request.META.get('REMOTE_ADDR', '0.0.0.0')
+
+
+def is_valid_ip(ip: str) -> bool:
+    """
+    Validate an IP address (IPv4 or IPv6).
+
+    Args:
+        ip: IP address string
+
+    Returns:
+        True if valid IP address
+
+    Usage:
+        if is_valid_ip(client_ip):
+            # Process request
+    """
+    import ipaddress
+    try:
+        ipaddress.ip_address(ip)
+        return True
+    except ValueError:
+        return False
+
+
+def is_private_ip(ip: str) -> bool:
+    """
+    Check if an IP address is private/internal.
+
+    Args:
+        ip: IP address string
+
+    Returns:
+        True if IP is private
+
+    Usage:
+        if is_private_ip(client_ip):
+            # Internal request
+    """
+    import ipaddress
+    try:
+        ip_obj = ipaddress.ip_address(ip)
+        return ip_obj.is_private or ip_obj.is_loopback
+    except ValueError:
+        return False
+
+
+def sanitize_log_data(data: Dict) -> Dict:
+    """
+    Sanitize data for logging by masking sensitive fields.
+
+    Args:
+        data: Dictionary of data to sanitize
+
+    Returns:
+        Sanitized dictionary
+
+    Usage:
+        log_data = sanitize_log_data(request.POST.dict())
+        logger.info(f"Request: {log_data}")
+    """
+    sensitive_fields = {
+        'password', 'password1', 'password2', 'new_password',
+        'old_password', 'confirm_password', 'secret', 'token',
+        'api_key', 'access_token', 'refresh_token', 'credit_card',
+        'card_number', 'cvv', 'ssn', 'social_security'
+    }
+
+    sanitized = {}
+    for key, value in data.items():
+        if key.lower() in sensitive_fields:
+            sanitized[key] = '[REDACTED]'
+        elif isinstance(value, dict):
+            sanitized[key] = sanitize_log_data(value)
+        else:
+            sanitized[key] = value
+
+    return sanitized
+
+
+def generate_csrf_token() -> str:
+    """
+    Generate a CSRF token.
+
+    Returns:
+        A 64-character hexadecimal token
+
+    Usage:
+        csrf_token = generate_csrf_token()
+    """
+    return secrets.token_hex(32)
+
+
+def verify_signature(payload: str, signature: str, secret: str) -> bool:
+    """
+    Verify an HMAC signature.
+
+    Useful for webhook verification.
+
+    Args:
+        payload: The payload that was signed
+        signature: The provided signature
+        secret: The secret key
+
+    Returns:
+        True if signature is valid
+
+    Usage:
+        if verify_signature(request.body.decode(), provided_sig, webhook_secret):
+            # Valid webhook
+    """
+    expected = hmac.new(
+        secret.encode(),
+        payload.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    return constant_time_compare(expected, signature)
+
+
+def generate_otp(length: int = 6) -> str:
+    """
+    Generate a numeric OTP (One-Time Password).
+
+    Args:
+        length: Length of OTP (default: 6)
+
+    Returns:
+        Numeric string OTP
+
+    Usage:
+        otp = generate_otp()  # "482917"
+    """
+    return ''.join(secrets.choice(string.digits) for _ in range(length))

@@ -1,0 +1,86 @@
+# Zumodra Convention v3.0 for {{ project_name_display }}
+
+## Core Principles
+
+### 1. Dual Layer Architecture (MANDATORY)
+Every app MUST have:
+- **Frontend Layer**: HTMX + Alpine.js + Tailwind CSS
+- **API Layer**: DRF ViewSets + OpenAPI
+
+### 2. Model Requirements
+All models MUST have:
+- UUID primary key
+- `created_at` timestamp
+- `updated_at` timestamp
+- `owner` ForeignKey to User
+
+```python
+class BaseModel(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    class Meta:
+        abstract = True
+```
+
+### 3. View Structure
+
+**Frontend (HTMX):**
+- Use class-based views
+- Render HTML templates
+- Support HTMX partial updates
+
+**API (DRF):**
+- Use ModelViewSet
+- Include filtering, search, ordering
+- Document with drf-spectacular
+
+### 4. URL Patterns
+
+```python
+# Frontend URLs
+urlpatterns = [
+    path("", ListView.as_view(), name="list"),
+    path("<uuid:pk>/", DetailView.as_view(), name="detail"),
+    path("create/", CreateView.as_view(), name="create"),
+    path("<uuid:pk>/edit/", UpdateView.as_view(), name="update"),
+    path("<uuid:pk>/delete/", DeleteView.as_view(), name="delete"),
+]
+
+# API URLs (via router)
+router.register(r"items", ItemViewSet)
+```
+
+### 5. Permission Pattern
+
+```python
+class IsOwnerOrReadOnly(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.owner == request.user
+```
+
+### 6. Testing Requirements
+- Minimum 85% coverage
+- Test models, API, frontend, permissions
+- Use pytest + factory_boy
+
+### 7. File Structure
+
+```
+app/
+├── __init__.py
+├── models.py           # UUID + timestamps + owner
+├── views_frontend.py   # HTMX views
+├── views_api.py        # DRF ViewSet
+├── serializers.py      # API serializers
+├── forms.py            # Django forms
+├── urls.py             # Dual URL patterns
+├── permissions.py      # IsOwnerOrReadOnly
+├── admin.py            # Admin configuration
+├── templates/app/      # HTMX templates
+└── tests/              # 45+ tests
+```

@@ -1,0 +1,158 @@
+# Customization Guide for {{ project_name_display }}
+
+## Overview
+
+This guide covers common customization scenarios for {{ project_name_display }}.
+
+## Adding Custom Fields
+
+### 1. Update Model
+
+```python
+# apps/{{ apps[0] }}/models.py
+class {{ apps[0]|title }}(models.Model):
+    # ... existing fields ...
+    custom_field = models.CharField(max_length=100, blank=True)
+```
+
+### 2. Create Migration
+
+```bash
+python manage.py makemigrations
+python manage.py migrate
+```
+
+### 3. Update Serializer
+
+```python
+# apps/{{ apps[0] }}/serializers.py
+class {{ apps[0]|title }}Serializer(serializers.ModelSerializer):
+    class Meta:
+        fields = [..., "custom_field"]
+```
+
+### 4. Update Form
+
+```python
+# apps/{{ apps[0] }}/forms.py
+class {{ apps[0]|title }}Form(forms.ModelForm):
+    class Meta:
+        fields = [..., "custom_field"]
+```
+
+### 5. Update Templates
+
+Add field to form and detail templates.
+
+## Custom Permissions
+
+```python
+# apps/{{ apps[0] }}/permissions.py
+class IsManagerOrReadOnly(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return request.user.groups.filter(name="managers").exists()
+```
+
+## Custom Filters
+
+```python
+# apps/{{ apps[0] }}/filters.py
+import django_filters
+
+class {{ apps[0]|title }}Filter(django_filters.FilterSet):
+    created_after = django_filters.DateFilter(
+        field_name="created_at",
+        lookup_expr="gte"
+    )
+
+    class Meta:
+        model = {{ apps[0]|title }}
+        fields = ["status", "created_after"]
+```
+
+## Custom Actions (DRF)
+
+```python
+# apps/{{ apps[0] }}/views_api.py
+class {{ apps[0]|title }}ViewSet(viewsets.ModelViewSet):
+    @action(detail=True, methods=["post"])
+    def archive(self, request, pk=None):
+        obj = self.get_object()
+        obj.is_archived = True
+        obj.save()
+        return Response({"status": "archived"})
+```
+
+## Custom Templates
+
+### Override Base Template
+
+```html
+<!-- templates/base.html -->
+{% raw %}{% extends "base.html" %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/custom.css' %}">
+{% endblock %}{% endraw %}
+```
+
+### Override App Template
+
+Create: `templates/{{ apps[0] }}/list.html` to override app template.
+
+## Custom Middleware
+
+```python
+# {{ project_name }}/middleware.py
+class CustomMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Before view
+        response = self.get_response(request)
+        # After view
+        return response
+```
+
+Add to `MIDDLEWARE` in settings.
+
+## Custom Management Commands
+
+```python
+# apps/{{ apps[0] }}/management/commands/custom_command.py
+from django.core.management.base import BaseCommand
+
+class Command(BaseCommand):
+    help = "Custom command description"
+
+    def add_arguments(self, parser):
+        parser.add_argument("--option", type=str)
+
+    def handle(self, *args, **options):
+        self.stdout.write("Running custom command...")
+```
+
+## Theme Customization
+
+### Tailwind Colors
+
+Edit `staticfiles/css/dual-base.css` or add custom CSS.
+
+### Alpine.js Components
+
+Create reusable components in `staticfiles/js/dual-global.js`.
+
+## Environment-Specific Settings
+
+```python
+# {{ project_name }}/settings/local.py (create this)
+from .dev import *
+
+# Local overrides
+DEBUG = True
+CUSTOM_SETTING = "value"
+```
+
+Set `DJANGO_SETTINGS_MODULE={{ project_name }}.settings.local`

@@ -1,0 +1,362 @@
+"""
+Security middleware for Django applications.
+
+Provides:
+- Security headers (CSP, HSTS, X-Frame-Options, etc.)
+- Brute force protection
+- Request sanitization
+- Rate limiting by IP
+
+Usage in settings.py:
+    MIDDLEWARE = [
+        'apps.core.security.middleware.SecurityHeadersMiddleware',
+        'apps.core.security.middleware.BruteForceProtectionMiddleware',
+        # ... other middleware
+    ]
+"""
+import time
+import logging
+from collections import defaultdict
+from typing import Dict, Tuple, Optional, Callable
+from django.conf import settings
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
+from django.core.cache import cache
+from django.utils.deprecation import MiddlewareMixin
+
+logger = logging.getLogger(__name__)
+
+
+class SecurityHeadersMiddleware:
+    """
+    Adds security headers to all responses.
+
+    Headers added:
+    - Content-Security-Policy: Prevents XSS and data injection attacks
+    - X-Content-Type-Options: Prevents MIME type sniffing
+    - X-Frame-Options: Prevents clickjacking
+    - X-XSS-Protection: Legacy XSS protection
+    - Referrer-Policy: Controls referrer information
+    - Permissions-Policy: Restricts browser features
+    - Strict-Transport-Security: Enforces HTTPS (production only)
+
+    Configuration in settings.py:
+        SECURITY_HEADERS = {
+            'CSP_POLICY': "default-src 'self'; ...",
+            'FRAME_OPTIONS': 'DENY',
+            'REFERRER_POLICY': 'strict-origin-when-cross-origin',
+        }
+    """
+
+    # Default CSP policy
+    DEFAULT_CSP = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+        "img-src 'self' data: https:; "
+        "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; "
+        "connect-src 'self' https://api.stripe.com; "
+        "frame-ancestors 'none'; "
+        "form-action 'self'; "
+        "base-uri 'self';"
+    )
+
+    def __init__(self, get_response: Callable):
+        self.get_response = get_response
+        self.security_config = getattr(settings, 'SECURITY_HEADERS', {})
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        response = self.get_response(request)
+        self._add_security_headers(response)
+        return response
+
+    def _add_security_headers(self, response: HttpResponse) -> None:
+        """Add security headers to the response."""
+        # Content Security Policy
+        csp = self.security_config.get('CSP_POLICY', self.DEFAULT_CSP)
+        response['Content-Security-Policy'] = csp
+
+        # Prevent MIME type sniffing
+        response['X-Content-Type-Options'] = 'nosniff'
+
+        # Clickjacking protection
+        frame_options = self.security_config.get('FRAME_OPTIONS', 'DENY')
+        response['X-Frame-Options'] = frame_options
+
+        # Legacy XSS protection (for older browsers)
+        response['X-XSS-Protection'] = '1; mode=block'
+
+        # Referrer policy
+        referrer_policy = self.security_config.get(
+            'REFERRER_POLICY',
+            'strict-origin-when-cross-origin'
+        )
+        response['Referrer-Policy'] = referrer_policy
+
+        # Permissions policy (restrict browser features)
+        permissions = self.security_config.get(
+            'PERMISSIONS_POLICY',
+            'geolocation=(), microphone=(), camera=(), payment=()'
+        )
+        response['Permissions-Policy'] = permissions
+
+        # HSTS (only in production)
+        if not settings.DEBUG:
+            hsts_max_age = self.security_config.get('HSTS_MAX_AGE', 31536000)
+            hsts_value = f'max-age={hsts_max_age}; includeSubDomains; preload'
+            response['Strict-Transport-Security'] = hsts_value
+
+        # Cache control for sensitive pages
+        if hasattr(response, 'is_sensitive') and response.is_sensitive:
+            response['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+            response['Pragma'] = 'no-cache'
+
+
+class BruteForceProtectionMiddleware:
+    """
+    Protects against brute force attacks.
+
+    Features:
+    - Tracks failed login attempts per IP
+    - Implements progressive lockout
+    - Uses Redis/cache for distributed tracking
+    - Logs suspicious activity
+
+    Configuration in settings.py:
+        BRUTE_FORCE_PROTECTION = {
+            'MAX_ATTEMPTS': 5,
+            'LOCKOUT_TIME': 900,  # 15 minutes
+            'TRACKED_PATHS': ['/api/auth/login/', '/admin/login/'],
+            'WHITELIST_IPS': ['127.0.0.1'],
+        }
+    """
+
+    def __init__(self, get_response: Callable):
+        self.get_response = get_response
+        config = getattr(settings, 'BRUTE_FORCE_PROTECTION', {})
+        self.max_attempts = config.get('MAX_ATTEMPTS', 5)
+        self.lockout_time = config.get('LOCKOUT_TIME', 900)  # 15 minutes
+        self.tracked_paths = config.get('TRACKED_PATHS', [
+            '/api/auth/login/',
+            '/api/auth/token/',
+            '/api/v1/auth/login/',
+            '/api/v1/auth/token/',
+            '/admin/login/',
+            '/accounts/login/',
+        ])
+        self.whitelist_ips = set(config.get('WHITELIST_IPS', []))
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        client_ip = self._get_client_ip(request)
+
+        # Skip whitelisted IPs
+        if client_ip in self.whitelist_ips:
+            return self.get_response(request)
+
+        # Check if this is a tracked path
+        if not self._is_tracked_path(request.path):
+            return self.get_response(request)
+
+        # Check if IP is locked out
+        if self._is_locked_out(client_ip):
+            logger.warning(
+                f"Blocked request from locked out IP: {client_ip} to {request.path}"
+            )
+            return self._lockout_response(request)
+
+        response = self.get_response(request)
+
+        # Track failed authentication attempts
+        if self._is_failed_auth(request, response):
+            self._record_failed_attempt(client_ip)
+
+        # Reset on successful auth
+        if self._is_successful_auth(request, response):
+            self._reset_attempts(client_ip)
+
+        return response
+
+    def _get_client_ip(self, request: HttpRequest) -> str:
+        """Get the real client IP address."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0].strip()
+        x_real_ip = request.META.get('HTTP_X_REAL_IP')
+        if x_real_ip:
+            return x_real_ip
+        return request.META.get('REMOTE_ADDR', '0.0.0.0')
+
+    def _is_tracked_path(self, path: str) -> bool:
+        """Check if the path should be tracked."""
+        return any(path.startswith(tracked) for tracked in self.tracked_paths)
+
+    def _is_locked_out(self, ip: str) -> bool:
+        """Check if an IP is currently locked out."""
+        cache_key = f'brute_force_lockout:{ip}'
+        return cache.get(cache_key) is not None
+
+    def _record_failed_attempt(self, ip: str) -> None:
+        """Record a failed login attempt."""
+        attempts_key = f'brute_force_attempts:{ip}'
+        attempts = cache.get(attempts_key, 0) + 1
+        cache.set(attempts_key, attempts, timeout=self.lockout_time)
+
+        if attempts >= self.max_attempts:
+            lockout_key = f'brute_force_lockout:{ip}'
+            cache.set(lockout_key, True, timeout=self.lockout_time)
+            logger.warning(
+                f"IP {ip} locked out after {attempts} failed attempts"
+            )
+
+    def _reset_attempts(self, ip: str) -> None:
+        """Reset failed attempts after successful login."""
+        cache.delete(f'brute_force_attempts:{ip}')
+        cache.delete(f'brute_force_lockout:{ip}')
+
+    def _is_failed_auth(self, request: HttpRequest, response: HttpResponse) -> bool:
+        """Check if the response indicates a failed authentication."""
+        if request.method != 'POST':
+            return False
+        # Check for common failure status codes
+        return response.status_code in [400, 401, 403]
+
+    def _is_successful_auth(self, request: HttpRequest, response: HttpResponse) -> bool:
+        """Check if the response indicates successful authentication."""
+        if request.method != 'POST':
+            return False
+        return response.status_code in [200, 201, 302]
+
+    def _lockout_response(self, request: HttpRequest) -> HttpResponse:
+        """Return appropriate response for locked out users."""
+        message = "Too many failed attempts. Please try again later."
+
+        # Return JSON for API requests
+        if request.path.startswith('/api/'):
+            return JsonResponse(
+                {'error': message, 'retry_after': self.lockout_time},
+                status=429
+            )
+
+        return HttpResponseForbidden(message)
+
+
+class RateLimitMiddleware:
+    """
+    Global rate limiting middleware.
+
+    Implements token bucket algorithm for rate limiting.
+
+    Configuration in settings.py:
+        RATE_LIMIT = {
+            'DEFAULT_RATE': '100/min',
+            'BURST_RATE': '20/sec',
+            'BY_IP': True,
+            'BY_USER': True,
+        }
+    """
+
+    def __init__(self, get_response: Callable):
+        self.get_response = get_response
+        config = getattr(settings, 'RATE_LIMIT', {})
+        self.default_rate = self._parse_rate(config.get('DEFAULT_RATE', '100/min'))
+        self.burst_rate = self._parse_rate(config.get('BURST_RATE', '20/sec'))
+        self.by_ip = config.get('BY_IP', True)
+        self.by_user = config.get('BY_USER', True)
+        self.whitelist_paths = config.get('WHITELIST_PATHS', ['/health/', '/static/'])
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        # Skip whitelisted paths
+        if any(request.path.startswith(p) for p in self.whitelist_paths):
+            return self.get_response(request)
+
+        # Get rate limit key
+        key = self._get_rate_limit_key(request)
+
+        # Check rate limit
+        if not self._check_rate_limit(key):
+            return self._rate_limit_response(request)
+
+        return self.get_response(request)
+
+    def _parse_rate(self, rate_string: str) -> Tuple[int, int]:
+        """Parse rate string like '100/min' into (count, seconds)."""
+        count, period = rate_string.split('/')
+        count = int(count)
+        period_map = {'sec': 1, 'min': 60, 'hour': 3600, 'day': 86400}
+        seconds = period_map.get(period, 60)
+        return count, seconds
+
+    def _get_rate_limit_key(self, request: HttpRequest) -> str:
+        """Generate a unique key for rate limiting."""
+        parts = ['ratelimit']
+
+        if self.by_user and request.user.is_authenticated:
+            parts.append(f'user:{request.user.id}')
+        elif self.by_ip:
+            ip = self._get_client_ip(request)
+            parts.append(f'ip:{ip}')
+
+        return ':'.join(parts)
+
+    def _get_client_ip(self, request: HttpRequest) -> str:
+        """Get client IP address."""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR', '0.0.0.0')
+
+    def _check_rate_limit(self, key: str) -> bool:
+        """Check if request is within rate limit."""
+        count, period = self.default_rate
+        cache_key = f'{key}:{int(time.time()) // period}'
+
+        current = cache.get(cache_key, 0)
+        if current >= count:
+            return False
+
+        cache.set(cache_key, current + 1, timeout=period)
+        return True
+
+    def _rate_limit_response(self, request: HttpRequest) -> HttpResponse:
+        """Return rate limit exceeded response."""
+        _, period = self.default_rate
+        message = f"Rate limit exceeded. Please retry after {period} seconds."
+
+        if request.path.startswith('/api/'):
+            return JsonResponse(
+                {'error': message, 'retry_after': period},
+                status=429
+            )
+
+        response = HttpResponse(message, status=429)
+        response['Retry-After'] = str(period)
+        return response
+
+
+class RequestSanitizationMiddleware:
+    """
+    Sanitizes incoming request data.
+
+    Features:
+    - Strips null bytes from input
+    - Normalizes Unicode
+    - Logs suspicious requests
+
+    Note: This is a defense-in-depth measure. Always use validators
+    at the form/serializer level as well.
+    """
+
+    def __init__(self, get_response: Callable):
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        # Check for null bytes in path
+        if '\x00' in request.path:
+            logger.warning(f"Null byte detected in path from {request.META.get('REMOTE_ADDR')}")
+            return HttpResponseForbidden("Invalid request")
+
+        # Check query string
+        if request.META.get('QUERY_STRING') and '\x00' in request.META['QUERY_STRING']:
+            logger.warning(f"Null byte detected in query string from {request.META.get('REMOTE_ADDR')}")
+            return HttpResponseForbidden("Invalid request")
+
+        return self.get_response(request)

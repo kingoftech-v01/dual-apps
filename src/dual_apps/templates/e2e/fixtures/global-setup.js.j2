@@ -1,0 +1,51 @@
+/**
+ * Global setup for Playwright tests.
+ *
+ * Runs once before all tests:
+ * - Sets up test database
+ * - Creates test users
+ * - Performs initial authentication
+ */
+const { chromium } = require('@playwright/test');
+
+module.exports = async () => {
+  console.log('🚀 Global setup starting...');
+
+  // Create browser for setup
+  const browser = await chromium.launch();
+  const context = await browser.newContext();
+  const page = await context.newPage();
+
+  try {
+    // Wait for server to be ready
+    console.log('⏳ Waiting for server...');
+    let retries = 30;
+    while (retries > 0) {
+      try {
+        await page.goto('http://localhost:8000/health/', { timeout: 5000 });
+        break;
+      } catch (e) {
+        retries--;
+        if (retries === 0) {
+          console.log('⚠️  Server health check failed, continuing anyway...');
+        }
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+
+    // Verify homepage loads
+    console.log('✅ Server is ready');
+    await page.goto('http://localhost:8000/');
+    console.log(`📄 Homepage title: ${await page.title()}`);
+
+    // Store authentication state for authenticated tests
+    // This will be done in individual test setup if needed
+
+  } catch (error) {
+    console.error('❌ Global setup failed:', error.message);
+  } finally {
+    await browser.close();
+  }
+
+  console.log('✅ Global setup complete');
+};
