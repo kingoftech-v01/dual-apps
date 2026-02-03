@@ -1,0 +1,196 @@
+{% raw %}/**
+ * Post List Page for {{ project_name_display }} Blog
+ */
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
+import api from '../utils/api';
+import PostCard from '../components/posts/PostCard';
+import Sidebar from '../components/layout/Sidebar';
+import Pagination from '../components/common/Pagination';
+
+function PostListPage({ category, tag, searchQuery }) {
+  const [searchParams] = useSearchParams();
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    totalPages: 1,
+    totalCount: 0,
+  });
+
+  const currentPage = parseInt(searchParams.get('page') || '1');
+  const query = searchQuery || searchParams.get('q');
+
+  const fetchPosts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const params = { page: currentPage };
+      if (category) params.category = category;
+      if (tag) params.tag = tag;
+      if (query) params.search = query;
+
+      const response = await api.get('/api/v1/posts/', { params });
+      setPosts(response.data.results);
+      setPagination({
+        page: currentPage,
+        totalPages: Math.ceil(response.data.count / 10),
+        totalCount: response.data.count,
+      });
+    } catch (err) {
+      setError('Failed to load posts');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, category, tag, query]);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
+
+  const getTitle = () => {
+    if (category) return `Category: ${category}`;
+    if (tag) return `Tag: ${tag}`;
+    if (query) return `Search: "${query}"`;
+    return 'Latest Posts';
+  };
+
+  return (
+{% if css_framework == 'tailwind' %}
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Content */}
+        <div className="lg:col-span-2">
+          <h1 className="text-3xl font-bold mb-6">{getTitle()}</h1>
+
+          {(category || tag || query) && (
+            <div className="bg-gray-100 rounded-lg p-4 mb-6 flex justify-between items-center">
+              <span>
+                Showing {pagination.totalCount} result{pagination.totalCount !== 1 ? 's' : ''}
+              </span>
+              <Link to="/posts" className="text-blue-600 hover:text-blue-800">
+                Clear filter
+              </Link>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="space-y-6">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="bg-gray-200 h-48 rounded-lg mb-4"></div>
+                  <div className="bg-gray-200 h-6 rounded w-3/4 mb-2"></div>
+                  <div className="bg-gray-200 h-4 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-red-500">{error}</p>
+              <button
+                onClick={fetchPosts}
+                className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : posts.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">📝</div>
+              <h3 className="text-xl font-semibold mb-2">No posts found</h3>
+              <p className="text-gray-500">Check back later for new content!</p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-6">
+                {posts.map((post) => (
+                  <PostCard key={post.id} post={post} />
+                ))}
+              </div>
+
+              {pagination.totalPages > 1 && (
+                <Pagination
+                  currentPage={pagination.page}
+                  totalPages={pagination.totalPages}
+                  basePath="/posts"
+                />
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <aside>
+          <Sidebar />
+        </aside>
+      </div>
+    </div>
+{% else %}
+    <div className="container py-4">
+      <div className="row">
+        <div className="col-lg-8">
+          <h1 className="mb-4">{getTitle()}</h1>
+
+          {(category || tag || query) && (
+            <div className="alert alert-light d-flex justify-content-between align-items-center">
+              <span>Showing {pagination.totalCount} result{pagination.totalCount !== 1 ? 's' : ''}</span>
+              <Link to="/posts" className="btn btn-sm btn-outline-secondary">Clear filter</Link>
+            </div>
+          )}
+
+          {loading ? (
+            [...Array(3)].map((_, i) => (
+              <div key={i} className="card mb-4">
+                <div className="card-body">
+                  <div className="placeholder-glow">
+                    <span className="placeholder col-12" style={{ height: 200 }}></span>
+                    <span className="placeholder col-8 mt-2"></span>
+                    <span className="placeholder col-4"></span>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : error ? (
+            <div className="text-center py-5">
+              <p className="text-danger">{error}</p>
+              <button className="btn btn-primary mt-3" onClick={fetchPosts}>
+                Try Again
+              </button>
+            </div>
+          ) : posts.length === 0 ? (
+            <div className="text-center py-5">
+              <div className="mb-4" style={{ fontSize: '5rem' }}>📝</div>
+              <h3>No posts found</h3>
+              <p className="text-muted">Check back later for new content!</p>
+            </div>
+          ) : (
+            <>
+              {posts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+
+              {pagination.totalPages > 1 && (
+                <Pagination
+                  currentPage={pagination.page}
+                  totalPages={pagination.totalPages}
+                  basePath="/posts"
+                />
+              )}
+            </>
+          )}
+        </div>
+
+        <aside className="col-lg-4">
+          <Sidebar />
+        </aside>
+      </div>
+    </div>
+{% endif %}
+  );
+}
+
+export default PostListPage;
+{% endraw %}

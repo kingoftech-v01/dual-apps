@@ -1,0 +1,200 @@
+{% raw %}{% extends "blog/base_blog.html" %}
+
+{% block title %}{{ post.title }} - {{ project_name_display }}{% endblock %}
+
+{% block extra_head %}
+{{ block.super }}
+<meta property="og:title" content="{{ post.title }}">
+<meta property="og:description" content="{{ post.excerpt }}">
+{% if post.featured_image %}
+<meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{{ post.featured_image.url }}">
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="{% if css_framework == 'tailwind' %}grid grid-cols-1 lg:grid-cols-3 gap-8{% else %}row{% endif %}">
+    <article class="{% if css_framework == 'tailwind' %}lg:col-span-2{% else %}col-lg-8{% endif %}">
+        <!-- Breadcrumb -->
+        <nav class="{% if css_framework == 'tailwind' %}text-sm text-gray-500 mb-6{% else %}mb-4{% endif %}">
+            <ol class="{% if css_framework == 'tailwind' %}flex{% else %}breadcrumb{% endif %}">
+                <li class="{% if css_framework != 'tailwind' %}breadcrumb-item{% endif %}">
+                    <a href="{% url 'blog:home' %}">Blog</a>
+                </li>
+                {% if css_framework == 'tailwind' %}<li class="mx-2">/</li>{% endif %}
+                {% if post.category %}
+                <li class="{% if css_framework != 'tailwind' %}breadcrumb-item{% endif %}">
+                    <a href="{% url 'blog:category' post.category.slug %}">{{ post.category.name }}</a>
+                </li>
+                {% if css_framework == 'tailwind' %}<li class="mx-2">/</li>{% endif %}
+                {% endif %}
+                <li class="{% if css_framework == 'tailwind' %}text-gray-900{% else %}breadcrumb-item active{% endif %}">
+                    {{ post.title|truncatewords:5 }}
+                </li>
+            </ol>
+        </nav>
+
+        <!-- Featured Image -->
+        {% if post.featured_image %}
+        <figure class="{% if css_framework == 'tailwind' %}mb-6{% else %}mb-4{% endif %}">
+            <img src="{{ post.featured_image.url }}" alt="{{ post.title }}"
+                 class="{% if css_framework == 'tailwind' %}w-full rounded-lg{% else %}img-fluid rounded{% endif %}">
+        </figure>
+        {% endif %}
+
+        <!-- Post Header -->
+        <header class="{% if css_framework == 'tailwind' %}mb-8{% else %}mb-4{% endif %}">
+            {% if post.category %}
+            <a href="{% url 'blog:category' post.category.slug %}"
+               class="{% if css_framework == 'tailwind' %}inline-block bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded{% else %}badge bg-primary text-decoration-none{% endif %}">
+                {{ post.category.name }}
+            </a>
+            {% endif %}
+
+            <h1 class="{% if css_framework == 'tailwind' %}text-3xl font-bold mt-3 mb-4{% else %}mt-2 mb-3{% endif %}">
+                {{ post.title }}
+            </h1>
+
+            <div class="{% if css_framework == 'tailwind' %}flex flex-wrap items-center gap-4 text-gray-600 mb-4{% else %}d-flex flex-wrap align-items-center gap-3 text-muted mb-3{% endif %}">
+                <div class="{% if css_framework == 'tailwind' %}flex items-center{% else %}d-flex align-items-center{% endif %}">
+                    {% if post.author.profile.avatar %}
+                    <img src="{{ post.author.profile.avatar.url }}"
+                         class="{% if css_framework == 'tailwind' %}w-10 h-10 rounded-full mr-2{% else %}rounded-circle me-2{% endif %}"
+                         alt="{{ post.author.get_full_name }}" style="{% if css_framework != 'tailwind' %}width: 40px; height: 40px; object-fit: cover;{% endif %}">
+                    {% endif %}
+                    <a href="{% url 'blog:author' post.author.username %}"
+                       class="{% if css_framework == 'tailwind' %}font-medium text-gray-900 hover:text-blue-600{% else %}text-decoration-none fw-medium{% endif %}">
+                        {{ post.author.get_full_name|default:post.author.username }}
+                    </a>
+                </div>
+                <span>·</span>
+                <span>{{ post.published_at|date:"F d, Y" }}</span>
+                <span>·</span>
+                <span>{{ post.reading_time }} min read</span>
+                <span>·</span>
+                <span id="view-count">{{ post.view_count }} views</span>
+            </div>
+
+            <!-- Share Buttons -->
+            <div class="{% if css_framework == 'tailwind' %}flex flex-wrap gap-2{% else %}d-flex flex-wrap gap-2{% endif %}">
+                <a href="https://twitter.com/intent/tweet?url={{ request.build_absolute_uri }}&text={{ post.title|urlencode }}"
+                   target="_blank"
+                   class="{% if css_framework == 'tailwind' %}px-3 py-1 border rounded hover:bg-gray-50{% else %}btn btn-sm btn-outline-secondary{% endif %}">
+                    🐦 Tweet
+                </a>
+                <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri }}"
+                   target="_blank"
+                   class="{% if css_framework == 'tailwind' %}px-3 py-1 border rounded hover:bg-gray-50{% else %}btn btn-sm btn-outline-secondary{% endif %}">
+                    📘 Share
+                </a>
+                <button type="button"
+                        onclick="navigator.clipboard.writeText('{{ request.build_absolute_uri }}'); this.textContent='Copied!'; setTimeout(() => this.textContent='🔗 Copy', 2000)"
+                        class="{% if css_framework == 'tailwind' %}px-3 py-1 border rounded hover:bg-gray-50{% else %}btn btn-sm btn-outline-secondary{% endif %}">
+                    🔗 Copy
+                </button>
+                <button type="button"
+                        hx-post="{% url 'blog:post_bookmark' post.slug %}"
+                        hx-swap="outerHTML"
+                        class="{% if css_framework == 'tailwind' %}px-3 py-1 border rounded hover:bg-gray-50 {% if is_bookmarked %}bg-yellow-100{% endif %}{% else %}btn btn-sm btn-outline-{% if is_bookmarked %}warning{% else %}secondary{% endif %}{% endif %}">
+                    🔖 {% if is_bookmarked %}Saved{% else %}Save{% endif %}
+                </button>
+            </div>
+        </header>
+
+        <!-- Post Content -->
+        <div class="{% if css_framework == 'tailwind' %}prose prose-lg max-w-none mb-8{% else %}post-content mb-5{% endif %}">
+            {{ post.content|safe }}
+        </div>
+
+        <!-- Tags -->
+        {% if post.tags.exists %}
+        <div class="{% if css_framework == 'tailwind' %}mb-8{% else %}mb-4{% endif %}">
+            <strong>Tags:</strong>
+            {% for tag in post.tags.all %}
+            <a href="{% url 'blog:tag' tag.slug %}"
+               class="{% if css_framework == 'tailwind' %}inline-block bg-gray-100 text-gray-700 px-3 py-1 rounded text-sm mr-2{% else %}badge bg-light text-dark text-decoration-none{% endif %}">
+                {{ tag.name }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <hr class="{% if css_framework == 'tailwind' %}my-8{% else %}my-4{% endif %}">
+
+        <!-- Author Bio -->
+        <div class="{% if css_framework == 'tailwind' %}bg-gray-50 rounded-lg p-6 mb-8{% else %}card mb-4{% endif %}">
+            <div class="{% if css_framework != 'tailwind' %}card-body{% endif %}">
+                <div class="{% if css_framework == 'tailwind' %}flex{% else %}d-flex{% endif %}">
+                    {% if post.author.profile.avatar %}
+                    <img src="{{ post.author.profile.avatar.url }}"
+                         class="{% if css_framework == 'tailwind' %}w-20 h-20 rounded-full mr-4{% else %}rounded-circle me-3{% endif %}"
+                         alt="{{ post.author.get_full_name }}" style="{% if css_framework != 'tailwind' %}width: 80px; height: 80px; object-fit: cover;{% endif %}">
+                    {% endif %}
+                    <div>
+                        <h5 class="{% if css_framework == 'tailwind' %}font-bold mb-1{% else %}mb-1{% endif %}">
+                            <a href="{% url 'blog:author' post.author.username %}"
+                               class="{% if css_framework == 'tailwind' %}text-gray-900 hover:text-blue-600{% else %}text-decoration-none{% endif %}">
+                                {{ post.author.get_full_name|default:post.author.username }}
+                            </a>
+                        </h5>
+                        {% if post.author.profile.bio %}
+                        <p class="{% if css_framework == 'tailwind' %}text-gray-600{% else %}mb-0{% endif %}">
+                            {{ post.author.profile.bio }}
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comments Section -->
+        <section id="comments" class="{% if css_framework == 'tailwind' %}mb-8{% else %}mb-4{% endif %}">
+            <h3 class="{% if css_framework == 'tailwind' %}text-xl font-bold mb-6{% else %}mb-4{% endif %}">
+                Comments (<span id="comment-count">{{ comments.count }}</span>)
+            </h3>
+
+            {% if user.is_authenticated %}
+            <div class="{% if css_framework == 'tailwind' %}bg-white border rounded-lg p-4 mb-6{% else %}card mb-4{% endif %}">
+                <div class="{% if css_framework != 'tailwind' %}card-body{% endif %}">
+                    <form hx-post="{% url 'blog:comment_add' post.slug %}" hx-target="#comments-list" hx-swap="afterbegin"
+                          hx-on::after-request="this.reset(); document.getElementById('comment-count').textContent = parseInt(document.getElementById('comment-count').textContent) + 1">
+                        {% csrf_token %}
+                        <div class="{% if css_framework == 'tailwind' %}mb-4{% else %}mb-3{% endif %}">
+                            <textarea name="content" rows="3" required
+                                      class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500{% else %}form-control{% endif %}"
+                                      placeholder="Share your thoughts..."></textarea>
+                        </div>
+                        <button type="submit"
+                                class="{% if css_framework == 'tailwind' %}bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700{% else %}btn btn-primary{% endif %}">
+                            Post Comment
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <div class="{% if css_framework == 'tailwind' %}bg-gray-50 rounded-lg p-4 mb-6{% else %}alert alert-light mb-4{% endif %}">
+                <a href="{% url 'account_login' %}?next={{ request.path }}#comments">Log in</a> to leave a comment.
+            </div>
+            {% endif %}
+
+            <div id="comments-list" hx-get="{% url 'blog:comments' post.slug %}" hx-trigger="load">
+                <!-- Comments loaded via HTMX -->
+            </div>
+        </section>
+
+        <!-- Related Posts -->
+        <section>
+            <h3 class="{% if css_framework == 'tailwind' %}text-xl font-bold mb-6{% else %}mb-4{% endif %}">Related Posts</h3>
+            <div hx-get="{% url 'blog:related_posts' post.slug %}" hx-trigger="load"
+                 class="{% if css_framework == 'tailwind' %}grid grid-cols-1 md:grid-cols-3 gap-4{% else %}row{% endif %}">
+                <!-- Related posts loaded via HTMX -->
+            </div>
+        </section>
+    </article>
+
+    <!-- Sidebar -->
+    <aside class="{% if css_framework != 'tailwind' %}col-lg-4{% endif %}">
+        {% include "blog/partials/sidebar.html" %}
+    </aside>
+</div>
+{% endblock %}
+{% endraw %}

@@ -1,0 +1,115 @@
+{% raw %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ project_name_display }}{% endblock %}</title>
+    {% if css_framework == 'tailwind' %}
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% else %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    {% endif %}
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="alternate" type="application/rss+xml" title="{{ project_name_display }} RSS Feed" href="{% url 'blog:feed' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <!-- Navigation -->
+    <nav class="{% if css_framework == 'tailwind' %}bg-white shadow-sm{% else %}navbar navbar-expand-lg navbar-light bg-white shadow-sm{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}max-w-6xl mx-auto px-4{% else %}container{% endif %}">
+            <div class="{% if css_framework == 'tailwind' %}flex justify-between items-center h-16{% else %}d-flex justify-content-between align-items-center{% endif %}">
+                <a href="{% url 'blog:home' %}" class="{% if css_framework == 'tailwind' %}text-xl font-bold text-gray-900{% else %}navbar-brand fw-bold{% endif %}">
+                    {{ project_name_display }}
+                </a>
+
+                <!-- Search -->
+                <div class="{% if css_framework == 'tailwind' %}flex-1 max-w-md mx-8{% else %}flex-grow-1 mx-4{% endif %}">
+                    <form hx-get="{% url 'blog:search' %}" hx-target="#search-results" hx-trigger="keyup changed delay:300ms">
+                        <input type="text" name="q" placeholder="Search articles..."
+                               class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded-lg{% else %}form-control{% endif %}"
+                               autocomplete="off">
+                    </form>
+                    <div id="search-results" class="{% if css_framework == 'tailwind' %}absolute z-50 bg-white rounded-lg shadow-lg{% else %}position-absolute bg-white rounded shadow-lg{% endif %}" style="display: none;"></div>
+                </div>
+
+                <div class="{% if css_framework == 'tailwind' %}flex items-center space-x-4{% else %}d-flex align-items-center gap-3{% endif %}">
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'blog:dashboard' %}" class="{% if css_framework == 'tailwind' %}text-gray-600 hover:text-gray-900{% else %}btn btn-link text-dark{% endif %}">
+                        Dashboard
+                    </a>
+                    <a href="{% url 'blog:post_create' %}" class="{% if css_framework == 'tailwind' %}bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700{% else %}btn btn-primary{% endif %}">
+                        Write
+                    </a>
+                    {% else %}
+                    <a href="{% url 'account_login' %}" class="{% if css_framework == 'tailwind' %}text-gray-600{% else %}btn btn-outline-primary{% endif %}">Login</a>
+                    <a href="{% url 'account_signup' %}" class="{% if css_framework == 'tailwind' %}bg-blue-600 text-white px-4 py-2 rounded-lg{% else %}btn btn-primary{% endif %}">Sign Up</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Categories Bar -->
+    <div class="{% if css_framework == 'tailwind' %}bg-gray-50 py-3{% else %}bg-light py-2{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}max-w-6xl mx-auto px-4{% else %}container{% endif %}">
+            <div hx-get="{% url 'blog:categories_bar' %}" hx-trigger="load"
+                 class="{% if css_framework == 'tailwind' %}flex space-x-6 overflow-x-auto{% else %}d-flex gap-4 overflow-auto{% endif %}">
+                <!-- Categories loaded via HTMX -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="{% if css_framework == 'tailwind' %}max-w-6xl mx-auto px-4 py-8{% else %}container py-4{% endif %}">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="{% if css_framework == 'tailwind' %}bg-gray-900 text-white py-12{% else %}bg-dark text-white py-5{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}max-w-6xl mx-auto px-4{% else %}container{% endif %}">
+            <div class="{% if css_framework == 'tailwind' %}grid grid-cols-1 md:grid-cols-3 gap-8{% else %}row{% endif %}">
+                <div class="{% if css_framework != 'tailwind' %}col-md-4{% endif %}">
+                    <h5 class="{% if css_framework == 'tailwind' %}font-bold mb-4{% else %}mb-3{% endif %}">{{ project_name_display }}</h5>
+                    <p class="{% if css_framework == 'tailwind' %}text-gray-400{% else %}text-muted{% endif %}">
+                        Sharing knowledge and insights with the world.
+                    </p>
+                </div>
+                <div class="{% if css_framework != 'tailwind' %}col-md-4{% endif %}">
+                    <h6 class="{% if css_framework == 'tailwind' %}font-semibold mb-4{% else %}mb-3{% endif %}">Quick Links</h6>
+                    <ul class="{% if css_framework == 'tailwind' %}space-y-2{% else %}list-unstyled{% endif %}">
+                        <li><a href="{% url 'blog:post_list' %}" class="{% if css_framework == 'tailwind' %}text-gray-400 hover:text-white{% else %}text-muted{% endif %}">All Posts</a></li>
+                        <li><a href="{% url 'blog:about' %}" class="{% if css_framework == 'tailwind' %}text-gray-400 hover:text-white{% else %}text-muted{% endif %}">About</a></li>
+                        <li><a href="{% url 'blog:contact' %}" class="{% if css_framework == 'tailwind' %}text-gray-400 hover:text-white{% else %}text-muted{% endif %}">Contact</a></li>
+                        <li><a href="{% url 'blog:feed' %}" class="{% if css_framework == 'tailwind' %}text-gray-400 hover:text-white{% else %}text-muted{% endif %}">RSS Feed</a></li>
+                    </ul>
+                </div>
+                <div class="{% if css_framework != 'tailwind' %}col-md-4{% endif %}">
+                    <h6 class="{% if css_framework == 'tailwind' %}font-semibold mb-4{% else %}mb-3{% endif %}">Newsletter</h6>
+                    <form hx-post="{% url 'blog:newsletter_subscribe' %}" hx-swap="outerHTML">
+                        <input type="email" name="email" placeholder="Your email" required
+                               class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 rounded bg-gray-800 text-white mb-2{% else %}form-control mb-2{% endif %}">
+                        <button type="submit" class="{% if css_framework == 'tailwind' %}w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700{% else %}btn btn-primary w-100{% endif %}">
+                            Subscribe
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    {% if css_framework != 'tailwind' %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% endif %}
+
+    <script>
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target.id === 'search-results') {
+                evt.detail.target.style.display = evt.detail.target.innerHTML.trim() ? 'block' : 'none';
+            }
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+{% endraw %}

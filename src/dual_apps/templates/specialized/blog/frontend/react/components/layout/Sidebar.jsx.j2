@@ -1,0 +1,284 @@
+{% raw %}/**
+ * Sidebar Component for {{ project_name_display }} Blog
+ */
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import api from '../../utils/api';
+
+function Sidebar() {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [tags, setTags] = useState([]);
+  const [recentPosts, setRecentPosts] = useState([]);
+  const [email, setEmail] = useState('');
+  const [subscribed, setSubscribed] = useState(false);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [categoriesRes, tagsRes, recentRes] = await Promise.all([
+          api.get('/api/v1/categories/'),
+          api.get('/api/v1/tags/?limit=20'),
+          api.get('/api/v1/posts/?limit=5'),
+        ]);
+
+        setCategories(categoriesRes.data.results || categoriesRes.data);
+        setTags(tagsRes.data.results || tagsRes.data);
+        setRecentPosts(recentRes.data.results || recentRes.data);
+      } catch (err) {
+        console.error('Failed to load sidebar data:', err);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
+  const handleSubscribe = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/api/v1/newsletter/subscribe/', { email });
+      setSubscribed(true);
+      setEmail('');
+    } catch (err) {
+      console.error('Subscription failed:', err);
+    }
+  };
+
+  return (
+{% if css_framework == 'tailwind' %}
+    <div className="space-y-6">
+      {/* Search */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h6 className="font-bold mb-4">Search</h6>
+        <form onSubmit={handleSearch}>
+          <div className="flex">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search articles..."
+              className="flex-1 px-4 py-2 border border-r-0 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700"
+            >
+              🔍
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Categories */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h6 className="font-bold mb-4">Categories</h6>
+        <ul className="space-y-2">
+          {categories.map((category) => (
+            <li key={category.id}>
+              <Link
+                to={`/category/${category.slug}`}
+                className="flex justify-between text-gray-600 hover:text-blue-600"
+              >
+                <span>{category.name}</span>
+                <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">
+                  {category.post_count}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Tags */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h6 className="font-bold mb-4">Tags</h6>
+        <div className="flex flex-wrap gap-2">
+          {tags.map((tag) => (
+            <Link
+              key={tag.id}
+              to={`/tag/${tag.slug}`}
+              className="bg-gray-100 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-200"
+            >
+              {tag.name}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent Posts */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h6 className="font-bold mb-4">Recent Posts</h6>
+        <ul className="space-y-4">
+          {recentPosts.map((post) => (
+            <li key={post.id}>
+              <Link
+                to={`/posts/${post.slug}`}
+                className="text-gray-700 hover:text-blue-600"
+              >
+                {post.title}
+              </Link>
+              <p className="text-sm text-gray-500">
+                {new Date(post.published_at).toLocaleDateString()}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Newsletter */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h6 className="font-bold mb-4">Newsletter</h6>
+        {subscribed ? (
+          <p className="text-green-600">Thanks for subscribing!</p>
+        ) : (
+          <>
+            <p className="text-sm text-gray-500 mb-4">
+              Subscribe to our newsletter for the latest updates.
+            </p>
+            <form onSubmit={handleSubscribe}>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Your email"
+                required
+                className="w-full px-4 py-2 border rounded-lg mb-2"
+              />
+              <button
+                type="submit"
+                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+              >
+                Subscribe
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+{% else %}
+    <div>
+      {/* Search */}
+      <div className="card mb-4">
+        <div className="card-header">
+          <h6 className="mb-0">Search</h6>
+        </div>
+        <div className="card-body">
+          <form onSubmit={handleSearch}>
+            <div className="input-group">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search articles..."
+                className="form-control"
+              />
+              <button type="submit" className="btn btn-primary">🔍</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {/* Categories */}
+      <div className="card mb-4">
+        <div className="card-header">
+          <h6 className="mb-0">Categories</h6>
+        </div>
+        <div className="card-body">
+          <ul className="list-unstyled mb-0">
+            {categories.map((category) => (
+              <li key={category.id} className="mb-2">
+                <Link to={`/category/${category.slug}`} className="d-flex justify-content-between text-decoration-none">
+                  <span>{category.name}</span>
+                  <span className="badge bg-secondary">{category.post_count}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Tags */}
+      <div className="card mb-4">
+        <div className="card-header">
+          <h6 className="mb-0">Tags</h6>
+        </div>
+        <div className="card-body">
+          <div className="d-flex flex-wrap gap-2">
+            {tags.map((tag) => (
+              <Link
+                key={tag.id}
+                to={`/tag/${tag.slug}`}
+                className="badge bg-light text-dark text-decoration-none"
+              >
+                {tag.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Posts */}
+      <div className="card mb-4">
+        <div className="card-header">
+          <h6 className="mb-0">Recent Posts</h6>
+        </div>
+        <div className="card-body">
+          <ul className="list-unstyled mb-0">
+            {recentPosts.map((post) => (
+              <li key={post.id} className="mb-3">
+                <Link to={`/posts/${post.slug}`} className="text-decoration-none">
+                  {post.title}
+                </Link>
+                <br />
+                <small className="text-muted">
+                  {new Date(post.published_at).toLocaleDateString()}
+                </small>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {/* Newsletter */}
+      <div className="card">
+        <div className="card-header">
+          <h6 className="mb-0">Newsletter</h6>
+        </div>
+        <div className="card-body">
+          {subscribed ? (
+            <p className="text-success mb-0">Thanks for subscribing!</p>
+          ) : (
+            <>
+              <p className="small text-muted">Subscribe for the latest updates.</p>
+              <form onSubmit={handleSubscribe}>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Your email"
+                  required
+                  className="form-control mb-2"
+                />
+                <button type="submit" className="btn btn-primary w-100">
+                  Subscribe
+                </button>
+              </form>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+{% endif %}
+  );
+}
+
+export default Sidebar;
+{% endraw %}

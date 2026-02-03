@@ -1,0 +1,124 @@
+{% raw %}{% extends "base.html" %}
+
+{% block extra_head %}
+<meta property="og:site_name" content="{{ project_name_display }}">
+<meta property="og:type" content="website">
+<link rel="alternate" type="application/rss+xml" title="{{ project_name_display }} RSS Feed" href="{% url 'blog:feed' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-8">
+            {% block blog_content %}{% endblock %}
+        </div>
+        <div class="col-lg-4">
+            {% block sidebar %}
+            <aside>
+                <!-- Search Widget -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">Search</h6>
+                    </div>
+                    <div class="card-body">
+                        <form action="{% url 'blog:search' %}" method="get">
+                            <div class="input-group">
+                                <input type="text" name="q" class="form-control" placeholder="Search articles..."
+                                       value="{{ request.GET.q }}">
+                                <button class="btn btn-primary" type="submit">Search</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Categories Widget -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">Categories</h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                            {% for category in categories %}
+                            <li class="mb-2">
+                                <a href="{% url 'blog:category' category.slug %}" class="text-decoration-none">
+                                    {{ category.name }}
+                                    <span class="badge bg-secondary float-end">{{ category.post_count }}</span>
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Tags Widget -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">Tags</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for tag in tags %}
+                            <a href="{% url 'blog:tag' tag.slug %}" class="badge bg-light text-dark text-decoration-none">
+                                {{ tag.name }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Posts Widget -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">Recent Posts</h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                            {% for post in recent_posts %}
+                            <li class="mb-3">
+                                <a href="{% url 'blog:post_detail' post.slug %}" class="text-decoration-none">
+                                    {{ post.title }}
+                                </a>
+                                <br>
+                                <small class="text-muted">{{ post.published_at|date:"M d, Y" }}</small>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Newsletter Widget -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">Newsletter</h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="small text-muted">Subscribe to our newsletter for the latest updates.</p>
+                        <form method="post" action="{% url 'blog:newsletter_subscribe' %}">
+                            {% csrf_token %}
+                            <div class="mb-2">
+                                <input type="email" name="email" class="form-control" placeholder="Your email" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">Subscribe</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Social Links -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Follow Us</h6>
+                    </div>
+                    <div class="card-body d-flex gap-3 justify-content-center">
+                        <a href="#" class="text-muted fs-4">🐦</a>
+                        <a href="#" class="text-muted fs-4">📘</a>
+                        <a href="#" class="text-muted fs-4">📸</a>
+                        <a href="#" class="text-muted fs-4">💼</a>
+                    </div>
+                </div>
+            </aside>
+            {% endblock %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% endraw %}

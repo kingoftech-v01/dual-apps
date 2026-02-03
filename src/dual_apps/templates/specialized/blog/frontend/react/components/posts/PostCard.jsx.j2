@@ -1,0 +1,173 @@
+{% raw %}/**
+ * Post Card Component for {{ project_name_display }} Blog
+ */
+import React from 'react';
+import { Link } from 'react-router-dom';
+
+function PostCard({ post, variant = 'default' }) {
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  if (variant === 'compact') {
+    return (
+{% if css_framework == 'tailwind' %}
+      <div className="flex items-center gap-4">
+        {post.featured_image && (
+          <Link to={`/posts/${post.slug}`}>
+            <img
+              src={post.featured_image}
+              alt={post.title}
+              className="w-16 h-16 object-cover rounded"
+            />
+          </Link>
+        )}
+        <div>
+          <Link to={`/posts/${post.slug}`} className="font-medium text-gray-900 hover:text-blue-600 line-clamp-2">
+            {post.title}
+          </Link>
+          <p className="text-sm text-gray-500">{formatDate(post.published_at)}</p>
+        </div>
+      </div>
+{% else %}
+      <div className="d-flex align-items-center gap-3">
+        {post.featured_image && (
+          <Link to={`/posts/${post.slug}`}>
+            <img
+              src={post.featured_image}
+              alt={post.title}
+              style={{ width: 64, height: 64, objectFit: 'cover' }}
+              className="rounded"
+            />
+          </Link>
+        )}
+        <div>
+          <Link to={`/posts/${post.slug}`} className="text-decoration-none fw-medium">
+            {post.title}
+          </Link>
+          <p className="small text-muted mb-0">{formatDate(post.published_at)}</p>
+        </div>
+      </div>
+{% endif %}
+    );
+  }
+
+  return (
+{% if css_framework == 'tailwind' %}
+    <article className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition-shadow">
+      <div className="flex">
+        {post.featured_image && (
+          <div className="w-1/3 flex-shrink-0">
+            <Link to={`/posts/${post.slug}`}>
+              <img
+                src={post.featured_image}
+                alt={post.title}
+                className="h-full w-full object-cover"
+              />
+            </Link>
+          </div>
+        )}
+        <div className={`${post.featured_image ? 'w-2/3' : 'w-full'} p-6`}>
+          {post.category && (
+            <Link
+              to={`/category/${post.category.slug}`}
+              className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded"
+            >
+              {post.category.name}
+            </Link>
+          )}
+
+          <h2 className="text-xl font-bold mt-2 mb-2">
+            <Link to={`/posts/${post.slug}`} className="text-gray-900 hover:text-blue-600">
+              {post.title}
+            </Link>
+          </h2>
+
+          <p className="text-gray-600 mb-4 line-clamp-2">{post.excerpt}</p>
+
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              {post.author.avatar && (
+                <img
+                  src={post.author.avatar}
+                  alt={post.author.name}
+                  className="w-8 h-8 rounded-full mr-2"
+                />
+              )}
+              <Link
+                to={`/author/${post.author.username}`}
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                {post.author.name || post.author.username}
+              </Link>
+            </div>
+            <span className="text-sm text-gray-500">
+              {formatDate(post.published_at)} · {post.reading_time} min read
+            </span>
+          </div>
+        </div>
+      </div>
+    </article>
+{% else %}
+    <article className="card mb-4">
+      <div className="row g-0">
+        {post.featured_image && (
+          <div className="col-md-4">
+            <Link to={`/posts/${post.slug}`}>
+              <img
+                src={post.featured_image}
+                alt={post.title}
+                className="img-fluid rounded-start h-100"
+                style={{ objectFit: 'cover' }}
+              />
+            </Link>
+          </div>
+        )}
+        <div className={post.featured_image ? 'col-md-8' : 'col-12'}>
+          <div className="card-body">
+            {post.category && (
+              <Link to={`/category/${post.category.slug}`} className="badge bg-primary text-decoration-none">
+                {post.category.name}
+              </Link>
+            )}
+
+            <h2 className="card-title h4 mt-2">
+              <Link to={`/posts/${post.slug}`} className="text-decoration-none text-dark">
+                {post.title}
+              </Link>
+            </h2>
+
+            <p className="card-text text-muted">{post.excerpt}</p>
+
+            <div className="d-flex justify-content-between align-items-center">
+              <div className="d-flex align-items-center">
+                {post.author.avatar && (
+                  <img
+                    src={post.author.avatar}
+                    alt={post.author.name}
+                    className="rounded-circle me-2"
+                    style={{ width: 32, height: 32, objectFit: 'cover' }}
+                  />
+                )}
+                <Link to={`/author/${post.author.username}`} className="text-muted text-decoration-none small">
+                  {post.author.name || post.author.username}
+                </Link>
+              </div>
+              <small className="text-muted">
+                {formatDate(post.published_at)} · {post.reading_time} min read
+              </small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+{% endif %}
+  );
+}
+
+export default PostCard;
+{% endraw %}

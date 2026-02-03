@@ -1,0 +1,83 @@
+{% raw %}/**
+ * Main React App for {{ project_name_display }} Blog
+ */
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+
+// Layout
+import Navbar from './components/layout/Navbar';
+import Footer from './components/layout/Footer';
+import Sidebar from './components/layout/Sidebar';
+
+// Pages
+import HomePage from './pages/HomePage';
+import PostListPage from './pages/PostListPage';
+import PostDetailPage from './pages/PostDetailPage';
+import AuthorPage from './pages/AuthorPage';
+import CategoryPage from './pages/CategoryPage';
+import TagPage from './pages/TagPage';
+import SearchPage from './pages/SearchPage';
+import DashboardPage from './pages/DashboardPage';
+import PostEditorPage from './pages/PostEditorPage';
+import LoginPage from './pages/auth/LoginPage';
+import RegisterPage from './pages/auth/RegisterPage';
+import NotFoundPage from './pages/NotFoundPage';
+
+// Auth Guard
+import ProtectedRoute from './components/auth/ProtectedRoute';
+
+function App() {
+  return (
+    <Router>
+      <AuthProvider>
+        <ToastProvider>
+          <div className="{% if css_framework == 'tailwind' %}flex flex-col min-h-screen{% else %}d-flex flex-column min-vh-100{% endif %}">
+            <Navbar />
+            <main className="{% if css_framework == 'tailwind' %}flex-grow{% else %}flex-grow-1{% endif %}">
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/" element={<HomePage />} />
+                <Route path="/posts" element={<PostListPage />} />
+                <Route path="/posts/:slug" element={<PostDetailPage />} />
+                <Route path="/author/:username" element={<AuthorPage />} />
+                <Route path="/category/:slug" element={<CategoryPage />} />
+                <Route path="/tag/:slug" element={<TagPage />} />
+                <Route path="/search" element={<SearchPage />} />
+
+                {/* Auth Routes */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+
+                {/* Protected Routes */}
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/write" element={
+                  <ProtectedRoute>
+                    <PostEditorPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="/edit/:slug" element={
+                  <ProtectedRoute>
+                    <PostEditorPage />
+                  </ProtectedRoute>
+                } />
+
+                {/* 404 */}
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </main>
+            <Footer />
+          </div>
+        </ToastProvider>
+      </AuthProvider>
+    </Router>
+  );
+}
+
+export default App;
+{% endraw %}

@@ -1,0 +1,130 @@
+{% raw %}{% extends "blog/base_blog.html" %}
+
+{% block title %}{{ page_title|default:"Blog" }} - {{ project_name_display }}{% endblock %}
+
+{% block blog_content %}
+<h1 class="mb-4">{{ page_title|default:"Latest Posts" }}</h1>
+
+{% if filter_type %}
+<div class="alert alert-light d-flex justify-content-between align-items-center">
+    <span>
+        {% if filter_type == 'category' %}
+        Browsing category: <strong>{{ filter_value }}</strong>
+        {% elif filter_type == 'tag' %}
+        Posts tagged: <strong>{{ filter_value }}</strong>
+        {% elif filter_type == 'author' %}
+        Posts by: <strong>{{ filter_value }}</strong>
+        {% elif filter_type == 'search' %}
+        Search results for: <strong>"{{ filter_value }}"</strong>
+        {% endif %}
+    </span>
+    <a href="{% url 'blog:post_list' %}" class="btn btn-sm btn-outline-secondary">Clear Filter</a>
+</div>
+{% endif %}
+
+{% if posts %}
+<div class="row">
+    {% for post in posts %}
+    <div class="col-12 mb-4">
+        <article class="card h-100">
+            <div class="row g-0">
+                {% if post.featured_image %}
+                <div class="col-md-4">
+                    <a href="{% url 'blog:post_detail' post.slug %}">
+                        <img src="{{ post.featured_image.url }}" class="img-fluid rounded-start h-100"
+                             alt="{{ post.title }}" style="object-fit: cover;">
+                    </a>
+                </div>
+                {% endif %}
+                <div class="{% if post.featured_image %}col-md-8{% else %}col-12{% endif %}">
+                    <div class="card-body">
+                        <div class="mb-2">
+                            {% if post.category %}
+                            <a href="{% url 'blog:category' post.category.slug %}"
+                               class="badge bg-primary text-decoration-none">
+                                {{ post.category.name }}
+                            </a>
+                            {% endif %}
+                            {% if post.is_featured %}
+                            <span class="badge bg-warning text-dark">Featured</span>
+                            {% endif %}
+                        </div>
+
+                        <h2 class="card-title h4">
+                            <a href="{% url 'blog:post_detail' post.slug %}" class="text-decoration-none text-dark">
+                                {{ post.title }}
+                            </a>
+                        </h2>
+
+                        <p class="card-text text-muted">{{ post.excerpt|truncatewords:30 }}</p>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                {% if post.author.profile.avatar %}
+                                <img src="{{ post.author.profile.avatar.url }}" class="rounded-circle me-2"
+                                     alt="{{ post.author.get_full_name }}" style="width: 32px; height: 32px; object-fit: cover;">
+                                {% endif %}
+                                <small>
+                                    <a href="{% url 'blog:author' post.author.username %}" class="text-muted text-decoration-none">
+                                        {{ post.author.get_full_name|default:post.author.username }}
+                                    </a>
+                                </small>
+                            </div>
+                            <small class="text-muted">
+                                {{ post.published_at|date:"M d, Y" }} · {{ post.reading_time }} min read
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </article>
+    </div>
+    {% endfor %}
+</div>
+
+{% if posts.has_other_pages %}
+<nav aria-label="Blog pagination">
+    <ul class="pagination justify-content-center">
+        {% if posts.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ posts.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                Previous
+            </a>
+        </li>
+        {% endif %}
+        {% for num in posts.paginator.page_range %}
+        {% if num == posts.number %}
+        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+        {% elif num > posts.number|add:'-3' and num < posts.number|add:'3' %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ num }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">{{ num }}</a>
+        </li>
+        {% endif %}
+        {% endfor %}
+        {% if posts.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ posts.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+                Next
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% else %}
+<div class="text-center py-5">
+    <div class="mb-4">
+        <span style="font-size: 5rem;">📝</span>
+    </div>
+    <h3>No posts found</h3>
+    <p class="text-muted">
+        {% if filter_type == 'search' %}
+        Try different keywords or browse our categories.
+        {% else %}
+        Check back later for new content!
+        {% endif %}
+    </p>
+</div>
+{% endif %}
+{% endblock %}
+{% endraw %}
