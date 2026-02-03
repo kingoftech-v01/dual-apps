@@ -768,3 +768,215 @@ class TestConfigFileAppsList:
              "--output", str(temp_dir)]
         )
         assert result.exit_code == 0
+
+
+class TestHelpCommands:
+    """Test help command variations."""
+
+    def test_help_overview(self):
+        """Test help overview command."""
+        result = runner.invoke(app, ["help", "overview"])
+        assert result.exit_code == 0
+
+    def test_help_commands(self):
+        """Test help commands command."""
+        result = runner.invoke(app, ["help", "commands"])
+        assert result.exit_code == 0
+
+    def test_help_templates(self):
+        """Test help templates command."""
+        result = runner.invoke(app, ["help", "templates"])
+        assert result.exit_code == 0
+
+    def test_help_quickstart(self):
+        """Test help quickstart command."""
+        result = runner.invoke(app, ["help", "quickstart"])
+        assert result.exit_code == 0
+
+    def test_help_config(self):
+        """Test help config command."""
+        result = runner.invoke(app, ["help", "config"])
+        assert result.exit_code == 0
+
+    def test_help_examples(self):
+        """Test help examples command."""
+        result = runner.invoke(app, ["help", "examples"])
+        assert result.exit_code == 0
+
+
+class TestInfoCommand:
+    """Test info command."""
+
+    def test_info_command(self):
+        """Test info command shows version and details."""
+        result = runner.invoke(app, ["info"])
+        assert result.exit_code == 0
+        assert "dual-apps" in result.output.lower() or "version" in result.output.lower()
+
+
+class TestConfigCommand:
+    """Test config command."""
+
+    def test_config_generate(self, temp_dir):
+        """Test config generate command."""
+        config_file = temp_dir / "dual-apps.yaml"
+        result = runner.invoke(app, ["config", "--output", str(config_file)])
+        assert result.exit_code == 0
+        assert config_file.exists()
+
+
+class TestProjectWithSpecializedTemplates:
+    """Test project generation with specialized templates."""
+
+    @pytest.mark.parametrize("template_type", [
+        "saas", "cms", "booking", "marketplace"
+    ])
+    def test_specialized_project_cli(self, temp_dir, template_type):
+        """Test CLI with specialized templates."""
+        result = runner.invoke(
+            app,
+            ["init", "project", f"test_{template_type}",
+             "--template", template_type,
+             "--output", str(temp_dir)]
+        )
+        assert result.exit_code == 0
+        assert (temp_dir / f"test_{template_type}").exists()
+
+
+class TestCSSFrameworkOptions:
+    """Test CSS framework CLI options."""
+
+    def test_bootstrap_css_option(self, temp_dir):
+        """Test project with bootstrap CSS."""
+        result = runner.invoke(
+            app,
+            ["init", "project", "bootstrap_project",
+             "--css", "bootstrap",
+             "--output", str(temp_dir)]
+        )
+        assert result.exit_code == 0
+
+    def test_tailwind_css_option(self, temp_dir):
+        """Test project with tailwind CSS."""
+        result = runner.invoke(
+            app,
+            ["init", "project", "tailwind_project",
+             "--css", "tailwind",
+             "--output", str(temp_dir)]
+        )
+        assert result.exit_code == 0
+
+
+class TestJWTStorageOptions:
+    """Test JWT storage CLI options."""
+
+    def test_httponly_jwt_option(self, temp_dir):
+        """Test project with httpOnly JWT storage."""
+        result = runner.invoke(
+            app,
+            ["init", "project", "httponly_project",
+             "--auth", "jwt",
+             "--jwt-storage", "httpOnly",
+             "--output", str(temp_dir)]
+        )
+        assert result.exit_code == 0
+
+    def test_localstorage_jwt_option(self, temp_dir):
+        """Test project with localStorage JWT storage."""
+        result = runner.invoke(
+            app,
+            ["init", "project", "localstorage_project",
+             "--auth", "jwt",
+             "--jwt-storage", "localStorage",
+             "--output", str(temp_dir)]
+        )
+        assert result.exit_code == 0
+
+
+class TestProjectTypeOptions:
+    """Test project type CLI options."""
+
+    def test_backend_project_type(self, temp_dir):
+        """Test backend-only project generation."""
+        result = runner.invoke(
+            app,
+            ["init", "project", "backend_only",
+             "--type", "backend",
+             "--output", str(temp_dir)]
+        )
+        assert result.exit_code == 0
+
+    def test_frontend_project_type(self, temp_dir):
+        """Test frontend-only project generation."""
+        result = runner.invoke(
+            app,
+            ["init", "project", "frontend_only",
+             "--type", "frontend",
+             "--output", str(temp_dir)]
+        )
+        assert result.exit_code == 0
+
+
+class TestI18nOption:
+    """Test i18n CLI option."""
+
+    def test_i18n_enabled(self, temp_dir):
+        """Test project with i18n enabled."""
+        result = runner.invoke(
+            app,
+            ["init", "project", "i18n_project",
+             "--i18n",
+             "--output", str(temp_dir)]
+        )
+        assert result.exit_code == 0
+
+
+class TestCeleryOption:
+    """Test Celery CLI option."""
+
+    def test_celery_enabled(self, temp_dir):
+        """Test project with Celery enabled."""
+        result = runner.invoke(
+            app,
+            ["init", "project", "celery_project",
+             "--celery",
+             "--output", str(temp_dir)]
+        )
+        assert result.exit_code == 0
+
+
+class TestReactFrontend:
+    """Test React frontend generation via CLI."""
+
+    def test_react_frontend(self, temp_dir):
+        """Test project with React frontend."""
+        result = runner.invoke(
+            app,
+            ["init", "project", "react_project",
+             "--frontend", "react",
+             "--output", str(temp_dir)]
+        )
+        assert result.exit_code == 0
+
+
+class TestAllOptions:
+    """Test CLI with all options enabled."""
+
+    def test_all_options_combined(self, temp_dir):
+        """Test project with all options."""
+        result = runner.invoke(
+            app,
+            ["init", "project", "full_project",
+             "--type", "fullstack",
+             "--db", "postgres",
+             "--auth", "jwt",
+             "--jwt-storage", "httpOnly",
+             "--docker",
+             "--celery",
+             "--i18n",
+             "--frontend", "htmx",
+             "--css", "tailwind",
+             "--output", str(temp_dir)]
+        )
+        assert result.exit_code == 0
+        assert (temp_dir / "full_project").exists()
