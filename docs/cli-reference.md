@@ -2,6 +2,8 @@
 
 Complete reference for all dual-apps CLI commands.
 
+![Generation Workflow](images/generation-workflow.svg)
+
 ## Global Options
 
 ```bash

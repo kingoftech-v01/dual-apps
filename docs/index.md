@@ -4,6 +4,8 @@
 
 Generate production-ready Django apps and projects in **30 seconds** with dual-layer architecture, specialized templates, and multiple frontend options.
 
+![CLI Demo](images/cli-demo.svg)
+
 ## Features
 
 - **Dual Layer Architecture**: Frontend (HTML/HTMX/React) + API (DRF ViewSets)
@@ -15,6 +17,12 @@ Generate production-ready Django apps and projects in **30 seconds** with dual-l
 - **OWASP Security**: Security headers, rate limiting, and protection built-in
 - **JWT Authentication**: Configurable storage (httpOnly cookies or localStorage)
 - **OpenAPI Documentation**: Swagger UI and ReDoc included
+
+## Architecture Overview
+
+![Dual Layer Architecture](images/dual-layer-architecture.svg)
+
+The dual-layer architecture separates frontend concerns from API logic while sharing models, permissions, and business logic through a core layer.
 
 ## Quick Start
 
@@ -54,6 +62,8 @@ dual_apps init project --interactive
 
 ## Specialized Templates
 
+![Template Comparison](images/template-comparison.svg)
+
 | Template | Description | Default Apps |
 |----------|-------------|--------------|
 | `ecommerce` | Online store | shop, cart, orders |
@@ -65,11 +75,17 @@ dual_apps init project --interactive
 
 ## Frontend Options
 
+![Frontend Options](images/frontend-options.svg)
+
 | Frontend | Description | Features |
 |----------|-------------|----------|
 | `html` | Basic HTML templates | Simple, server-rendered |
 | `htmx` | HTMX + Alpine.js | Full auth flow, dynamic updates |
 | `react` | React SPA | Full SPA with JWT, API client |
+
+## Project Structure
+
+![Project Structure](images/project-structure.svg)
 
 ## Documentation
 

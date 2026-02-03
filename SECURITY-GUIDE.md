@@ -1,9 +1,10 @@
-
 # SECURITY-GUIDE.md - dual-apps v4.0
 
 **Complete OWASP Django Security Guide**
 **Version**: 4.0.0 | **Date**: February 03, 2026
 [CLI ←](CLI-REFERENCE.md) | [Development →](DEVELOPMENT.md)
+
+![Security Layers](docs/images/security-layers.svg)
 
 ## Table of Contents
 1. [OWASP Top 10 Coverage](#owasp)

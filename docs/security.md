@@ -2,6 +2,8 @@
 
 dual-apps generates secure Django projects following OWASP best practices.
 
+![Security Layers](images/security-layers.svg)
+
 ## Security Features
 
 ### 1. OWASP Headers

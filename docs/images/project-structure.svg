@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="650" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="650" fill="#0d1117"/>
+
+  <!-- Title -->
+  <text x="400" y="35" text-anchor="middle" fill="#f0f6fc" font-family="Arial, sans-serif" font-size="22" font-weight="bold">Generated Project Structure</text>
+
+  <!-- File tree background -->
+  <rect x="50" y="60" width="350" height="550" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+
+  <!-- File tree header -->
+  <rect x="50" y="60" width="350" height="30" rx="8" fill="#21262d"/>
+  <rect x="50" y="82" width="350" height="8" fill="#21262d"/>
+  <text x="70" y="82" fill="#8b949e" font-family="monospace" font-size="12">myshop/</text>
+
+  <!-- File tree content -->
+  <text x="70" y="115" fill="#7ee787" font-family="monospace" font-size="12">myshop/</text>
+  <text x="90" y="135" fill="#58a6ff" font-family="monospace" font-size="12">apps/</text>
+  <text x="110" y="155" fill="#8b949e" font-family="monospace" font-size="11">shop/</text>
+  <text x="130" y="172" fill="#8b949e" font-family="monospace" font-size="10">models.py, views.py, api/</text>
+  <text x="110" y="192" fill="#8b949e" font-family="monospace" font-size="11">cart/</text>
+  <text x="130" y="209" fill="#8b949e" font-family="monospace" font-size="10">models.py, views.py, api/</text>
+  <text x="110" y="229" fill="#8b949e" font-family="monospace" font-size="11">orders/</text>
+  <text x="130" y="246" fill="#8b949e" font-family="monospace" font-size="10">models.py, views.py, api/</text>
+  <text x="110" y="266" fill="#f0883e" font-family="monospace" font-size="11">core/</text>
+  <text x="130" y="283" fill="#8b949e" font-family="monospace" font-size="10">security/, permissions.py</text>
+
+  <text x="90" y="308" fill="#d2a8ff" font-family="monospace" font-size="12">frontend/</text>
+  <text x="110" y="328" fill="#8b949e" font-family="monospace" font-size="11">src/</text>
+  <text x="130" y="345" fill="#8b949e" font-family="monospace" font-size="10">components/, pages/, App.jsx</text>
+  <text x="110" y="365" fill="#8b949e" font-family="monospace" font-size="11">package.json, vite.config.js</text>
+
+  <text x="90" y="390" fill="#79c0ff" font-family="monospace" font-size="12">config/</text>
+  <text x="110" y="410" fill="#8b949e" font-family="monospace" font-size="11">settings/</text>
+  <text x="130" y="427" fill="#8b949e" font-family="monospace" font-size="10">base.py, dev.py, prod.py</text>
+  <text x="110" y="447" fill="#8b949e" font-family="monospace" font-size="11">urls.py, wsgi.py, asgi.py</text>
+
+  <text x="90" y="472" fill="#ffa657" font-family="monospace" font-size="12">docker/</text>
+  <text x="110" y="492" fill="#8b949e" font-family="monospace" font-size="11">Dockerfile, docker-compose.yml</text>
+
+  <text x="90" y="517" fill="#a5d6ff" font-family="monospace" font-size="12">tests/</text>
+  <text x="110" y="537" fill="#8b949e" font-family="monospace" font-size="11">test_shop.py, test_cart.py...</text>
+
+  <text x="90" y="562" fill="#8b949e" font-family="monospace" font-size="12">docs/</text>
+  <text x="110" y="582" fill="#8b949e" font-family="monospace" font-size="11">README.md, API.md, SECURITY.md</text>
+
+  <!-- Legend -->
+  <rect x="430" y="60" width="320" height="300" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="450" y="90" fill="#f0f6fc" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Directory Legend</text>
+
+  <rect x="450" y="110" width="12" height="12" fill="#58a6ff"/>
+  <text x="470" y="121" fill="#c9d1d9" font-family="Arial, sans-serif" font-size="13">apps/ - Django applications</text>
+
+  <rect x="450" y="140" width="12" height="12" fill="#d2a8ff"/>
+  <text x="470" y="151" fill="#c9d1d9" font-family="Arial, sans-serif" font-size="13">frontend/ - React/HTMX/HTML</text>
+
+  <rect x="450" y="170" width="12" height="12" fill="#79c0ff"/>
+  <text x="470" y="181" fill="#c9d1d9" font-family="Arial, sans-serif" font-size="13">config/ - Django settings</text>
+
+  <rect x="450" y="200" width="12" height="12" fill="#ffa657"/>
+  <text x="470" y="211" fill="#c9d1d9" font-family="Arial, sans-serif" font-size="13">docker/ - Containerization</text>
+
+  <rect x="450" y="230" width="12" height="12" fill="#a5d6ff"/>
+  <text x="470" y="241" fill="#c9d1d9" font-family="Arial, sans-serif" font-size="13">tests/ - Test suite (45+ tests)</text>
+
+  <rect x="450" y="260" width="12" height="12" fill="#f0883e"/>
+  <text x="470" y="271" fill="#c9d1d9" font-family="Arial, sans-serif" font-size="13">core/ - Security &amp; permissions</text>
+
+  <text x="450" y="310" fill="#8b949e" font-family="Arial, sans-serif" font-size="11">Each app includes: models, views, serializers,</text>
+  <text x="450" y="328" fill="#8b949e" font-family="Arial, sans-serif" font-size="11">filters, permissions, tests, and documentation</text>
+
+  <!-- Features box -->
+  <rect x="430" y="380" width="320" height="230" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="450" y="410" fill="#f0f6fc" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Included Features</text>
+
+  <text x="450" y="440" fill="#7ee787" font-family="Arial, sans-serif" font-size="13">+ JWT Authentication</text>
+  <text x="450" y="465" fill="#7ee787" font-family="Arial, sans-serif" font-size="13">+ REST API (DRF ViewSets)</text>
+  <text x="450" y="490" fill="#7ee787" font-family="Arial, sans-serif" font-size="13">+ OpenAPI / Swagger UI</text>
+  <text x="450" y="515" fill="#7ee787" font-family="Arial, sans-serif" font-size="13">+ Docker (dev + prod)</text>
+  <text x="450" y="540" fill="#7ee787" font-family="Arial, sans-serif" font-size="13">+ OWASP Security Headers</text>
+  <text x="450" y="565" fill="#7ee787" font-family="Arial, sans-serif" font-size="13">+ Rate Limiting</text>
+  <text x="450" y="590" fill="#7ee787" font-family="Arial, sans-serif" font-size="13">+ Playwright E2E Tests</text>
+</svg>

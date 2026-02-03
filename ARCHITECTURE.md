@@ -1,9 +1,10 @@
-
 # ARCHITECTURE.md - dual-apps v4.0
 
 **Technical Deep Dive** - Complete System Architecture
 **Version**: 4.0.0 | **Date**: February 03, 2026
 **[Overview ←](OVERVIEW.md)** | **[CLI →](CLI-REFERENCE.md)**
+
+![Dual Layer Architecture](docs/images/dual-layer-architecture.svg)
 
 ## Table of Contents
 1. [Dual Layer Architecture](#dual-layer) - Pages 1-2

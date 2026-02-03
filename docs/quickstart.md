@@ -2,6 +2,8 @@
 
 Get a production-ready Django project running in 5 minutes.
 
+![CLI Demo](images/cli-demo.svg)
+
 ## 1. Install dual-apps
 
 ```bash

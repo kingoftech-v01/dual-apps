@@ -1,9 +1,10 @@
-
 # CLI-REFERENCE.md - dual-apps v4.0
 
 **Complete CLI Reference & Usage Guide**
 **Version**: 4.0.0 | **Date**: February 03, 2026
 [Architecture ←](ARCHITECTURE.md) | [Convention →](CONVENTION-v3.md)
+
+![CLI Demo](docs/images/cli-demo.svg)
 
 ## Table of Contents
 1. [Installation](#install) - Page 1

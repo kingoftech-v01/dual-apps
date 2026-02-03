@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="900" height="350" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="900" height="350" fill="#111827"/>
+
+  <!-- Title -->
+  <text x="450" y="35" text-anchor="middle" fill="#F9FAFB" font-family="Arial, sans-serif" font-size="22" font-weight="bold">Generation Workflow</text>
+
+  <!-- Step 1: CLI Command -->
+  <rect x="30" y="80" width="160" height="100" rx="10" fill="#1E40AF"/>
+  <text x="110" y="115" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">1. CLI Command</text>
+  <text x="110" y="140" text-anchor="middle" fill="#BFDBFE" font-family="Arial, sans-serif" font-size="11">dual_apps init</text>
+  <text x="110" y="158" text-anchor="middle" fill="#BFDBFE" font-family="Arial, sans-serif" font-size="11">project myshop</text>
+
+  <!-- Arrow 1 -->
+  <path d="M190 130 L230 130" stroke="#6B7280" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <!-- Step 2: Config -->
+  <rect x="230" y="80" width="160" height="100" rx="10" fill="#7C3AED"/>
+  <text x="310" y="115" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">2. Configuration</text>
+  <text x="310" y="140" text-anchor="middle" fill="#DDD6FE" font-family="Arial, sans-serif" font-size="11">Template + Frontend</text>
+  <text x="310" y="158" text-anchor="middle" fill="#DDD6FE" font-family="Arial, sans-serif" font-size="11">CSS + Auth + Options</text>
+
+  <!-- Arrow 2 -->
+  <path d="M390 130 L430 130" stroke="#6B7280" stroke-width="2" fill="none"/>
+
+  <!-- Step 3: Template Engine -->
+  <rect x="430" y="80" width="160" height="100" rx="10" fill="#DB2777"/>
+  <text x="510" y="115" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">3. Jinja2 Engine</text>
+  <text x="510" y="140" text-anchor="middle" fill="#FBCFE8" font-family="Arial, sans-serif" font-size="11">Render templates</text>
+  <text x="510" y="158" text-anchor="middle" fill="#FBCFE8" font-family="Arial, sans-serif" font-size="11">Apply conditionals</text>
+
+  <!-- Arrow 3 -->
+  <path d="M590 130 L630 130" stroke="#6B7280" stroke-width="2" fill="none"/>
+
+  <!-- Step 4: Output -->
+  <rect x="630" y="80" width="160" height="100" rx="10" fill="#059669"/>
+  <text x="710" y="115" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">4. Generated</text>
+  <text x="710" y="140" text-anchor="middle" fill="#A7F3D0" font-family="Arial, sans-serif" font-size="11">Django Project</text>
+  <text x="710" y="158" text-anchor="middle" fill="#A7F3D0" font-family="Arial, sans-serif" font-size="11">Ready to run!</text>
+
+  <!-- Bottom section - What gets generated -->
+  <rect x="30" y="210" width="840" height="120" rx="10" fill="#1F2937"/>
+  <text x="450" y="240" text-anchor="middle" fill="#F9FAFB" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Generated Files</text>
+
+  <!-- Generated items -->
+  <rect x="50" y="260" width="120" height="50" rx="5" fill="#374151"/>
+  <text x="110" y="290" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="12">apps/</text>
+
+  <rect x="185" y="260" width="120" height="50" rx="5" fill="#374151"/>
+  <text x="245" y="290" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="12">frontend/</text>
+
+  <rect x="320" y="260" width="120" height="50" rx="5" fill="#374151"/>
+  <text x="380" y="290" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="12">config/</text>
+
+  <rect x="455" y="260" width="120" height="50" rx="5" fill="#374151"/>
+  <text x="515" y="290" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="12">docker/</text>
+
+  <rect x="590" y="260" width="120" height="50" rx="5" fill="#374151"/>
+  <text x="650" y="290" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="12">tests/</text>
+
+  <rect x="725" y="260" width="120" height="50" rx="5" fill="#374151"/>
+  <text x="785" y="290" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="12">docs/</text>
+</svg>

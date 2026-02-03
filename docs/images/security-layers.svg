@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="450" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="secGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#DC2626"/>
+      <stop offset="100%" style="stop-color:#EF4444"/>
+    </linearGradient>
+    <linearGradient id="secGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#F97316"/>
+      <stop offset="100%" style="stop-color:#FB923C"/>
+    </linearGradient>
+    <linearGradient id="secGrad3" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#EAB308"/>
+      <stop offset="100%" style="stop-color:#FACC15"/>
+    </linearGradient>
+    <linearGradient id="secGrad4" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#22C55E"/>
+      <stop offset="100%" style="stop-color:#4ADE80"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="450" fill="#0F172A"/>
+
+  <!-- Title -->
+  <text x="400" y="40" text-anchor="middle" fill="#F8FAFC" font-family="Arial, sans-serif" font-size="24" font-weight="bold">Security Architecture</text>
+
+  <!-- Layer 1: Edge Security -->
+  <rect x="50" y="70" width="700" height="70" rx="10" fill="url(#secGrad1)" opacity="0.9"/>
+  <text x="100" y="95" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Layer 1: Edge Security</text>
+  <text x="100" y="120" fill="#FEE2E2" font-family="Arial, sans-serif" font-size="12">HTTPS | HSTS | Rate Limiting | WAF Headers | CSP | X-Frame-Options</text>
+  <text x="650" y="110" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="24">🛡️</text>
+
+  <!-- Layer 2: Authentication -->
+  <rect x="80" y="155" width="640" height="70" rx="10" fill="url(#secGrad2)" opacity="0.9"/>
+  <text x="130" y="180" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Layer 2: Authentication</text>
+  <text x="130" y="205" fill="#FED7AA" font-family="Arial, sans-serif" font-size="12">JWT (httpOnly/localStorage) | Session Auth | django-allauth | Token Rotation</text>
+  <text x="620" y="195" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="24">🔐</text>
+
+  <!-- Layer 3: Authorization -->
+  <rect x="110" y="240" width="580" height="70" rx="10" fill="url(#secGrad3)" opacity="0.9"/>
+  <text x="160" y="265" fill="#1F2937" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Layer 3: Authorization</text>
+  <text x="160" y="290" fill="#422006" font-family="Arial, sans-serif" font-size="12">IsOwnerOrReadOnly | Object Permissions | Role-Based Access | Admin Protection</text>
+  <text x="590" y="280" text-anchor="middle" fill="#1F2937" font-family="Arial, sans-serif" font-size="24">👤</text>
+
+  <!-- Layer 4: Data Protection -->
+  <rect x="140" y="325" width="520" height="70" rx="10" fill="url(#secGrad4)" opacity="0.9"/>
+  <text x="190" y="350" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Layer 4: Data Protection</text>
+  <text x="190" y="375" fill="#DCFCE7" font-family="Arial, sans-serif" font-size="12">Input Validation | SQL Injection Prevention | XSS Escaping | CSRF Tokens</text>
+  <text x="560" y="365" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="24">🔒</text>
+
+  <!-- Database at bottom -->
+  <rect x="300" y="410" width="200" height="30" rx="5" fill="#1E293B" stroke="#334155" stroke-width="2"/>
+  <text x="400" y="430" text-anchor="middle" fill="#94A3B8" font-family="Arial, sans-serif" font-size="12">PostgreSQL / MySQL</text>
+
+  <!-- Arrows -->
+  <path d="M400 395 L400 410" stroke="#475569" stroke-width="2"/>
+</svg>

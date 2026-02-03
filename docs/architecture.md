@@ -4,6 +4,8 @@ Technical deep dive into dual-apps architecture.
 
 ## Dual-Layer Architecture
 
+![Dual Layer Architecture](images/dual-layer-architecture.svg)
+
 Every generated app has two layers:
 
 ```

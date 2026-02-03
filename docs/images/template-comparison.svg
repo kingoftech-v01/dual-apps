@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="900" height="600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ecommerceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6"/>
+      <stop offset="100%" style="stop-color:#6366F1"/>
+    </linearGradient>
+    <linearGradient id="blogGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#EC4899"/>
+      <stop offset="100%" style="stop-color:#F43F5E"/>
+    </linearGradient>
+    <linearGradient id="saasGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#14B8A6"/>
+      <stop offset="100%" style="stop-color:#06B6D4"/>
+    </linearGradient>
+    <linearGradient id="cmsGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F59E0B"/>
+      <stop offset="100%" style="stop-color:#EAB308"/>
+    </linearGradient>
+    <linearGradient id="bookingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22C55E"/>
+      <stop offset="100%" style="stop-color:#10B981"/>
+    </linearGradient>
+    <linearGradient id="marketplaceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6"/>
+      <stop offset="100%" style="stop-color:#2563EB"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="600" fill="#111827"/>
+
+  <!-- Title -->
+  <text x="450" y="45" text-anchor="middle" fill="#F9FAFB" font-family="Arial, sans-serif" font-size="28" font-weight="bold">6 Specialized Templates</text>
+  <text x="450" y="75" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="16">Choose the perfect starting point for your project</text>
+
+  <!-- Row 1 -->
+  <!-- Ecommerce -->
+  <rect x="50" y="110" width="260" height="150" rx="12" fill="url(#ecommerceGrad)"/>
+  <text x="180" y="145" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="20" font-weight="bold">Ecommerce</text>
+  <text x="180" y="175" text-anchor="middle" fill="#E0E7FF" font-family="Arial, sans-serif" font-size="13">Online Store Platform</text>
+  <text x="70" y="205" fill="#C7D2FE" font-family="Arial, sans-serif" font-size="12">* Products &amp; Categories</text>
+  <text x="70" y="225" fill="#C7D2FE" font-family="Arial, sans-serif" font-size="12">* Shopping Cart</text>
+  <text x="70" y="245" fill="#C7D2FE" font-family="Arial, sans-serif" font-size="12">* Orders &amp; Payments</text>
+
+  <!-- Blog -->
+  <rect x="320" y="110" width="260" height="150" rx="12" fill="url(#blogGrad)"/>
+  <text x="450" y="145" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="20" font-weight="bold">Blog</text>
+  <text x="450" y="175" text-anchor="middle" fill="#FECDD3" font-family="Arial, sans-serif" font-size="13">Content Platform</text>
+  <text x="340" y="205" fill="#FECDD3" font-family="Arial, sans-serif" font-size="12">* Posts &amp; Categories</text>
+  <text x="340" y="225" fill="#FECDD3" font-family="Arial, sans-serif" font-size="12">* Comments System</text>
+  <text x="340" y="245" fill="#FECDD3" font-family="Arial, sans-serif" font-size="12">* Author Profiles</text>
+
+  <!-- SaaS -->
+  <rect x="590" y="110" width="260" height="150" rx="12" fill="url(#saasGrad)"/>
+  <text x="720" y="145" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="20" font-weight="bold">SaaS</text>
+  <text x="720" y="175" text-anchor="middle" fill="#A7F3D0" font-family="Arial, sans-serif" font-size="13">Software as a Service</text>
+  <text x="610" y="205" fill="#A7F3D0" font-family="Arial, sans-serif" font-size="12">* User Dashboard</text>
+  <text x="610" y="225" fill="#A7F3D0" font-family="Arial, sans-serif" font-size="12">* Subscription Plans</text>
+  <text x="610" y="245" fill="#A7F3D0" font-family="Arial, sans-serif" font-size="12">* Billing &amp; Invoices</text>
+
+  <!-- Row 2 -->
+  <!-- CMS -->
+  <rect x="50" y="290" width="260" height="150" rx="12" fill="url(#cmsGrad)"/>
+  <text x="180" y="325" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="20" font-weight="bold">CMS</text>
+  <text x="180" y="355" text-anchor="middle" fill="#FEF3C7" font-family="Arial, sans-serif" font-size="13">Content Management</text>
+  <text x="70" y="385" fill="#FEF3C7" font-family="Arial, sans-serif" font-size="12">* Page Builder</text>
+  <text x="70" y="405" fill="#FEF3C7" font-family="Arial, sans-serif" font-size="12">* Media Library</text>
+  <text x="70" y="425" fill="#FEF3C7" font-family="Arial, sans-serif" font-size="12">* SEO Tools</text>
+
+  <!-- Booking -->
+  <rect x="320" y="290" width="260" height="150" rx="12" fill="url(#bookingGrad)"/>
+  <text x="450" y="325" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="20" font-weight="bold">Booking</text>
+  <text x="450" y="355" text-anchor="middle" fill="#BBF7D0" font-family="Arial, sans-serif" font-size="13">Reservation System</text>
+  <text x="340" y="385" fill="#BBF7D0" font-family="Arial, sans-serif" font-size="12">* Services Catalog</text>
+  <text x="340" y="405" fill="#BBF7D0" font-family="Arial, sans-serif" font-size="12">* Calendar View</text>
+  <text x="340" y="425" fill="#BBF7D0" font-family="Arial, sans-serif" font-size="12">* Appointments</text>
+
+  <!-- Marketplace -->
+  <rect x="590" y="290" width="260" height="150" rx="12" fill="url(#marketplaceGrad)"/>
+  <text x="720" y="325" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="20" font-weight="bold">Marketplace</text>
+  <text x="720" y="355" text-anchor="middle" fill="#BFDBFE" font-family="Arial, sans-serif" font-size="13">Multi-vendor Platform</text>
+  <text x="610" y="385" fill="#BFDBFE" font-family="Arial, sans-serif" font-size="12">* Seller Profiles</text>
+  <text x="610" y="405" fill="#BFDBFE" font-family="Arial, sans-serif" font-size="12">* Product Listings</text>
+  <text x="610" y="425" fill="#BFDBFE" font-family="Arial, sans-serif" font-size="12">* Reviews &amp; Ratings</text>
+
+  <!-- Footer -->
+  <rect x="50" y="470" width="800" height="100" rx="10" fill="#1F2937"/>
+  <text x="450" y="505" text-anchor="middle" fill="#F9FAFB" font-family="Arial, sans-serif" font-size="16" font-weight="bold">All Templates Include:</text>
+  <text x="150" y="540" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="13">JWT Auth</text>
+  <text x="300" y="540" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="13">REST API</text>
+  <text x="450" y="540" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="13">Docker</text>
+  <text x="600" y="540" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="13">Tests</text>
+  <text x="750" y="540" text-anchor="middle" fill="#9CA3AF" font-family="Arial, sans-serif" font-size="13">Security</text>
+</svg>
