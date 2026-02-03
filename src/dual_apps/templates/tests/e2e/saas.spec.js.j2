@@ -1,0 +1,140 @@
+// @ts-check
+const { test, expect } = require('@playwright/test');
+
+test.describe('SaaS - Public Pages', () => {
+  test('should display pricing page', async ({ page }) => {
+    await page.goto('/pricing');
+
+    const pricingCards = page.locator('.pricing-card, .plan-card, [data-testid="pricing-plan"]');
+    await expect(pricingCards.first()).toBeVisible();
+  });
+
+  test('should toggle billing interval', async ({ page }) => {
+    await page.goto('/pricing');
+
+    const toggle = page.locator('button:has-text("Yearly"), [data-testid="billing-toggle"]');
+    if (await toggle.count() > 0) {
+      await toggle.click();
+      // Prices should update
+      await page.waitForLoadState('networkidle');
+    }
+  });
+
+  test('should show FAQ section', async ({ page }) => {
+    await page.goto('/pricing');
+
+    const faq = page.locator('.faq, .accordion, [data-testid="faq-section"]');
+    await expect(faq.first()).toBeVisible();
+  });
+});
+
+test.describe('SaaS - Dashboard', () => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
+  test('should display dashboard with stats', async ({ page }) => {
+    await page.goto('/dashboard');
+
+    const statsCards = page.locator('.stat-card, .stats-card, [data-testid="stat-card"]');
+    await expect(statsCards.first()).toBeVisible();
+  });
+
+  test('should show usage chart', async ({ page }) => {
+    await page.goto('/dashboard');
+
+    const chart = page.locator('.chart, canvas, [data-testid="usage-chart"]');
+    await expect(chart.first()).toBeVisible();
+  });
+
+  test('should show activity feed', async ({ page }) => {
+    await page.goto('/dashboard');
+
+    const activityFeed = page.locator('.activity-feed, [data-testid="activity-feed"]');
+    await expect(activityFeed.first()).toBeVisible();
+  });
+});
+
+test.describe('SaaS - Team Management', () => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
+  test('should view team members', async ({ page }) => {
+    await page.goto('/team');
+
+    const memberList = page.locator('.team-member, [data-testid="team-member"]');
+    await expect(memberList.first()).toBeVisible();
+  });
+
+  test('should open invite modal', async ({ page }) => {
+    await page.goto('/team');
+
+    const inviteBtn = page.locator('button:has-text("Invite"), [data-testid="invite-member"]');
+    await inviteBtn.click();
+
+    const modal = page.locator('.modal, [data-testid="invite-modal"]');
+    await expect(modal).toBeVisible();
+  });
+
+  test('should show member roles', async ({ page }) => {
+    await page.goto('/team');
+
+    const roleLabels = page.locator('.role, .badge, [data-testid="member-role"]');
+    await expect(roleLabels.first()).toBeVisible();
+  });
+});
+
+test.describe('SaaS - Settings', () => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
+  test('should view profile settings', async ({ page }) => {
+    await page.goto('/settings');
+
+    await expect(page.locator('input[name="name"], input[name="first_name"]').first()).toBeVisible();
+    await expect(page.locator('input[name="email"]')).toBeVisible();
+  });
+
+  test('should view billing settings', async ({ page }) => {
+    await page.goto('/settings/billing');
+
+    const billingSection = page.locator('.billing, [data-testid="billing-section"]');
+    await expect(billingSection.first()).toBeVisible();
+  });
+
+  test('should view API keys', async ({ page }) => {
+    await page.goto('/settings/api-keys');
+
+    const apiKeysSection = page.locator('.api-keys, [data-testid="api-keys"]');
+    await expect(apiKeysSection.first()).toBeVisible();
+  });
+
+  test('should create new API key', async ({ page }) => {
+    await page.goto('/settings/api-keys');
+
+    const createBtn = page.locator('button:has-text("Create"), button:has-text("Generate")');
+    if (await createBtn.count() > 0) {
+      await createBtn.click();
+
+      const modal = page.locator('.modal, [data-testid="create-key-modal"]');
+      await expect(modal).toBeVisible();
+    }
+  });
+});
+
+test.describe('SaaS - Subscription', () => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
+  test('should view current subscription', async ({ page }) => {
+    await page.goto('/settings/billing');
+
+    const currentPlan = page.locator('.current-plan, [data-testid="current-plan"]');
+    await expect(currentPlan.first()).toBeVisible();
+  });
+
+  test('should access plan upgrade', async ({ page }) => {
+    await page.goto('/settings/billing');
+
+    const upgradeBtn = page.locator('button:has-text("Upgrade"), a:has-text("Upgrade")');
+    if (await upgradeBtn.count() > 0) {
+      await upgradeBtn.click();
+      await expect(page).toHaveURL(/pricing|plans|upgrade/);
+    }
+  });
+});

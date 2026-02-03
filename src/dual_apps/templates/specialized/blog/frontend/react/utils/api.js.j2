@@ -1,0 +1,108 @@
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: '{{ api_base_url|default:"" }}',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  {% if jwt_storage == 'httpOnly' %}
+  withCredentials: true,
+  {% endif %}
+});
+
+{% if jwt_storage == 'localStorage' %}
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) throw new Error('No refresh token');
+
+        const response = await axios.post(
+          `${api.defaults.baseURL}/api/auth/token/refresh/`,
+          { refresh: refreshToken }
+        );
+
+        localStorage.setItem('accessToken', response.data.access);
+        originalRequest.headers.Authorization = `Bearer ${response.data.access}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+{% else %}
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        await axios.post(
+          `${api.defaults.baseURL}/api/auth/token/refresh/`,
+          {},
+          { withCredentials: true }
+        );
+        return api(originalRequest);
+      } catch (refreshError) {
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+{% endif %}
+
+export const blogAPI = {
+  // Posts
+  getPosts: (params) => api.get('/api/blog/posts/', { params }),
+  getPost: (slug) => api.get(`/api/blog/posts/${slug}/`),
+  
+  // Categories
+  getCategories: () => api.get('/api/blog/categories/'),
+  
+  // Tags
+  getTags: () => api.get('/api/blog/tags/'),
+  
+  // Comments
+  getComments: (postSlug) => api.get(`/api/blog/posts/${postSlug}/comments/`),
+  addComment: (postSlug, data) => api.post(`/api/blog/posts/${postSlug}/comments/`, data),
+  
+  // Authors
+  getAuthor: (username) => api.get(`/api/blog/authors/${username}/`),
+  
+  // Newsletter
+  subscribe: (email) => api.post('/api/blog/newsletter/subscribe/', { email }),
+  
+  // Search
+  search: (query) => api.get('/api/blog/search/', { params: { q: query } }),
+};
+
+export default api;

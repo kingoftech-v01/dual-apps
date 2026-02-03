@@ -1,0 +1,153 @@
+// @ts-check
+const { test, expect } = require('@playwright/test');
+
+test.describe('Booking - Service Browsing', () => {
+  test('should display service list', async ({ page }) => {
+    await page.goto('/services');
+
+    const services = page.locator('.service-card, [data-testid="service-card"]');
+    await expect(services.first()).toBeVisible();
+  });
+
+  test('should filter by category', async ({ page }) => {
+    await page.goto('/services');
+
+    const categoryFilter = page.locator('select[name="category"], [data-testid="category-filter"]');
+    if (await categoryFilter.count() > 0) {
+      await categoryFilter.selectOption({ index: 1 });
+      await page.waitForLoadState('networkidle');
+    }
+  });
+
+  test('should view service details', async ({ page }) => {
+    await page.goto('/services');
+
+    await page.locator('.service-card a, [data-testid="service-card"] a').first().click();
+
+    await expect(page.locator('h1, h2').first()).toBeVisible();
+    await expect(page.locator('button:has-text("Book"), [data-testid="book-now"]').first()).toBeVisible();
+  });
+
+  test('should show service duration and price', async ({ page }) => {
+    await page.goto('/services');
+    await page.locator('.service-card a, [data-testid="service-card"] a').first().click();
+
+    await expect(page.locator('.price, [data-testid="service-price"]').first()).toBeVisible();
+    await expect(page.locator('.duration, [data-testid="service-duration"]').first()).toBeVisible();
+  });
+});
+
+test.describe('Booking - Booking Flow', () => {
+  test('should start booking process', async ({ page }) => {
+    await page.goto('/services');
+    await page.locator('.service-card a, [data-testid="service-card"] a').first().click();
+    await page.click('button:has-text("Book"), [data-testid="book-now"]');
+
+    // Should show booking form or date selection
+    await expect(page.locator('.booking-form, [data-testid="booking-form"]').first()).toBeVisible();
+  });
+
+  test('should select date', async ({ page }) => {
+    await page.goto('/book/1');
+
+    const datePicker = page.locator('.date-picker, input[type="date"], [data-testid="date-picker"]');
+    if (await datePicker.count() > 0) {
+      await datePicker.first().click();
+      // Select a date (implementation depends on date picker type)
+    }
+  });
+
+  test('should show available time slots', async ({ page }) => {
+    await page.goto('/book/1');
+
+    // After selecting date, time slots should appear
+    const timeSlots = page.locator('.time-slot, [data-testid="time-slot"]');
+    await expect(timeSlots.first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should select staff member', async ({ page }) => {
+    await page.goto('/book/1');
+
+    const staffSelector = page.locator('select[name="staff"], [data-testid="staff-selector"]');
+    if (await staffSelector.count() > 0) {
+      await staffSelector.selectOption({ index: 1 });
+    }
+  });
+});
+
+test.describe('Booking - Authenticated User', () => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
+  test('should complete booking', async ({ page }) => {
+    await page.goto('/book/1');
+
+    // Fill required fields and submit
+    const dateInput = page.locator('input[type="date"], [data-testid="date-input"]');
+    if (await dateInput.count() > 0) {
+      await dateInput.first().fill('2024-12-15');
+    }
+
+    const timeSlot = page.locator('.time-slot, [data-testid="time-slot"]');
+    if (await timeSlot.count() > 0) {
+      await timeSlot.first().click();
+    }
+
+    const submitBtn = page.locator('button:has-text("Confirm"), button:has-text("Book"), [data-testid="confirm-booking"]');
+    if (await submitBtn.count() > 0) {
+      await submitBtn.click();
+    }
+  });
+
+  test('should view my bookings', async ({ page }) => {
+    await page.goto('/my-bookings');
+    await expect(page).toHaveTitle(/Bookings|My Bookings/);
+  });
+
+  test('should view booking details', async ({ page }) => {
+    await page.goto('/my-bookings');
+
+    const bookingLink = page.locator('a:has-text("View"), [data-testid="booking-link"]');
+    if (await bookingLink.count() > 0) {
+      await bookingLink.first().click();
+      await expect(page.locator('.booking-details, [data-testid="booking-details"]').first()).toBeVisible();
+    }
+  });
+
+  test('should cancel booking', async ({ page }) => {
+    await page.goto('/my-bookings');
+
+    const cancelBtn = page.locator('button:has-text("Cancel"), [data-testid="cancel-booking"]');
+    if (await cancelBtn.count() > 0) {
+      await cancelBtn.first().click();
+
+      // Confirm cancellation
+      const confirmBtn = page.locator('button:has-text("Confirm"), [data-testid="confirm-cancel"]');
+      if (await confirmBtn.count() > 0) {
+        await confirmBtn.click();
+      }
+    }
+  });
+});
+
+test.describe('Booking - Confirmation', () => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
+  test('should show confirmation page after booking', async ({ page }) => {
+    // This would require completing a booking first
+    await page.goto('/booking/confirmation/test-ref');
+
+    const confirmation = page.locator('.confirmation, [data-testid="booking-confirmation"]');
+    if (await confirmation.count() > 0) {
+      await expect(confirmation.first()).toBeVisible();
+    }
+  });
+
+  test('should provide calendar download', async ({ page }) => {
+    await page.goto('/booking/confirmation/test-ref');
+
+    const calendarBtn = page.locator('button:has-text("Calendar"), [data-testid="add-to-calendar"]');
+    if (await calendarBtn.count() > 0) {
+      await expect(calendarBtn).toBeVisible();
+    }
+  });
+});

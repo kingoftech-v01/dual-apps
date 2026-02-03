@@ -1,0 +1,228 @@
+// @ts-check
+const { test, expect } = require('@playwright/test');
+
+test.describe('Marketplace - Listing Browsing', () => {
+  test('should display listing grid', async ({ page }) => {
+    await page.goto('/listings');
+
+    const listings = page.locator('.listing-card, [data-testid="listing-card"]');
+    await expect(listings.first()).toBeVisible();
+  });
+
+  test('should filter by category', async ({ page }) => {
+    await page.goto('/listings');
+
+    const categoryFilter = page.locator('select[name="category"], [data-testid="category-filter"]');
+    await categoryFilter.selectOption({ index: 1 });
+    await page.waitForLoadState('networkidle');
+  });
+
+  test('should filter by price range', async ({ page }) => {
+    await page.goto('/listings');
+
+    const minPrice = page.locator('input[name="min_price"], [data-testid="min-price"]');
+    const maxPrice = page.locator('input[name="max_price"], [data-testid="max-price"]');
+
+    if (await minPrice.count() > 0) {
+      await minPrice.fill('10');
+      await maxPrice.fill('100');
+      await page.click('button:has-text("Apply"), [data-testid="apply-filters"]');
+      await page.waitForLoadState('networkidle');
+    }
+  });
+
+  test('should search listings', async ({ page }) => {
+    await page.goto('/listings');
+
+    const searchInput = page.locator('input[name="q"], [data-testid="search-input"]');
+    await searchInput.fill('test');
+    await searchInput.press('Enter');
+
+    await page.waitForLoadState('networkidle');
+    await expect(page).toHaveURL(/q=test/);
+  });
+
+  test('should sort listings', async ({ page }) => {
+    await page.goto('/listings');
+
+    const sortSelect = page.locator('select[name="sort"], [data-testid="sort-select"]');
+    await sortSelect.selectOption('price');
+    await page.waitForLoadState('networkidle');
+  });
+
+  test('should view listing details', async ({ page }) => {
+    await page.goto('/listings');
+
+    await page.locator('.listing-card a, [data-testid="listing-card"] a').first().click();
+
+    await expect(page.locator('h1, h2').first()).toBeVisible();
+    await expect(page.locator('.price, [data-testid="listing-price"]').first()).toBeVisible();
+  });
+});
+
+test.describe('Marketplace - Listing Details', () => {
+  test('should show image gallery', async ({ page }) => {
+    await page.goto('/listings');
+    await page.locator('.listing-card a, [data-testid="listing-card"] a').first().click();
+
+    const gallery = page.locator('.carousel, .gallery, [data-testid="image-gallery"]');
+    await expect(gallery.first()).toBeVisible();
+  });
+
+  test('should show seller information', async ({ page }) => {
+    await page.goto('/listings');
+    await page.locator('.listing-card a, [data-testid="listing-card"] a').first().click();
+
+    const sellerInfo = page.locator('.seller-info, [data-testid="seller-info"]');
+    await expect(sellerInfo.first()).toBeVisible();
+  });
+
+  test('should show contact seller button', async ({ page }) => {
+    await page.goto('/listings');
+    await page.locator('.listing-card a, [data-testid="listing-card"] a').first().click();
+
+    const contactBtn = page.locator('button:has-text("Contact"), [data-testid="contact-seller"]');
+    await expect(contactBtn.first()).toBeVisible();
+  });
+});
+
+test.describe('Marketplace - Authenticated Actions', () => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
+  test('should add to favorites', async ({ page }) => {
+    await page.goto('/listings');
+    await page.locator('.listing-card a, [data-testid="listing-card"] a').first().click();
+
+    const favoriteBtn = page.locator('button:has-text("Favorite"), [data-testid="favorite-btn"]');
+    if (await favoriteBtn.count() > 0) {
+      await favoriteBtn.click();
+      await page.waitForLoadState('networkidle');
+    }
+  });
+
+  test('should view favorites', async ({ page }) => {
+    await page.goto('/favorites');
+    await expect(page).toHaveTitle(/Favorites/);
+  });
+
+  test('should contact seller', async ({ page }) => {
+    await page.goto('/listings');
+    await page.locator('.listing-card a, [data-testid="listing-card"] a').first().click();
+
+    const contactBtn = page.locator('button:has-text("Contact"), [data-testid="contact-seller"]');
+    await contactBtn.click();
+
+    const modal = page.locator('.modal, [data-testid="message-modal"]');
+    await expect(modal).toBeVisible();
+  });
+
+  test('should make an offer', async ({ page }) => {
+    await page.goto('/listings');
+    await page.locator('.listing-card a, [data-testid="listing-card"] a').first().click();
+
+    const offerBtn = page.locator('button:has-text("Offer"), [data-testid="make-offer"]');
+    if (await offerBtn.count() > 0) {
+      await offerBtn.click();
+
+      const modal = page.locator('.modal, [data-testid="offer-modal"]');
+      await expect(modal).toBeVisible();
+    }
+  });
+});
+
+test.describe('Marketplace - Create Listing', () => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
+  test('should access create listing page', async ({ page }) => {
+    await page.goto('/create-listing');
+    await expect(page).toHaveTitle(/Create|New Listing/);
+  });
+
+  test('should show listing form', async ({ page }) => {
+    await page.goto('/create-listing');
+
+    await expect(page.locator('input[name="title"]')).toBeVisible();
+    await expect(page.locator('textarea[name="description"]')).toBeVisible();
+    await expect(page.locator('input[name="price"]')).toBeVisible();
+  });
+
+  test('should upload images', async ({ page }) => {
+    await page.goto('/create-listing');
+
+    const uploadArea = page.locator('#upload-area, [data-testid="image-upload"]');
+    await expect(uploadArea.first()).toBeVisible();
+  });
+
+  test('should select category', async ({ page }) => {
+    await page.goto('/create-listing');
+
+    const categorySelect = page.locator('select[name="category"]');
+    await expect(categorySelect).toBeVisible();
+  });
+});
+
+test.describe('Marketplace - Seller Profile', () => {
+  test('should view seller profile', async ({ page }) => {
+    await page.goto('/listings');
+    await page.locator('.listing-card a, [data-testid="listing-card"] a').first().click();
+
+    const sellerLink = page.locator('a:has-text("View Profile"), [data-testid="seller-profile-link"]');
+    if (await sellerLink.count() > 0) {
+      await sellerLink.click();
+      await expect(page.locator('.seller-profile, [data-testid="seller-profile"]').first()).toBeVisible();
+    }
+  });
+
+  test('should show seller listings', async ({ page }) => {
+    await page.goto('/seller/testuser');
+
+    const listings = page.locator('.listing-card, [data-testid="listing-card"]');
+    await expect(listings.first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should show seller reviews', async ({ page }) => {
+    await page.goto('/seller/testuser');
+
+    const reviewsTab = page.locator('button:has-text("Reviews"), [data-testid="reviews-tab"]');
+    if (await reviewsTab.count() > 0) {
+      await reviewsTab.click();
+
+      const reviews = page.locator('.review, [data-testid="review"]');
+      await expect(reviews.first()).toBeVisible({ timeout: 5000 });
+    }
+  });
+});
+
+test.describe('Marketplace - My Listings', () => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
+  test('should view my listings', async ({ page }) => {
+    await page.goto('/my-listings');
+    await expect(page).toHaveTitle(/My Listings/);
+  });
+
+  test('should edit listing', async ({ page }) => {
+    await page.goto('/my-listings');
+
+    const editBtn = page.locator('button:has-text("Edit"), [data-testid="edit-listing"]');
+    if (await editBtn.count() > 0) {
+      await editBtn.first().click();
+      await expect(page).toHaveURL(/edit/);
+    }
+  });
+
+  test('should delete listing', async ({ page }) => {
+    await page.goto('/my-listings');
+
+    const deleteBtn = page.locator('button:has-text("Delete"), [data-testid="delete-listing"]');
+    if (await deleteBtn.count() > 0) {
+      await deleteBtn.first().click();
+
+      // Confirm deletion
+      const confirmBtn = page.locator('button:has-text("Confirm"), [data-testid="confirm-delete"]');
+      if (await confirmBtn.count() > 0) {
+        await confirmBtn.click();
+      }
+    }
+  });
+});

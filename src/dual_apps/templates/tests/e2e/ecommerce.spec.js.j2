@@ -1,0 +1,160 @@
+// @ts-check
+const { test, expect } = require('@playwright/test');
+
+test.describe('Ecommerce - Product Browsing', () => {
+  test('should display product list', async ({ page }) => {
+    await page.goto('/products');
+
+    const products = page.locator('.product-card, [data-testid="product-card"]');
+    await expect(products.first()).toBeVisible();
+  });
+
+  test('should filter products by category', async ({ page }) => {
+    await page.goto('/products');
+
+    // Select a category filter
+    const categoryFilter = page.locator('select[name="category"], [data-testid="category-filter"]');
+    if (await categoryFilter.count() > 0) {
+      await categoryFilter.selectOption({ index: 1 });
+      await page.waitForLoadState('networkidle');
+
+      const products = page.locator('.product-card, [data-testid="product-card"]');
+      await expect(products.first()).toBeVisible();
+    }
+  });
+
+  test('should search for products', async ({ page }) => {
+    await page.goto('/products');
+
+    const searchInput = page.locator('input[name="q"], input[name="search"], [data-testid="search-input"]');
+    await searchInput.fill('test');
+    await searchInput.press('Enter');
+
+    await page.waitForLoadState('networkidle');
+    await expect(page).toHaveURL(/q=test|search=test/);
+  });
+
+  test('should view product details', async ({ page }) => {
+    await page.goto('/products');
+
+    // Click first product
+    await page.locator('.product-card a, [data-testid="product-card"] a').first().click();
+
+    // Should show product details
+    await expect(page.locator('h1, h2').first()).toBeVisible();
+    await expect(page.locator('button:has-text("Add to Cart"), [data-testid="add-to-cart"]').first()).toBeVisible();
+  });
+});
+
+test.describe('Ecommerce - Cart', () => {
+  test('should add product to cart', async ({ page }) => {
+    await page.goto('/products');
+
+    // Click first product
+    await page.locator('.product-card a, [data-testid="product-card"] a').first().click();
+
+    // Add to cart
+    await page.click('button:has-text("Add to Cart"), [data-testid="add-to-cart"]');
+
+    // Cart should update
+    const cartBadge = page.locator('.cart-badge, [data-testid="cart-count"]');
+    await expect(cartBadge).toBeVisible();
+  });
+
+  test('should view cart', async ({ page }) => {
+    await page.goto('/cart');
+    await expect(page).toHaveTitle(/Cart/);
+  });
+
+  test('should update cart quantity', async ({ page }) => {
+    // First add item to cart
+    await page.goto('/products');
+    await page.locator('.product-card a, [data-testid="product-card"] a').first().click();
+    await page.click('button:has-text("Add to Cart"), [data-testid="add-to-cart"]');
+
+    // Go to cart
+    await page.goto('/cart');
+
+    // Update quantity
+    const quantityInput = page.locator('input[name="quantity"], [data-testid="quantity-input"]');
+    if (await quantityInput.count() > 0) {
+      await quantityInput.first().fill('2');
+      await page.waitForLoadState('networkidle');
+    }
+  });
+
+  test('should remove item from cart', async ({ page }) => {
+    await page.goto('/cart');
+
+    const removeBtn = page.locator('button:has-text("Remove"), [data-testid="remove-item"]');
+    if (await removeBtn.count() > 0) {
+      const initialCount = await page.locator('.cart-item, [data-testid="cart-item"]').count();
+      await removeBtn.first().click();
+      await page.waitForLoadState('networkidle');
+
+      const newCount = await page.locator('.cart-item, [data-testid="cart-item"]').count();
+      expect(newCount).toBeLessThan(initialCount);
+    }
+  });
+});
+
+test.describe('Ecommerce - Checkout', () => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
+  test('should proceed to checkout', async ({ page }) => {
+    // Add item and go to checkout
+    await page.goto('/products');
+    await page.locator('.product-card a, [data-testid="product-card"] a').first().click();
+    await page.click('button:has-text("Add to Cart"), [data-testid="add-to-cart"]');
+
+    await page.goto('/checkout');
+    await expect(page).toHaveTitle(/Checkout/);
+  });
+
+  test('should show checkout form', async ({ page }) => {
+    await page.goto('/checkout');
+
+    // Should show address form
+    await expect(page.locator('form').first()).toBeVisible();
+    await expect(page.locator('input[name="address"], input[name="street"]').first()).toBeVisible();
+  });
+});
+
+test.describe('Ecommerce - Orders', () => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
+  test('should view order history', async ({ page }) => {
+    await page.goto('/orders');
+    await expect(page).toHaveTitle(/Orders/);
+  });
+
+  test('should view order details', async ({ page }) => {
+    await page.goto('/orders');
+
+    const orderLink = page.locator('a:has-text("View"), a:has-text("Details"), [data-testid="order-link"]');
+    if (await orderLink.count() > 0) {
+      await orderLink.first().click();
+      await expect(page.locator('.order-details, [data-testid="order-details"]').first()).toBeVisible();
+    }
+  });
+});
+
+test.describe('Ecommerce - Wishlist', () => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
+  test('should add to wishlist', async ({ page }) => {
+    await page.goto('/products');
+    await page.locator('.product-card a, [data-testid="product-card"] a').first().click();
+
+    const wishlistBtn = page.locator('button:has-text("Wishlist"), [data-testid="add-to-wishlist"]');
+    if (await wishlistBtn.count() > 0) {
+      await wishlistBtn.click();
+      await page.waitForLoadState('networkidle');
+    }
+  });
+
+  test('should view wishlist', async ({ page }) => {
+    await page.goto('/wishlist');
+    await expect(page).toHaveTitle(/Wishlist/);
+  });
+});

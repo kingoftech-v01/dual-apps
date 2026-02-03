@@ -1,0 +1,95 @@
+// @ts-check
+const { test, expect } = require('@playwright/test');
+
+test.describe('Authentication', () => {
+  test.beforeEach(async ({ page }) => {
+    // Clear any existing auth state
+    await page.context().clearCookies();
+  });
+
+  test('should show login page', async ({ page }) => {
+    await page.goto('/login');
+    await expect(page).toHaveTitle(/Login/);
+    await expect(page.locator('form')).toBeVisible();
+    await expect(page.locator('input[name="email"], input[name="username"]')).toBeVisible();
+    await expect(page.locator('input[name="password"]')).toBeVisible();
+  });
+
+  test('should show registration page', async ({ page }) => {
+    await page.goto('/register');
+    await expect(page).toHaveTitle(/Register|Sign Up/);
+    await expect(page.locator('form')).toBeVisible();
+    await expect(page.locator('input[name="email"]')).toBeVisible();
+    await expect(page.locator('input[name="password"]')).toBeVisible();
+  });
+
+  test('should show validation errors on empty login', async ({ page }) => {
+    await page.goto('/login');
+    await page.click('button[type="submit"]');
+
+    // Should show validation error
+    const errorMessage = page.locator('.error, .invalid-feedback, [role="alert"]');
+    await expect(errorMessage.first()).toBeVisible();
+  });
+
+  test('should show error on invalid credentials', async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('input[name="email"], input[name="username"]', 'invalid@example.com');
+    await page.fill('input[name="password"]', 'wrongpassword');
+    await page.click('button[type="submit"]');
+
+    // Should show error message
+    await expect(page.locator('.alert-danger, .error-message, [role="alert"]').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should redirect unauthenticated users from protected pages', async ({ page }) => {
+    await page.goto('/dashboard');
+
+    // Should be redirected to login
+    await expect(page).toHaveURL(/login/);
+  });
+
+  {% if template_type == 'ecommerce' %}
+  test('should allow guest checkout access', async ({ page }) => {
+    await page.goto('/checkout');
+    // Guest checkout should be accessible or redirect to login with option
+    const hasGuestOption = await page.locator('text=Guest Checkout, text=Continue as Guest').count();
+    const isOnCheckout = page.url().includes('checkout');
+    expect(hasGuestOption > 0 || !isOnCheckout).toBeTruthy();
+  });
+  {% endif %}
+
+  {% if template_type == 'saas' %}
+  test('should show pricing page without authentication', async ({ page }) => {
+    await page.goto('/pricing');
+    await expect(page).toHaveTitle(/Pricing/);
+    await expect(page.locator('.pricing-card, .plan-card, [data-testid="pricing-plan"]').first()).toBeVisible();
+  });
+  {% endif %}
+});
+
+test.describe('Protected Routes', () => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
+  test('should access dashboard when authenticated', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expect(page).not.toHaveURL(/login/);
+    await expect(page.locator('h1, h2').first()).toBeVisible();
+  });
+
+  test('should show user info in navigation', async ({ page }) => {
+    await page.goto('/dashboard');
+    const userNav = page.locator('[data-testid="user-nav"], .user-menu, .navbar .dropdown');
+    await expect(userNav.first()).toBeVisible();
+  });
+
+  test('should logout successfully', async ({ page }) => {
+    await page.goto('/dashboard');
+
+    // Click logout
+    await page.click('[data-testid="logout-btn"], button:has-text("Logout"), a:has-text("Logout")');
+
+    // Should be redirected to home or login
+    await expect(page).toHaveURL(/(login|\/)/);
+  });
+});
