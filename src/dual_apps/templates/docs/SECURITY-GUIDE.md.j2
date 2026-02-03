@@ -14,13 +14,55 @@
 - Password validation enabled
 - Session timeout configured
 - CSRF protection enabled
+{% if use_jwt %}
 
-### 3. Sensitive Data Protection
+### 3. JWT Security
+{% if use_httponly_jwt %}
+JWT tokens are stored in httpOnly cookies for maximum security:
+- Tokens are not accessible via JavaScript (XSS protection)
+- Automatic cookie handling by browser
+- CSRF protection via SameSite attribute
+- Secure flag enforces HTTPS
+
+```python
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_COOKIE': 'access_token',
+    'AUTH_COOKIE_SECURE': True,
+    'AUTH_COOKIE_HTTP_ONLY': True,
+    'AUTH_COOKIE_SAMESITE': 'Lax',
+}
+```
+{% else %}
+JWT tokens are stored in localStorage:
+- Short access token lifetime (15 minutes)
+- Refresh token rotation enabled
+- Token blacklisting on logout
+- Automatic token refresh in API client
+
+```python
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+}
+```
+
+**Note**: localStorage is more vulnerable to XSS attacks. Ensure proper input
+sanitization and Content Security Policy headers are configured.
+{% endif %}
+{% endif %}
+
+### 4. Sensitive Data Protection
 - HTTPS required in production
 - Secrets in environment variables
 - No sensitive data in logs
 
-### 4. Access Control
+### 5. Access Control
 - `IsOwnerOrReadOnly` permission class
 - Object-level permissions
 - Admin restricted by default
@@ -32,7 +74,9 @@
 SECURE_SSL_REDIRECT = True
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
 X_FRAME_OPTIONS = "DENY"
 ```
 
@@ -40,8 +84,13 @@ X_FRAME_OPTIONS = "DENY"
 
 ```python
 CSP_DEFAULT_SRC = ("'self'",)
+{% if use_tailwind %}
 CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "cdn.tailwindcss.com")
 CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "cdn.tailwindcss.com")
+{% else %}
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net")
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net")
+{% endif %}
 CSP_FRAME_ANCESTORS = ("'none'",)
 ```
 
@@ -58,19 +107,85 @@ CSRF_COOKIE_HTTPONLY = True
 ## API Security
 
 ### Authentication
+{% if use_jwt %}
+{% if use_httponly_jwt %}
+- JWT tokens in httpOnly cookies (XSS protected)
+- Automatic cookie handling by browser
+{% else %}
+- JWT tokens in localStorage
+- Axios interceptors for token refresh
+{% endif %}
+{% else %}
 - Session authentication for browser clients
 - Token authentication for API clients (optional)
+{% endif %}
 
 ### Rate Limiting
 ```python
-RATELIMIT_ENABLE = True
-# 100 requests per minute per IP
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour'
+    }
+}
 ```
 
 ### CORS
 ```python
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = ["https://{{ project_name }}.com"]
+{% if use_react %}
+# For development with React
+CORS_ALLOWED_ORIGINS += ["http://localhost:5173"]
+{% endif %}
+```
+{% if use_react %}
+
+## React Frontend Security
+{% if use_httponly_jwt %}
+- JWT tokens stored in httpOnly cookies
+- Credentials included in all API requests
+- No token handling in JavaScript
+{% else %}
+- JWT tokens stored in localStorage
+- Axios interceptors for automatic token injection
+- Token refresh on 401 errors
+- Token cleared on logout
+{% endif %}
+- Input sanitization before rendering
+- Content Security Policy headers
+{% endif %}
+{% if use_htmx %}
+
+## HTMX Security
+- CSRF token injection on all HTMX requests
+- Safe HTML swapping (no eval)
+- hx-headers for authentication tokens
+
+```html
+<script>
+    document.body.addEventListener('htmx:configRequest', function(evt) {
+        evt.detail.headers['X-CSRFToken'] = '{{ '{{' }} csrf_token {{ '}}' }}';
+    });
+</script>
+```
+{% endif %}
+
+## Security Module
+
+The core security module provides additional protections:
+
+```
+apps/core/security/
+├── validators.py       # Input validation
+├── middleware.py       # Security headers
+├── throttling.py       # Rate limiting
+├── mixins.py           # View security mixins
+└── decorators.py       # Security decorators
 ```
 
 ## Secret Management
@@ -79,6 +194,10 @@ CORS_ALLOWED_ORIGINS = ["https://{{ project_name }}.com"]
 ```bash
 # .env file (never commit!)
 SECRET_KEY=dev-secret-key
+{% if use_jwt %}
+JWT_ACCESS_TOKEN_LIFETIME=15
+JWT_REFRESH_TOKEN_LIFETIME=7
+{% endif %}
 ```
 
 ### Production
@@ -100,11 +219,36 @@ pip-audit
 
 # Django security check
 python manage.py check --deploy
+
+# Bandit security scan
+bandit -r apps/
 ```
+
+## Security Checklist
+
+- [ ] HTTPS enabled in production
+- [ ] Security headers configured
+- [ ] CSRF protection active
+{% if use_jwt %}
+- [ ] JWT token expiration tested
+- [ ] Token refresh working
+{% if use_httponly_jwt %}
+- [ ] httpOnly cookies verified
+{% endif %}
+{% endif %}
+- [ ] Permissions tested
+- [ ] Rate limiting configured
+- [ ] Dependencies scanned (pip-audit)
+- [ ] Code scanned (bandit)
+{% if use_react or use_htmx %}
+- [ ] E2E auth flow tested (Playwright)
+{% endif %}
 
 ## Vulnerability Reporting
 
 Report security issues to: security@{{ project_name }}.com
+
+**Do NOT create public GitHub issues for security vulnerabilities.**
 
 ## Security Updates
 
