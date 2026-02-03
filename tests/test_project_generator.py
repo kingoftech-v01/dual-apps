@@ -287,45 +287,49 @@ class TestProjectGeneratorSpecializedTemplates:
         )
         assert "blog" in gen.apps
 
-    def test_saas_template_adds_apps(self, temp_dir):
-        """Test SaaS template adds required apps."""
+    def test_saas_template_default_app(self, temp_dir):
+        """Test SaaS template uses first default app."""
         gen = ProjectGenerator(
             project_name="test",
             template="saas",
             output_dir=temp_dir
         )
+        # Only the first default app is used when no custom apps specified
         assert "organizations" in gen.apps
-        assert "subscriptions" in gen.apps
+        assert len(gen.apps) == 1
 
-    def test_cms_template_adds_apps(self, temp_dir):
-        """Test CMS template adds required apps."""
+    def test_cms_template_default_app(self, temp_dir):
+        """Test CMS template uses first default app."""
         gen = ProjectGenerator(
             project_name="test",
             template="cms",
             output_dir=temp_dir
         )
+        # Only the first default app is used when no custom apps specified
         assert "pages" in gen.apps
-        assert "media" in gen.apps
+        assert len(gen.apps) == 1
 
-    def test_booking_template_adds_apps(self, temp_dir):
-        """Test booking template adds required apps."""
+    def test_booking_template_default_app(self, temp_dir):
+        """Test booking template uses first default app."""
         gen = ProjectGenerator(
             project_name="test",
             template="booking",
             output_dir=temp_dir
         )
+        # Only the first default app is used when no custom apps specified
         assert "services" in gen.apps
-        assert "appointments" in gen.apps
+        assert len(gen.apps) == 1
 
-    def test_marketplace_template_adds_apps(self, temp_dir):
-        """Test marketplace template adds required apps."""
+    def test_marketplace_template_default_app(self, temp_dir):
+        """Test marketplace template uses first default app."""
         gen = ProjectGenerator(
             project_name="test",
             template="marketplace",
             output_dir=temp_dir
         )
+        # Only the first default app is used when no custom apps specified
         assert "vendors" in gen.apps
-        assert "products" in gen.apps
+        assert len(gen.apps) == 1
 
     def test_specialized_template_context(self, temp_dir):
         """Test specialized template flag in context."""
@@ -347,17 +351,19 @@ class TestProjectGeneratorSpecializedTemplates:
         ctx = gen.get_context()
         assert ctx["is_specialized_template"] is False
 
-    def test_template_merges_with_custom_apps(self, temp_dir):
-        """Test template apps merge with custom apps."""
+    def test_template_uses_custom_apps(self, temp_dir):
+        """Test specialized template uses custom apps when provided."""
         gen = ProjectGenerator(
             project_name="test",
             template="ecommerce",
             apps=["users", "analytics"],
             output_dir=temp_dir
         )
-        assert "shop" in gen.apps
+        # When custom apps provided, they are used instead of template defaults
         assert "users" in gen.apps
         assert "analytics" in gen.apps
+        # Template default is not added
+        assert len(gen.apps) == 2
 
 
 class TestProjectGeneratorFull:

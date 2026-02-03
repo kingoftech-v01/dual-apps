@@ -63,10 +63,13 @@ class ProjectGenerator(BaseGenerator):
         self.i18n = i18n
         self.celery = celery
 
-        # Handle specialized templates - auto-add apps for template
+        # Handle specialized templates
         if template in self.SPECIALIZED_TEMPLATES:
-            template_apps = self.SPECIALIZED_TEMPLATES[template]
-            self.apps = list(set((apps or []) + template_apps))
+            # If user provided apps, use those; otherwise use template defaults
+            if apps:
+                self.apps = apps
+            else:
+                self.apps = [self.SPECIALIZED_TEMPLATES[template][0]]
         else:
             self.apps = apps or ["jobs"]
 
@@ -206,8 +209,8 @@ class ProjectGenerator(BaseGenerator):
         """Generate apps from specialized templates."""
         template_name = self.template
 
-        # Create the main app directory for the specialized template
-        app_name = self.SPECIALIZED_TEMPLATES[template_name][0]
+        # Use the first app in self.apps for the specialized template
+        app_name = self.apps[0]
         app_dir = apps_dir / app_name
 
         # Create app directories
@@ -268,9 +271,8 @@ class ProjectGenerator(BaseGenerator):
         # Generate app config
         self.render_and_write("app/apps.py.j2", app_dir / "apps.py", app_ctx)
 
-        # Generate any other standard apps
-        for additional_app in self.apps:
-            if additional_app != app_name:
+        # Generate any other standard apps (excluding the one used for specialized template)
+        for additional_app in self.apps[1:]:
                 app_generator = AppGenerator(
                     app_name=additional_app,
                     docker=False,
