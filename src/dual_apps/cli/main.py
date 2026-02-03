@@ -764,6 +764,318 @@ def info_command():
 
 
 # =============================================================================
+# Help Command
+# =============================================================================
+
+@app.command("help")
+def help_command(
+    topic: Optional[str] = typer.Argument(
+        None,
+        help="Help topic: commands, templates, quickstart, config, examples"
+    )
+):
+    """
+    Show detailed documentation and usage examples.
+
+    Examples:
+        dual-apps help              Show all help topics
+        dual-apps help commands     List all commands with examples
+        dual-apps help templates    Show available project templates
+        dual-apps help quickstart   Quick start guide
+        dual-apps help examples     Show usage examples
+    """
+    if topic is None:
+        _show_help_overview()
+    elif topic.lower() == "commands":
+        _show_help_commands()
+    elif topic.lower() == "templates":
+        _show_help_templates()
+    elif topic.lower() in ("quickstart", "quick", "start"):
+        _show_help_quickstart()
+    elif topic.lower() in ("config", "configuration"):
+        _show_help_config()
+    elif topic.lower() == "examples":
+        _show_help_examples()
+    else:
+        console.print(f"[yellow]Unknown topic: {topic}[/]")
+        console.print("Available topics: [cyan]commands, templates, quickstart, config, examples[/]")
+
+
+def _show_help_overview():
+    """Show help overview with all topics."""
+    console.print(Panel(
+        """[bold cyan]dual-apps[/] - Django App & Project Generator
+
+Generate production-ready Django apps and projects with dual-layer architecture
+(Frontend HTMX + REST API with Django REST Framework).
+
+[bold]Help Topics:[/]
+  [cyan]dual-apps help commands[/]     List all available commands
+  [cyan]dual-apps help templates[/]    Show project templates (ecommerce, blog, saas, etc.)
+  [cyan]dual-apps help quickstart[/]   Quick start guide
+  [cyan]dual-apps help config[/]       Configuration file reference
+  [cyan]dual-apps help examples[/]     Usage examples
+
+[bold]Quick Commands:[/]
+  [green]dual-apps init app myapp[/]              Create a standalone app
+  [green]dual-apps init project mysite[/]         Create a full project
+  [green]dual-apps init project shop -t ecommerce[/]  E-commerce project
+  [green]dual-apps config[/]                      Generate config file
+
+[bold]More Info:[/]
+  [cyan]dual-apps info[/]              Show version and links
+  [cyan]dual-apps --help[/]            Show command-line options
+  [cyan]dual-apps init app --help[/]   Show app creation options
+  [cyan]dual-apps init project --help[/] Show project creation options""",
+        title="[bold green]dual-apps Help[/]",
+        border_style="cyan",
+    ))
+
+
+def _show_help_commands():
+    """Show all available commands."""
+    console.print("\n[bold cyan]Available Commands[/]\n")
+
+    # Init commands
+    console.print("[bold]Initialize new app or project:[/]")
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Command", style="green")
+    table.add_column("Description")
+    table.add_column("Example", style="dim")
+
+    table.add_row(
+        "init app <name>",
+        "Create a standalone Django app",
+        "dual-apps init app blog"
+    )
+    table.add_row(
+        "init project <name>",
+        "Create a complete Django project",
+        "dual-apps init project mysite"
+    )
+    console.print(table)
+
+    # Add commands
+    console.print("\n[bold]Add to existing project:[/]")
+    table2 = Table(show_header=True, header_style="bold")
+    table2.add_column("Command", style="green")
+    table2.add_column("Description")
+    table2.add_column("Example", style="dim")
+
+    table2.add_row(
+        "add app <name>",
+        "Add an app to existing project",
+        "dual-apps add app payments"
+    )
+    console.print(table2)
+
+    # Utility commands
+    console.print("\n[bold]Utility commands:[/]")
+    table3 = Table(show_header=True, header_style="bold")
+    table3.add_column("Command", style="green")
+    table3.add_column("Description")
+
+    table3.add_row("config", "Generate a sample configuration file")
+    table3.add_row("info", "Show version and project information")
+    table3.add_row("help [topic]", "Show help and documentation")
+    table3.add_row("--version, -v", "Show version number")
+    console.print(table3)
+
+    console.print("\n[dim]Use --help with any command for detailed options:[/]")
+    console.print("  [cyan]dual-apps init project --help[/]")
+
+
+def _show_help_templates():
+    """Show available project templates."""
+    console.print("\n[bold cyan]Project Templates[/]\n")
+
+    table = Table(show_header=True, header_style="bold")
+    table.add_column("Template", style="green")
+    table.add_column("Description")
+    table.add_column("Models Included")
+
+    table.add_row(
+        "default",
+        "Basic project structure",
+        "Custom model with CRUD"
+    )
+    table.add_row(
+        "ecommerce",
+        "E-commerce / Online store",
+        "Product, Category, Cart, Order, Review"
+    )
+    table.add_row(
+        "blog",
+        "Blog / Content platform",
+        "Post, Category, Comment, Tag, Newsletter"
+    )
+    table.add_row(
+        "saas",
+        "SaaS / Multi-tenant app",
+        "Organization, Member, Plan, Subscription, Invoice"
+    )
+    table.add_row(
+        "cms",
+        "Content Management System",
+        "Page, Block, Menu, Media, Form"
+    )
+    table.add_row(
+        "booking",
+        "Appointment / Reservation system",
+        "Service, Staff, Booking, Availability, Review"
+    )
+    table.add_row(
+        "marketplace",
+        "Multi-vendor marketplace",
+        "Vendor, Product, Order, Review, Payout"
+    )
+    table.add_row(
+        "api",
+        "API-only project",
+        "Custom models, no frontend templates"
+    )
+    console.print(table)
+
+    console.print("\n[bold]Usage:[/]")
+    console.print("  [green]dual-apps init project myshop --template ecommerce[/]")
+    console.print("  [green]dual-apps init project myblog -t blog[/]")
+    console.print("  [green]dual-apps init project mysaas -t saas --apps orgs[/]")
+
+
+def _show_help_quickstart():
+    """Show quick start guide."""
+    console.print(Panel(
+        """[bold]1. Create a new project[/]
+   [green]dual-apps init project myproject[/]
+
+[bold]2. Enter the project directory[/]
+   [green]cd myproject[/]
+
+[bold]3. Set up the environment[/]
+   [green]python -m venv .venv[/]
+   [green]source .venv/bin/activate[/]  [dim]# On Windows: .venv\\Scripts\\activate[/]
+   [green]pip install -r requirements/dev.in[/]
+
+[bold]4. Configure the database[/]
+   [green]cp .env.example .env[/]
+   [dim]# Edit .env with your database settings[/]
+
+[bold]5. Run migrations[/]
+   [green]python manage.py migrate[/]
+   [green]python manage.py createsuperuser[/]
+
+[bold]6. Start the development server[/]
+   [green]python manage.py runserver[/]
+
+[bold]7. Access your application[/]
+   Frontend: [cyan]http://localhost:8000/[/]
+   Admin:    [cyan]http://localhost:8000/admin/[/]
+   API:      [cyan]http://localhost:8000/api/v1/[/]
+   API Docs: [cyan]http://localhost:8000/api/docs/[/]
+
+[bold]Alternative: Use Docker[/]
+   [green]./scripts/setup.sh[/]  [dim]# One-command setup[/]
+   [green]docker-compose up[/]   [dim]# Start all services[/]""",
+        title="[bold green]Quick Start Guide[/]",
+        border_style="green",
+    ))
+
+
+def _show_help_config():
+    """Show configuration file reference."""
+    console.print("\n[bold cyan]Configuration File Reference[/]\n")
+
+    console.print("[bold]Generate a config file:[/]")
+    console.print("  [green]dual-apps config > dual-apps.yaml[/]\n")
+
+    console.print("[bold]Use with project creation:[/]")
+    console.print("  [green]dual-apps init project myproject --config dual-apps.yaml[/]\n")
+
+    console.print("[bold]Configuration options:[/]")
+
+    config_example = """[dim]# dual-apps.yaml[/]
+[cyan]project_name[/]: myproject
+[cyan]apps[/]:
+  - users
+  - products
+  - orders
+
+[cyan]template[/]: ecommerce    [dim]# default, ecommerce, blog, saas, cms, booking, marketplace[/]
+[cyan]database[/]: postgres     [dim]# postgres or sqlite[/]
+[cyan]auth[/]: jwt              [dim]# jwt, session, allauth, or none[/]
+
+[cyan]features[/]:
+  [cyan]docker[/]: true          [dim]# Generate Docker files[/]
+  [cyan]celery[/]: false         [dim]# Add Celery async tasks[/]
+  [cyan]i18n[/]: false           [dim]# Add internationalization[/]
+
+[cyan]model_fields[/]:          [dim]# Custom fields for default template[/]
+  - title:CharField
+  - status:CharField(choices)
+  - created_at:DateTimeField"""
+
+    console.print(config_example)
+
+
+def _show_help_examples():
+    """Show usage examples."""
+    console.print("\n[bold cyan]Usage Examples[/]\n")
+
+    examples = [
+        (
+            "Create a basic app",
+            "dual-apps init app blog",
+            "Creates a standalone blog app with models, views, serializers, and tests"
+        ),
+        (
+            "Create app with custom model",
+            "dual-apps init app jobs --model JobPosting --fields 'title:CharField,salary:DecimalField'",
+            "Creates an app with a JobPosting model and specified fields"
+        ),
+        (
+            "Create a basic project",
+            "dual-apps init project mysite --apps jobs,users",
+            "Creates a Django project with jobs and users apps"
+        ),
+        (
+            "Create an e-commerce project",
+            "dual-apps init project shop --template ecommerce --apps products",
+            "Creates a full e-commerce project with product catalog"
+        ),
+        (
+            "Create a SaaS project",
+            "dual-apps init project saasapp -t saas --apps tenants --auth jwt",
+            "Creates a multi-tenant SaaS application"
+        ),
+        (
+            "Create with SQLite (no Docker)",
+            "dual-apps init project quickstart --db sqlite --no-docker",
+            "Creates a lightweight project for quick development"
+        ),
+        (
+            "Create with allauth authentication",
+            "dual-apps init project socialsite --auth allauth",
+            "Creates project with social login (Google, GitHub)"
+        ),
+        (
+            "Interactive mode",
+            "dual-apps init project myproject --interactive",
+            "Step-by-step wizard to configure your project"
+        ),
+        (
+            "Use a config file",
+            "dual-apps init project myproject --config dual-apps.yaml",
+            "Load all settings from a YAML configuration file"
+        ),
+    ]
+
+    for title, command, description in examples:
+        console.print(f"[bold]{title}[/]")
+        console.print(f"  [green]{command}[/]")
+        console.print(f"  [dim]{description}[/]\n")
+
+
+# =============================================================================
 # Success Messages
 # =============================================================================
 
