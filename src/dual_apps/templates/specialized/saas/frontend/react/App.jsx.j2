@@ -1,0 +1,87 @@
+{% raw %}/**
+ * Main React App for {{ project_name_display }} SaaS
+ */
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { SubscriptionProvider } from './context/SubscriptionContext';
+import { ToastProvider } from './context/ToastContext';
+
+// Layout
+import Navbar from './components/layout/Navbar';
+import Sidebar from './components/layout/Sidebar';
+import Footer from './components/layout/Footer';
+
+// Public Pages
+import LandingPage from './pages/LandingPage';
+import PricingPage from './pages/PricingPage';
+import FeaturesPage from './pages/FeaturesPage';
+import LoginPage from './pages/auth/LoginPage';
+import RegisterPage from './pages/auth/RegisterPage';
+
+// Dashboard Pages
+import DashboardPage from './pages/dashboard/DashboardPage';
+import ProjectsPage from './pages/dashboard/ProjectsPage';
+import ProjectDetailPage from './pages/dashboard/ProjectDetailPage';
+import TeamPage from './pages/dashboard/TeamPage';
+import AnalyticsPage from './pages/dashboard/AnalyticsPage';
+import SettingsPage from './pages/dashboard/SettingsPage';
+import BillingPage from './pages/dashboard/BillingPage';
+
+// Auth Guard
+import ProtectedRoute from './components/auth/ProtectedRoute';
+
+function App() {
+  return (
+    <Router>
+      <AuthProvider>
+        <SubscriptionProvider>
+          <ToastProvider>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/features" element={<FeaturesPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+
+              {/* Dashboard Routes */}
+              <Route path="/dashboard/*" element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <Routes>
+                      <Route index element={<DashboardPage />} />
+                      <Route path="projects" element={<ProjectsPage />} />
+                      <Route path="projects/:id" element={<ProjectDetailPage />} />
+                      <Route path="team" element={<TeamPage />} />
+                      <Route path="analytics" element={<AnalyticsPage />} />
+                      <Route path="settings" element={<SettingsPage />} />
+                      <Route path="billing" element={<BillingPage />} />
+                    </Routes>
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } />
+            </Routes>
+          </ToastProvider>
+        </SubscriptionProvider>
+      </AuthProvider>
+    </Router>
+  );
+}
+
+function DashboardLayout({ children }) {
+  return (
+    <div className="{% if css_framework == 'tailwind' %}flex min-h-screen{% else %}d-flex min-vh-100{% endif %}">
+      <Sidebar />
+      <div className="{% if css_framework == 'tailwind' %}flex-1 flex flex-col{% else %}flex-grow-1 d-flex flex-column{% endif %}">
+        <Navbar />
+        <main className="{% if css_framework == 'tailwind' %}flex-grow p-6{% else %}flex-grow-1 p-4{% endif %}">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+export default App;
+{% endraw %}

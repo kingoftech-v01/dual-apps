@@ -1,0 +1,12 @@
+{% raw %}{% extends "base.html" %}
+
+{% block extra_head %}
+<meta name="description" content="{{ project_name_display }} - Your SaaS Solution">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    {% block saas_content %}{% endblock %}
+</div>
+{% endblock %}
+{% endraw %}

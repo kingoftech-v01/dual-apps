@@ -1,0 +1,268 @@
+{% raw %}{% extends "cms/base_cms.html" %}
+
+{% block title %}{% if page %}Edit: {{ page.title }}{% else %}Create Page{% endif %} - {{ project_name_display }}{% endblock %}
+
+{% block cms_content %}
+<form method="post" id="page-form" enctype="multipart/form-data"
+      hx-post="{% if page %}{% url 'cms:page_edit' page.pk %}{% else %}{% url 'cms:page_create' %}{% endif %}"
+      hx-target="#form-messages"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">{% if page %}Edit Page{% else %}Create Page{% endif %}</h1>
+        <div>
+            {% if page %}
+            <a href="{{ page.get_absolute_url }}" target="_blank" class="btn btn-outline-secondary">Preview</a>
+            {% endif %}
+            <button type="button" class="btn btn-outline-secondary"
+                    hx-post="{% url 'cms:page_draft' page.pk|default:0 %}"
+                    hx-include="#page-form"
+                    hx-target="#form-messages">
+                Save Draft
+            </button>
+            <button type="submit" class="btn btn-primary">
+                {% if page %}Update{% else %}Publish{% endif %}
+            </button>
+        </div>
+    </div>
+
+    <div id="form-messages"></div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Title -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Title</label>
+                        <input type="text" class="form-control form-control-lg" id="title" name="title"
+                               value="{{ page.title|default:'' }}" required
+                               hx-post="{% url 'cms:generate_slug' %}"
+                               hx-trigger="blur changed delay:500ms"
+                               hx-target="#slug-field"
+                               hx-swap="outerHTML"
+                               hx-include="[name='title']">
+                    </div>
+                    <div class="mb-3">
+                        <label for="slug" class="form-label">Slug</label>
+                        <div class="input-group" id="slug-field">
+                            <span class="input-group-text">{{ request.get_host }}/</span>
+                            <input type="text" class="form-control" id="slug" name="slug"
+                                   value="{{ page.slug|default:'' }}" pattern="[a-z0-9-]+"
+                                   hx-get="{% url 'cms:check_slug' %}"
+                                   hx-trigger="blur changed delay:300ms"
+                                   hx-target="#slug-status"
+                                   hx-swap="innerHTML"
+                                   hx-include="[name='slug']">
+                            <span class="input-group-text" id="slug-status"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Editor -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#visual-editor">Visual</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#html-editor">HTML</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#blocks-editor">Blocks</button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body tab-content">
+                    <div class="tab-pane fade show active" id="visual-editor">
+                        <div id="editor" style="min-height: 400px;">{{ page.content|default:''|safe }}</div>
+                    </div>
+                    <div class="tab-pane fade" id="html-editor">
+                        <textarea id="content-html" name="content" class="form-control font-monospace"
+                                  rows="20">{{ page.content|default:'' }}</textarea>
+                    </div>
+                    <div class="tab-pane fade" id="blocks-editor">
+                        <div id="content-blocks"
+                             hx-get="{% url 'cms:page_blocks' page.pk|default:0 %}"
+                             hx-trigger="revealed"
+                             hx-swap="innerHTML">
+                            <div class="text-center py-5 text-muted">
+                                <div class="spinner-border spinner-border-sm me-2"></div>
+                                Loading blocks...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEO Settings -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">SEO Settings</h6>
+                    <button type="button" class="btn btn-sm btn-outline-primary"
+                            hx-post="{% url 'cms:generate_seo' %}"
+                            hx-include="[name='title'],[name='content']"
+                            hx-target="#seo-fields"
+                            hx-swap="innerHTML">
+                        <i class="bi bi-magic me-1"></i> Auto-generate
+                    </button>
+                </div>
+                <div class="card-body" id="seo-fields">
+                    <div class="mb-3">
+                        <label for="meta_title" class="form-label">Meta Title</label>
+                        <input type="text" class="form-control" id="meta_title" name="meta_title"
+                               value="{{ page.meta_title|default:'' }}" maxlength="60"
+                               hx-post="{% url 'cms:seo_preview' %}"
+                               hx-trigger="keyup changed delay:300ms"
+                               hx-target="#seo-preview"
+                               hx-include="[name='meta_title'],[name='meta_description'],[name='slug']">
+                        <small class="text-muted"><span id="title-chars">{{ page.meta_title|length|default:0 }}</span>/60 characters</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="meta_description" class="form-label">Meta Description</label>
+                        <textarea class="form-control" id="meta_description" name="meta_description"
+                                  rows="2" maxlength="160"
+                                  hx-post="{% url 'cms:seo_preview' %}"
+                                  hx-trigger="keyup changed delay:300ms"
+                                  hx-target="#seo-preview"
+                                  hx-include="[name='meta_title'],[name='meta_description'],[name='slug']">{{ page.meta_description|default:'' }}</textarea>
+                        <small class="text-muted"><span id="desc-chars">{{ page.meta_description|length|default:0 }}</span>/160 characters</small>
+                    </div>
+
+                    <!-- SEO Preview -->
+                    <div id="seo-preview" class="border rounded p-3 bg-light">
+                        <div class="text-primary small">{{ request.get_host }}/{{ page.slug|default:'page-url' }}</div>
+                        <div class="text-primary h6 mb-1">{{ page.meta_title|default:page.title|default:'Page Title' }}</div>
+                        <div class="text-muted small">{{ page.meta_description|default:'Page description will appear here...' }}</div>
+                    </div>
+
+                    <div class="form-check mt-3">
+                        <input class="form-check-input" type="checkbox" id="noindex" name="noindex"
+                               {% if page.noindex %}checked{% endif %}>
+                        <label class="form-check-label" for="noindex">
+                            Don't index this page (noindex)
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Publish Settings -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Publish Settings</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="status" class="form-label">Status</label>
+                        <select class="form-select" id="status" name="status"
+                                hx-get="{% url 'cms:publish_options' %}"
+                                hx-trigger="change"
+                                hx-target="#publish-options"
+                                hx-swap="innerHTML"
+                                hx-include="[name='status']">
+                            <option value="draft" {% if page.status == 'draft' %}selected{% endif %}>Draft</option>
+                            <option value="published" {% if page.status == 'published' %}selected{% endif %}>Published</option>
+                            <option value="scheduled" {% if page.status == 'scheduled' %}selected{% endif %}>Scheduled</option>
+                        </select>
+                    </div>
+                    <div id="publish-options">
+                        {% if page.status == 'scheduled' %}
+                        <div class="mb-3">
+                            <label for="publish_date" class="form-label">Publish Date</label>
+                            <input type="datetime-local" class="form-control" id="publish_date" name="publish_date"
+                                   value="{{ page.publish_date|date:'Y-m-d\\TH:i'|default:'' }}">
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label for="template" class="form-label">Page Template</label>
+                        <select class="form-select" id="template" name="template">
+                            <option value="default">Default</option>
+                            <option value="full-width" {% if page.template == 'full-width' %}selected{% endif %}>Full Width</option>
+                            <option value="sidebar-left" {% if page.template == 'sidebar-left' %}selected{% endif %}>Sidebar Left</option>
+                            <option value="sidebar-right" {% if page.template == 'sidebar-right' %}selected{% endif %}>Sidebar Right</option>
+                            <option value="landing" {% if page.template == 'landing' %}selected{% endif %}>Landing Page</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Featured Image -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0">Featured Image</h6>
+                </div>
+                <div class="card-body">
+                    <div id="featured-image-preview">
+                        {% if page.featured_image %}
+                        <img src="{{ page.featured_image.url }}" class="img-fluid rounded mb-3" id="preview-image">
+                        <button type="button" class="btn btn-sm btn-outline-danger d-block w-100 mb-2"
+                                hx-delete="{% url 'cms:remove_featured_image' page.pk %}"
+                                hx-target="#featured-image-preview"
+                                hx-swap="innerHTML">
+                            Remove Image
+                        </button>
+                        {% endif %}
+                    </div>
+                    <input type="file" class="form-control" name="featured_image" accept="image/*"
+                           hx-encoding="multipart/form-data"
+                           hx-post="{% url 'cms:upload_featured_image' page.pk|default:0 %}"
+                           hx-target="#featured-image-preview"
+                           hx-swap="innerHTML">
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary w-100"
+                                hx-get="{% url 'cms:media_picker' %}"
+                                hx-target="#media-picker-modal .modal-body"
+                                data-bs-toggle="modal"
+                                data-bs-target="#media-picker-modal">
+                            Choose from Library
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Revisions -->
+            {% if page.pk %}
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Revisions</h6>
+                    <span class="badge bg-secondary">{{ revisions_count }}</span>
+                </div>
+                <div class="card-body p-0">
+                    <div hx-get="{% url 'cms:page_revisions' page.pk %}"
+                         hx-trigger="revealed"
+                         hx-swap="innerHTML">
+                        <div class="text-center py-3 text-muted">
+                            <div class="spinner-border spinner-border-sm"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</form>
+
+<!-- Media Picker Modal -->
+<div class="modal fade" id="media-picker-modal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Select Image</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center py-5">
+                    <div class="spinner-border"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% endraw %}

@@ -1,0 +1,145 @@
+{% raw %}<div class="table-responsive">
+    <table class="table table-hover mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>
+                    <input type="checkbox" class="form-check-input" id="select-all">
+                </th>
+                <th>Title</th>
+                <th>Author</th>
+                <th>Status</th>
+                <th>Template</th>
+                <th>Date</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for page in pages %}
+            <tr id="page-row-{{ page.pk }}">
+                <td>
+                    <input type="checkbox" class="form-check-input page-checkbox" name="ids" value="{{ page.pk }}">
+                </td>
+                <td>
+                    <a href="{% url 'cms:page_edit' page.pk %}" class="text-decoration-none">
+                        <strong>{{ page.title }}</strong>
+                    </a>
+                    <br>
+                    <small class="text-muted">{{ page.slug }}</small>
+                </td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        {% if page.author.avatar %}
+                        <img src="{{ page.author.avatar.url }}" class="rounded-circle me-2"
+                             style="width: 24px; height: 24px; object-fit: cover;">
+                        {% else %}
+                        <div class="rounded-circle bg-secondary text-white me-2 d-flex align-items-center justify-content-center"
+                             style="width: 24px; height: 24px; font-size: 12px;">
+                            {{ page.author.first_name|first }}
+                        </div>
+                        {% endif %}
+                        {{ page.author.get_full_name }}
+                    </div>
+                </td>
+                <td>
+                    <span class="badge bg-{% if page.status == 'published' %}success{% elif page.status == 'draft' %}secondary{% else %}warning{% endif %}"
+                          hx-get="{% url 'cms:toggle_status' page.pk %}"
+                          hx-target="#page-row-{{ page.pk }}"
+                          hx-swap="outerHTML"
+                          style="cursor: pointer;"
+                          title="Click to toggle">
+                        {{ page.status|title }}
+                    </span>
+                </td>
+                <td>{{ page.template|default:"Default"|title }}</td>
+                <td>
+                    {% if page.status == 'published' %}
+                    {{ page.published_at|date:"M d, Y" }}
+                    {% elif page.status == 'scheduled' %}
+                    <span class="text-warning">{{ page.publish_date|date:"M d, Y H:i" }}</span>
+                    {% else %}
+                    <span class="text-muted">{{ page.updated_at|date:"M d, Y" }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-link text-muted" data-bs-toggle="dropdown">
+                            <i class="bi bi-three-dots-vertical"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="{% url 'cms:page_edit' page.pk %}">
+                                    <i class="bi bi-pencil me-2"></i> Edit
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ page.get_absolute_url }}" target="_blank">
+                                    <i class="bi bi-eye me-2"></i> View
+                                </a>
+                            </li>
+                            <li>
+                                <button class="dropdown-item"
+                                        hx-post="{% url 'cms:page_duplicate' page.pk %}"
+                                        hx-target="#pages-table"
+                                        hx-swap="innerHTML">
+                                    <i class="bi bi-files me-2"></i> Duplicate
+                                </button>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <button class="dropdown-item text-danger"
+                                        hx-delete="{% url 'cms:page_delete' page.pk %}"
+                                        hx-target="#page-row-{{ page.pk }}"
+                                        hx-swap="outerHTML"
+                                        hx-confirm="Delete this page?">
+                                    <i class="bi bi-trash me-2"></i> Delete
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center py-5">
+                    <div class="mb-3" style="font-size: 3rem;">📄</div>
+                    <h5>No pages yet</h5>
+                    <p class="text-muted">Get started by creating your first page.</p>
+                    <a href="{% url 'cms:page_create' %}" class="btn btn-primary">Create Page</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if pages.has_other_pages %}
+<nav class="p-3">
+    <ul class="pagination justify-content-center mb-0">
+        {% if pages.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="#"
+               hx-get="{% url 'cms:pages' %}?page={{ pages.previous_page_number }}"
+               hx-target="#pages-table"
+               hx-push-url="true">Previous</a>
+        </li>
+        {% endif %}
+        {% for num in pages.paginator.page_range %}
+        <li class="page-item {% if pages.number == num %}active{% endif %}">
+            <a class="page-link" href="#"
+               hx-get="{% url 'cms:pages' %}?page={{ num }}"
+               hx-target="#pages-table"
+               hx-push-url="true">{{ num }}</a>
+        </li>
+        {% endfor %}
+        {% if pages.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="#"
+               hx-get="{% url 'cms:pages' %}?page={{ pages.next_page_number }}"
+               hx-target="#pages-table"
+               hx-push-url="true">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endraw %}

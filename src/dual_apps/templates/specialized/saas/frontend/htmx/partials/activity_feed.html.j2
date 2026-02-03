@@ -1,0 +1,43 @@
+{% raw %}<div class="list-group list-group-flush" id="activity-feed">
+    {% for activity in activities %}
+    <div class="list-group-item d-flex align-items-start">
+        <div class="flex-shrink-0 me-3">
+            {% if activity.user.avatar %}
+            <img src="{{ activity.user.avatar.url }}" class="rounded-circle" style="width: 40px; height: 40px; object-fit: cover;">
+            {% else %}
+            <div class="rounded-circle bg-{{ activity.color }} text-white d-flex align-items-center justify-content-center"
+                 style="width: 40px; height: 40px;">
+                {{ activity.user.first_name|first }}{{ activity.user.last_name|first }}
+            </div>
+            {% endif %}
+        </div>
+        <div class="flex-grow-1">
+            <div class="d-flex justify-content-between">
+                <strong>{{ activity.user.get_full_name }}</strong>
+                <small class="text-muted">{{ activity.timestamp|timesince }} ago</small>
+            </div>
+            <p class="mb-0 text-muted">{{ activity.description }}</p>
+            {% if activity.details %}
+            <small class="text-muted">{{ activity.details }}</small>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="list-group-item text-center text-muted py-4">
+        No recent activity
+    </div>
+    {% endfor %}
+
+    {% if has_more_activities %}
+    <div class="list-group-item text-center">
+        <button class="btn btn-link"
+                hx-get="{% url 'saas:activity_feed' %}?offset={{ activities|length }}"
+                hx-target="#activity-feed"
+                hx-swap="beforeend"
+                hx-select=".list-group-item">
+            Load More
+        </button>
+    </div>
+    {% endif %}
+</div>
+{% endraw %}

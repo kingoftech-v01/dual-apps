@@ -1,0 +1,76 @@
+{% raw %}<div class="row g-4" id="dashboard-stats">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-primary bg-opacity-10 rounded p-3">
+                        <i class="bi bi-graph-up text-primary" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="text-muted mb-1">API Calls</h6>
+                        <h3 class="mb-0">{{ stats.api_calls|intcomma }}</h3>
+                        <small class="{% if stats.api_calls_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            <i class="bi bi-arrow-{% if stats.api_calls_change >= 0 %}up{% else %}down{% endif %}"></i>
+                            {{ stats.api_calls_change }}%
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-success bg-opacity-10 rounded p-3">
+                        <i class="bi bi-people text-success" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="text-muted mb-1">Active Users</h6>
+                        <h3 class="mb-0">{{ stats.active_users|intcomma }}</h3>
+                        <small class="{% if stats.users_change >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            <i class="bi bi-arrow-{% if stats.users_change >= 0 %}up{% else %}down{% endif %}"></i>
+                            {{ stats.users_change }}%
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-warning bg-opacity-10 rounded p-3">
+                        <i class="bi bi-hdd text-warning" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="text-muted mb-1">Storage Used</h6>
+                        <h3 class="mb-0">{{ stats.storage_gb }} GB</h3>
+                        <small class="text-muted">of {{ stats.storage_limit }} GB</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-shrink-0 bg-info bg-opacity-10 rounded p-3">
+                        <i class="bi bi-clock-history text-info" style="font-size: 1.5rem;"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="text-muted mb-1">Avg Response</h6>
+                        <h3 class="mb-0">{{ stats.avg_response_ms }}ms</h3>
+                        <small class="{% if stats.response_change <= 0 %}text-success{% else %}text-danger{% endif %}">
+                            <i class="bi bi-arrow-{% if stats.response_change <= 0 %}down{% else %}up{% endif %}"></i>
+                            {{ stats.response_change|abs }}%
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endraw %}

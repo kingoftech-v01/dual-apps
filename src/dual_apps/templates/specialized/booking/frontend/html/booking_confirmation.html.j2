@@ -1,0 +1,145 @@
+{% raw %}{% extends "booking/base_booking.html" %}
+
+{% block title %}Booking Confirmed - {{ project_name_display }}{% endblock %}
+
+{% block booking_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <div class="mb-4" style="font-size: 5rem;">✅</div>
+                <h1 class="h2 mb-3">Booking Confirmed!</h1>
+                <p class="lead text-muted mb-4">
+                    Your appointment has been successfully scheduled.
+                    A confirmation email has been sent to {{ booking.email }}.
+                </p>
+
+                <div class="bg-light rounded p-4 mb-4">
+                    <div class="row">
+                        <div class="col-md-6 text-md-end border-md-end mb-3 mb-md-0">
+                            <h6 class="text-muted mb-1">Booking Reference</h6>
+                            <h4 class="mb-0">{{ booking.reference }}</h4>
+                        </div>
+                        <div class="col-md-6 text-md-start">
+                            <h6 class="text-muted mb-1">Status</h6>
+                            <span class="badge bg-success fs-6">{{ booking.status|title }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title mb-4">Appointment Details</h5>
+                        <div class="row text-start">
+                            <div class="col-md-6 mb-3">
+                                <div class="d-flex">
+                                    <div class="flex-shrink-0 me-3">
+                                        <i class="bi bi-calendar-check text-primary" style="font-size: 1.5rem;"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">Date & Time</h6>
+                                        <p class="mb-0 text-muted">
+                                            {{ booking.date|date:"l, F j, Y" }}<br>
+                                            {{ booking.time_slot.start_time|time:"g:i A" }} - {{ booking.time_slot.end_time|time:"g:i A" }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="d-flex">
+                                    <div class="flex-shrink-0 me-3">
+                                        <i class="bi bi-clipboard-check text-primary" style="font-size: 1.5rem;"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">Service</h6>
+                                        <p class="mb-0 text-muted">
+                                            {{ booking.service.name }}<br>
+                                            {{ booking.service.duration }} minutes
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            {% if booking.staff %}
+                            <div class="col-md-6 mb-3">
+                                <div class="d-flex">
+                                    <div class="flex-shrink-0 me-3">
+                                        <i class="bi bi-person text-primary" style="font-size: 1.5rem;"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">Staff Member</h6>
+                                        <p class="mb-0 text-muted">{{ booking.staff.name }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            <div class="col-md-6 mb-3">
+                                <div class="d-flex">
+                                    <div class="flex-shrink-0 me-3">
+                                        <i class="bi bi-geo-alt text-primary" style="font-size: 1.5rem;"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">Location</h6>
+                                        <p class="mb-0 text-muted">
+                                            {{ location.name }}<br>
+                                            {{ location.address }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Service Price</span>
+                            <span>${{ booking.service.price }}</span>
+                        </div>
+                        {% if booking.discount %}
+                        <div class="d-flex justify-content-between align-items-center text-success">
+                            <span>Discount</span>
+                            <span>-${{ booking.discount }}</span>
+                        </div>
+                        {% endif %}
+                        <hr>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong>Total</strong>
+                            <strong class="h5 mb-0">${{ booking.total }}</strong>
+                        </div>
+                        {% if booking.payment_status == 'pending' %}
+                        <div class="alert alert-warning mt-3 mb-0">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            Payment due at appointment
+                        </div>
+                        {% else %}
+                        <div class="alert alert-success mt-3 mb-0">
+                            <i class="bi bi-check-circle me-2"></i>
+                            Payment completed
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="{% url 'booking:add_to_calendar' booking.reference %}" class="btn btn-outline-primary">
+                        <i class="bi bi-calendar-plus me-2"></i>Add to Calendar
+                    </a>
+                    <a href="{% url 'booking:my_bookings' %}" class="btn btn-primary">
+                        View My Bookings
+                    </a>
+                </div>
+
+                <hr class="my-4">
+
+                <div class="text-muted">
+                    <p class="mb-2">Need to make changes?</p>
+                    <a href="{% url 'booking:reschedule' booking.reference %}" class="btn btn-link">Reschedule</a>
+                    <a href="{% url 'booking:cancel' booking.reference %}" class="btn btn-link text-danger">Cancel Booking</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% endraw %}

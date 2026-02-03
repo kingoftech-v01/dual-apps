@@ -1,0 +1,482 @@
+{% raw %}{% extends "saas/base_saas.html" %}
+
+{% block title %}Settings - {{ project_name_display }}{% endblock %}
+
+{% block saas_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Settings</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="list-group" id="settings-nav">
+            <a href="#profile" class="list-group-item list-group-item-action active" data-bs-toggle="list">
+                Profile
+            </a>
+            <a href="#security" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                Security
+            </a>
+            <a href="#notifications" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                Notifications
+            </a>
+            <a href="#billing" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                Billing
+            </a>
+            <a href="#api" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                API Keys
+            </a>
+            <a href="#integrations" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                Integrations
+            </a>
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <div class="tab-content">
+            <!-- Profile Settings -->
+            <div class="tab-pane fade show active" id="profile">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Profile Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="update_profile">
+
+                            <div class="mb-4 text-center">
+                                <img src="{{ user.avatar.url|default:'/static/images/default-avatar.png' }}"
+                                     class="rounded-circle mb-3" style="width: 100px; height: 100px; object-fit: cover;"
+                                     id="avatar-preview">
+                                <div>
+                                    <label class="btn btn-outline-primary btn-sm">
+                                        Change Avatar
+                                        <input type="file" name="avatar" class="d-none" accept="image/*"
+                                               onchange="previewAvatar(this)">
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">First Name</label>
+                                    <input type="text" name="first_name" class="form-control"
+                                           value="{{ user.first_name }}">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Last Name</label>
+                                    <input type="text" name="last_name" class="form-control"
+                                           value="{{ user.last_name }}">
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" name="email" class="form-control" value="{{ user.email }}">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Company</label>
+                                <input type="text" name="company" class="form-control"
+                                       value="{{ user.profile.company|default:'' }}">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Job Title</label>
+                                <input type="text" name="job_title" class="form-control"
+                                       value="{{ user.profile.job_title|default:'' }}">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Timezone</label>
+                                <select name="timezone" class="form-select">
+                                    <option value="UTC" {% if user.profile.timezone == 'UTC' %}selected{% endif %}>UTC</option>
+                                    <option value="America/New_York" {% if user.profile.timezone == 'America/New_York' %}selected{% endif %}>Eastern Time</option>
+                                    <option value="America/Chicago" {% if user.profile.timezone == 'America/Chicago' %}selected{% endif %}>Central Time</option>
+                                    <option value="America/Denver" {% if user.profile.timezone == 'America/Denver' %}selected{% endif %}>Mountain Time</option>
+                                    <option value="America/Los_Angeles" {% if user.profile.timezone == 'America/Los_Angeles' %}selected{% endif %}>Pacific Time</option>
+                                    <option value="Europe/London" {% if user.profile.timezone == 'Europe/London' %}selected{% endif %}>London</option>
+                                    <option value="Europe/Paris" {% if user.profile.timezone == 'Europe/Paris' %}selected{% endif %}>Paris</option>
+                                    <option value="Asia/Tokyo" {% if user.profile.timezone == 'Asia/Tokyo' %}selected{% endif %}>Tokyo</option>
+                                </select>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security Settings -->
+            <div class="tab-pane fade" id="security">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Change Password</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="change_password">
+
+                            <div class="mb-3">
+                                <label class="form-label">Current Password</label>
+                                <input type="password" name="current_password" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">New Password</label>
+                                <input type="password" name="new_password" class="form-control" required
+                                       minlength="8">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Confirm New Password</label>
+                                <input type="password" name="confirm_password" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Update Password</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Two-Factor Authentication</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if user.profile.two_factor_enabled %}
+                        <div class="alert alert-success">
+                            <strong>2FA is enabled</strong> - Your account is protected with two-factor authentication.
+                        </div>
+                        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#disable2faModal">
+                            Disable 2FA
+                        </button>
+                        {% else %}
+                        <p class="text-muted">Add an extra layer of security to your account.</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#enable2faModal">
+                            Enable 2FA
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Active Sessions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Device</th>
+                                        <th>Location</th>
+                                        <th>Last Active</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for session in sessions %}
+                                    <tr>
+                                        <td>
+                                            <i class="bi bi-{{ session.device_icon }}"></i>
+                                            {{ session.device }}
+                                            {% if session.is_current %}<span class="badge bg-primary">Current</span>{% endif %}
+                                        </td>
+                                        <td>{{ session.location }}</td>
+                                        <td>{{ session.last_active|timesince }} ago</td>
+                                        <td>
+                                            {% if not session.is_current %}
+                                            <form method="post" class="d-inline">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="revoke_session">
+                                                <input type="hidden" name="session_id" value="{{ session.id }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
+                                            </form>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notification Settings -->
+            <div class="tab-pane fade" id="notifications">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Notification Preferences</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="update_notifications">
+
+                            <h6 class="mb-3">Email Notifications</h6>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="email_product_updates"
+                                           {% if user.profile.email_product_updates %}checked{% endif %}>
+                                    <label class="form-check-label">Product updates and announcements</label>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="email_security_alerts"
+                                           {% if user.profile.email_security_alerts %}checked{% endif %}>
+                                    <label class="form-check-label">Security alerts</label>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="email_billing"
+                                           {% if user.profile.email_billing %}checked{% endif %}>
+                                    <label class="form-check-label">Billing notifications</label>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="email_team_activity"
+                                           {% if user.profile.email_team_activity %}checked{% endif %}>
+                                    <label class="form-check-label">Team activity</label>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="email_marketing"
+                                           {% if user.profile.email_marketing %}checked{% endif %}>
+                                    <label class="form-check-label">Marketing and tips</label>
+                                </div>
+                            </div>
+
+                            <h6 class="mb-3">In-App Notifications</h6>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="push_mentions"
+                                           {% if user.profile.push_mentions %}checked{% endif %}>
+                                    <label class="form-check-label">Mentions and comments</label>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="push_reminders"
+                                           {% if user.profile.push_reminders %}checked{% endif %}>
+                                    <label class="form-check-label">Task reminders</label>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary">Save Preferences</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Billing Settings -->
+            <div class="tab-pane fade" id="billing">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Current Plan</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h4 class="mb-1">{{ subscription.plan.name }} Plan</h4>
+                                <p class="text-muted mb-0">${{ subscription.plan.price }}/{{ subscription.plan.interval }}</p>
+                            </div>
+                            <a href="{% url 'saas:pricing' %}" class="btn btn-outline-primary">Change Plan</a>
+                        </div>
+                        <hr>
+                        <div class="row text-center">
+                            <div class="col-md-4">
+                                <h5>{{ subscription.usage.api_calls|intcomma }}</h5>
+                                <small class="text-muted">API Calls Used</small>
+                            </div>
+                            <div class="col-md-4">
+                                <h5>{{ subscription.usage.storage_gb }} GB</h5>
+                                <small class="text-muted">Storage Used</small>
+                            </div>
+                            <div class="col-md-4">
+                                <h5>{{ subscription.usage.team_members }}</h5>
+                                <small class="text-muted">Team Members</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Payment Method</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if payment_method %}
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi bi-credit-card me-2"></i>
+                                {{ payment_method.brand }} ending in {{ payment_method.last4 }}
+                                <br>
+                                <small class="text-muted">Expires {{ payment_method.exp_month }}/{{ payment_method.exp_year }}</small>
+                            </div>
+                            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#updatePaymentModal">
+                                Update
+                            </button>
+                        </div>
+                        {% else %}
+                        <p class="text-muted">No payment method on file.</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                            Add Payment Method
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Billing History</h5>
+                        <a href="{% url 'saas:invoices' %}" class="btn btn-sm btn-outline-secondary">View All</a>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Description</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for invoice in invoices %}
+                                    <tr>
+                                        <td>{{ invoice.date|date:"M d, Y" }}</td>
+                                        <td>{{ invoice.description }}</td>
+                                        <td>${{ invoice.amount }}</td>
+                                        <td>
+                                            <span class="badge bg-{% if invoice.status == 'paid' %}success{% else %}warning{% endif %}">
+                                                {{ invoice.status }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <a href="{{ invoice.pdf_url }}" class="btn btn-sm btn-outline-secondary">
+                                                Download
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Keys -->
+            <div class="tab-pane fade" id="api">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">API Keys</h5>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createApiKeyModal">
+                            Create New Key
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-warning">
+                            <strong>Keep your API keys secure!</strong> Do not share your keys in public repositories or client-side code.
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Key</th>
+                                        <th>Created</th>
+                                        <th>Last Used</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for key in api_keys %}
+                                    <tr>
+                                        <td>{{ key.name }}</td>
+                                        <td>
+                                            <code>{{ key.prefix }}...{{ key.suffix }}</code>
+                                            <button class="btn btn-sm btn-link" onclick="copyApiKey('{{ key.id }}')">
+                                                <i class="bi bi-clipboard"></i>
+                                            </button>
+                                        </td>
+                                        <td>{{ key.created_at|date:"M d, Y" }}</td>
+                                        <td>{{ key.last_used|date:"M d, Y"|default:"Never" }}</td>
+                                        <td>
+                                            <form method="post" class="d-inline">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="action" value="revoke_api_key">
+                                                <input type="hidden" name="key_id" value="{{ key.id }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                        onclick="return confirm('Are you sure? This action cannot be undone.')">
+                                                    Revoke
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Integrations -->
+            <div class="tab-pane fade" id="integrations">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Connected Apps</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% for integration in integrations %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card">
+                                    <div class="card-body d-flex align-items-center">
+                                        <img src="{{ integration.logo_url }}" style="width: 48px; height: 48px;"
+                                             class="me-3" alt="{{ integration.name }}">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-0">{{ integration.name }}</h6>
+                                            <small class="text-muted">{{ integration.description }}</small>
+                                        </div>
+                                        {% if integration.connected %}
+                                        <form method="post">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="disconnect_integration">
+                                            <input type="hidden" name="integration_id" value="{{ integration.id }}">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm">Disconnect</button>
+                                        </form>
+                                        {% else %}
+                                        <a href="{{ integration.connect_url }}" class="btn btn-primary btn-sm">Connect</a>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function previewAvatar(input) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('avatar-preview').src = e.target.result;
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+</script>
+{% endblock %}
+{% endraw %}

@@ -1,0 +1,196 @@
+{% raw %}{% extends "saas/base_saas.html" %}
+
+{% block title %}Pricing - {{ project_name_display }}{% endblock %}
+
+{% block saas_content %}
+<div class="text-center mb-5">
+    <h1 class="display-5 fw-bold">Simple, Transparent Pricing</h1>
+    <p class="lead text-muted">Choose the plan that fits your needs. Upgrade or downgrade anytime.</p>
+
+    <!-- Billing Toggle -->
+    <div class="btn-group mt-4" role="group" id="billing-toggle">
+        <input type="radio" class="btn-check" name="billing" id="monthly" value="monthly"
+               hx-get="{% url 'saas:pricing_plans' %}"
+               hx-vals='{"interval": "monthly"}'
+               hx-target="#pricing-cards"
+               hx-swap="innerHTML"
+               checked>
+        <label class="btn btn-outline-primary" for="monthly">Monthly</label>
+
+        <input type="radio" class="btn-check" name="billing" id="yearly" value="yearly"
+               hx-get="{% url 'saas:pricing_plans' %}"
+               hx-vals='{"interval": "yearly"}'
+               hx-target="#pricing-cards"
+               hx-swap="innerHTML">
+        <label class="btn btn-outline-primary" for="yearly">
+            Yearly <span class="badge bg-success ms-1">Save 20%</span>
+        </label>
+    </div>
+</div>
+
+<div class="row justify-content-center" id="pricing-cards">
+    {% include "saas/partials/pricing_cards.html" %}
+</div>
+
+<!-- Feature Comparison -->
+<div class="mt-5">
+    <h3 class="text-center mb-4">Compare Plans</h3>
+    <div class="table-responsive">
+        <table class="table table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 40%">Feature</th>
+                    <th class="text-center">Starter</th>
+                    <th class="text-center">Professional</th>
+                    <th class="text-center">Enterprise</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>API Requests</strong></td>
+                    <td class="text-center">10,000/mo</td>
+                    <td class="text-center">100,000/mo</td>
+                    <td class="text-center">Unlimited</td>
+                </tr>
+                <tr>
+                    <td><strong>Storage</strong></td>
+                    <td class="text-center">5 GB</td>
+                    <td class="text-center">50 GB</td>
+                    <td class="text-center">500 GB</td>
+                </tr>
+                <tr>
+                    <td><strong>Team Members</strong></td>
+                    <td class="text-center">3</td>
+                    <td class="text-center">10</td>
+                    <td class="text-center">Unlimited</td>
+                </tr>
+                <tr>
+                    <td><strong>Projects</strong></td>
+                    <td class="text-center">5</td>
+                    <td class="text-center">25</td>
+                    <td class="text-center">Unlimited</td>
+                </tr>
+                <tr>
+                    <td><strong>Analytics</strong></td>
+                    <td class="text-center">Basic</td>
+                    <td class="text-center">Advanced</td>
+                    <td class="text-center">Custom</td>
+                </tr>
+                <tr>
+                    <td><strong>Support</strong></td>
+                    <td class="text-center">Email</td>
+                    <td class="text-center">Priority Email</td>
+                    <td class="text-center">24/7 Phone + Slack</td>
+                </tr>
+                <tr>
+                    <td><strong>SSO/SAML</strong></td>
+                    <td class="text-center"><i class="bi bi-x text-danger"></i></td>
+                    <td class="text-center"><i class="bi bi-check text-success"></i></td>
+                    <td class="text-center"><i class="bi bi-check text-success"></i></td>
+                </tr>
+                <tr>
+                    <td><strong>Custom Integrations</strong></td>
+                    <td class="text-center"><i class="bi bi-x text-danger"></i></td>
+                    <td class="text-center"><i class="bi bi-x text-danger"></i></td>
+                    <td class="text-center"><i class="bi bi-check text-success"></i></td>
+                </tr>
+                <tr>
+                    <td><strong>SLA</strong></td>
+                    <td class="text-center"><i class="bi bi-x text-danger"></i></td>
+                    <td class="text-center">99.9%</td>
+                    <td class="text-center">99.99%</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- FAQ -->
+<div class="mt-5">
+    <h3 class="text-center mb-4">Frequently Asked Questions</h3>
+    <div class="accordion" id="faq-accordion">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                    Can I change plans at any time?
+                </button>
+            </h2>
+            <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faq-accordion">
+                <div class="accordion-body">
+                    Yes! You can upgrade or downgrade your plan at any time. When upgrading, you'll be charged
+                    the prorated difference. When downgrading, the credit will be applied to future invoices.
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                    What happens if I exceed my limits?
+                </button>
+            </h2>
+            <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faq-accordion">
+                <div class="accordion-body">
+                    We'll notify you when you're approaching your limits. If you exceed them, you can either
+                    upgrade your plan or pay for the overage at a per-unit rate.
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                    Is there a free trial?
+                </button>
+            </h2>
+            <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faq-accordion">
+                <div class="accordion-body">
+                    Yes! All plans come with a 14-day free trial. No credit card required to start.
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                    What payment methods do you accept?
+                </button>
+            </h2>
+            <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faq-accordion">
+                <div class="accordion-body">
+                    We accept all major credit cards (Visa, MasterCard, American Express) and PayPal.
+                    Enterprise customers can also pay by invoice.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Plan Selection Modal -->
+<div class="modal fade" id="selectPlanModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Plan Change</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="plan-confirmation-content">
+                <!-- Content loaded via HTMX -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form hx-post="{% url 'saas:change_plan' %}"
+                      hx-target="#plan-change-result"
+                      hx-swap="innerHTML">
+                    {% csrf_token %}
+                    <input type="hidden" name="plan_id" id="selected-plan-id">
+                    <input type="hidden" name="interval" id="selected-interval">
+                    <button type="submit" class="btn btn-primary">
+                        Confirm Change
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="plan-change-result"></div>
+{% endblock %}
+{% endraw %}

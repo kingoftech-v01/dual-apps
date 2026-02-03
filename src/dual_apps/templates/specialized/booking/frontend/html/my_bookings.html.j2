@@ -1,0 +1,125 @@
+{% raw %}{% extends "booking/base_booking.html" %}
+
+{% block title %}My Bookings - {{ project_name_display }}{% endblock %}
+
+{% block booking_content %}
+<h1 class="mb-4">My Bookings</h1>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link {% if not status or status == 'upcoming' %}active{% endif %}"
+           href="{% url 'booking:my_bookings' %}?status=upcoming">
+            Upcoming
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if status == 'past' %}active{% endif %}"
+           href="{% url 'booking:my_bookings' %}?status=past">
+            Past
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if status == 'cancelled' %}active{% endif %}"
+           href="{% url 'booking:my_bookings' %}?status=cancelled">
+            Cancelled
+        </a>
+    </li>
+</ul>
+
+{% if bookings %}
+<div class="row">
+    {% for booking in bookings %}
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="badge bg-{% if booking.status == 'confirmed' %}success{% elif booking.status == 'pending' %}warning{% elif booking.status == 'cancelled' %}danger{% else %}secondary{% endif %}">
+                    {{ booking.status|title }}
+                </span>
+                <small class="text-muted">{{ booking.reference }}</small>
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">{{ booking.service.name }}</h5>
+
+                <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-calendar text-primary me-2"></i>
+                        {{ booking.date|date:"l, F j, Y" }}
+                    </div>
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-clock text-primary me-2"></i>
+                        {{ booking.time_slot.start_time|time:"g:i A" }} - {{ booking.time_slot.end_time|time:"g:i A" }}
+                    </div>
+                    {% if booking.staff %}
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-person text-primary me-2"></i>
+                        {{ booking.staff.name }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                    <strong>${{ booking.total }}</strong>
+                    <div>
+                        {% if booking.status == 'confirmed' and booking.is_upcoming %}
+                        <a href="{% url 'booking:reschedule' booking.reference %}"
+                           class="btn btn-sm btn-outline-primary me-1">Reschedule</a>
+                        <a href="{% url 'booking:cancel' booking.reference %}"
+                           class="btn btn-sm btn-outline-danger">Cancel</a>
+                        {% elif booking.status == 'completed' and not booking.has_review %}
+                        <a href="{% url 'booking:review' booking.reference %}"
+                           class="btn btn-sm btn-primary">Leave Review</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent">
+                <a href="{% url 'booking:detail' booking.reference %}" class="btn btn-link btn-sm p-0">
+                    View Details <i class="bi bi-chevron-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if bookings.has_other_pages %}
+<nav>
+    <ul class="pagination justify-content-center">
+        {% if bookings.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?status={{ status }}&page={{ bookings.previous_page_number }}">Previous</a>
+        </li>
+        {% endif %}
+        {% for num in bookings.paginator.page_range %}
+        <li class="page-item {% if bookings.number == num %}active{% endif %}">
+            <a class="page-link" href="?status={{ status }}&page={{ num }}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        {% if bookings.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?status={{ status }}&page={{ bookings.next_page_number }}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="text-center py-5">
+    <div class="mb-4" style="font-size: 5rem;">📅</div>
+    <h3>No {{ status|default:"upcoming" }} bookings</h3>
+    <p class="text-muted">
+        {% if status == 'past' %}
+        You haven't completed any bookings yet.
+        {% elif status == 'cancelled' %}
+        You don't have any cancelled bookings.
+        {% else %}
+        You don't have any upcoming appointments.
+        {% endif %}
+    </p>
+    <a href="{% url 'booking:services' %}" class="btn btn-primary">Browse Services</a>
+</div>
+{% endif %}
+{% endblock %}
+{% endraw %}

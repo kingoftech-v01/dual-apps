@@ -1,0 +1,85 @@
+{% raw %}{% extends "saas/base_saas.html" %}
+
+{% block title %}Dashboard - {{ project_name_display }}{% endblock %}
+
+{% block saas_content %}
+<div class="{% if css_framework == 'tailwind' %}flex{% else %}row{% endif %}">
+    <!-- Sidebar -->
+    <div class="{% if css_framework == 'tailwind' %}w-64 flex-shrink-0{% else %}col-md-3 col-lg-2{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow p-4{% else %}card{% endif %}">
+            <nav class="{% if css_framework == 'tailwind' %}space-y-2{% else %}nav flex-column{% endif %}">
+                <a href="{% url 'saas:dashboard' %}"
+                   class="{% if css_framework == 'tailwind' %}flex items-center px-3 py-2 rounded-lg bg-blue-50 text-blue-600{% else %}nav-link active{% endif %}">
+                    📊 Dashboard
+                </a>
+                <a href="{% url 'saas:projects' %}"
+                   class="{% if css_framework == 'tailwind' %}flex items-center px-3 py-2 rounded-lg hover:bg-gray-50{% else %}nav-link{% endif %}">
+                    📁 Projects
+                </a>
+                <a href="{% url 'saas:team' %}"
+                   class="{% if css_framework == 'tailwind' %}flex items-center px-3 py-2 rounded-lg hover:bg-gray-50{% else %}nav-link{% endif %}">
+                    👥 Team
+                </a>
+                <a href="{% url 'saas:analytics' %}"
+                   class="{% if css_framework == 'tailwind' %}flex items-center px-3 py-2 rounded-lg hover:bg-gray-50{% else %}nav-link{% endif %}">
+                    📈 Analytics
+                </a>
+                <a href="{% url 'saas:settings' %}"
+                   class="{% if css_framework == 'tailwind' %}flex items-center px-3 py-2 rounded-lg hover:bg-gray-50{% else %}nav-link{% endif %}">
+                    ⚙️ Settings
+                </a>
+                <a href="{% url 'saas:billing' %}"
+                   class="{% if css_framework == 'tailwind' %}flex items-center px-3 py-2 rounded-lg hover:bg-gray-50{% else %}nav-link{% endif %}">
+                    💳 Billing
+                </a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="{% if css_framework == 'tailwind' %}flex-1 ml-8{% else %}col-md-9 col-lg-10{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}flex justify-between items-center mb-6{% else %}d-flex justify-content-between align-items-center mb-4{% endif %}">
+            <h1 class="{% if css_framework == 'tailwind' %}text-2xl font-bold{% else %}h3 mb-0{% endif %}">Dashboard</h1>
+            <div hx-get="{% url 'saas:subscription_badge' %}" hx-trigger="load">
+                <!-- Subscription badge loaded via HTMX -->
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="{% if css_framework == 'tailwind' %}grid grid-cols-4 gap-4 mb-6{% else %}row mb-4{% endif %}"
+             hx-get="{% url 'saas:dashboard_stats' %}" hx-trigger="load, every 60s" hx-swap="innerHTML">
+            <!-- Stats loaded via HTMX -->
+            <div class="{% if css_framework == 'tailwind' %}col-span-4 text-center py-8{% else %}col-12 text-center py-4{% endif %}">
+                Loading stats...
+            </div>
+        </div>
+
+        <!-- Usage Chart -->
+        <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow mb-6{% else %}card mb-4{% endif %}">
+            <div class="{% if css_framework == 'tailwind' %}p-6{% else %}card-header{% endif %}">
+                <h5 class="{% if css_framework == 'tailwind' %}font-bold mb-4{% else %}card-title mb-0{% endif %}">Usage Overview</h5>
+            </div>
+            <div class="{% if css_framework != 'tailwind' %}card-body{% endif %}"
+                 hx-get="{% url 'saas:usage_chart' %}" hx-trigger="load">
+                <!-- Usage chart loaded via HTMX -->
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow{% else %}card{% endif %}">
+            <div class="{% if css_framework == 'tailwind' %}p-6 border-b flex justify-between items-center{% else %}card-header d-flex justify-content-between align-items-center{% endif %}">
+                <h5 class="{% if css_framework == 'tailwind' %}font-bold{% else %}card-title mb-0{% endif %}">Recent Activity</h5>
+                <a href="{% url 'saas:activity' %}"
+                   class="{% if css_framework == 'tailwind' %}text-blue-600 hover:text-blue-800 text-sm{% else %}btn btn-sm btn-outline-primary{% endif %}">
+                    View All
+                </a>
+            </div>
+            <div class="{% if css_framework == 'tailwind' %}p-6{% else %}card-body{% endif %}"
+                 hx-get="{% url 'saas:recent_activity' %}" hx-trigger="load, every 30s">
+                <!-- Activity loaded via HTMX -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% endraw %}

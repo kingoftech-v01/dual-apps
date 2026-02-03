@@ -1,0 +1,24 @@
+{% raw %}<label class="form-label">Available Times</label>
+<div id="time-slots" class="d-flex flex-wrap gap-2">
+    {% if slots %}
+        {% for slot in slots %}
+        <button type="button"
+                class="btn btn-outline-primary time-slot-btn"
+                data-id="{{ slot.id }}"
+                {% if not slot.available %}disabled{% endif %}>
+            {{ slot.time }}
+            {% if not slot.available %}
+            <small class="d-block text-muted" style="font-size: 0.7em;">Unavailable</small>
+            {% endif %}
+        </button>
+        {% endfor %}
+    {% else %}
+        <p class="text-muted mb-0">No available times for this date. Please select another date.</p>
+    {% endif %}
+</div>
+<input type="hidden" name="time_slot" id="selected-time">
+
+<script>
+setupTimeSlots();
+</script>
+{% endraw %}

@@ -1,0 +1,331 @@
+import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import api from '../utils/api';
+import { useToast } from '../context/ToastContext';
+
+export default function PageList() {
+  const [pages, setPages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedIds, setSelectedIds] = useState([]);
+  const { showToast } = useToast();
+
+  const filters = {
+    search: searchParams.get('search') || '',
+    status: searchParams.get('status') || '',
+    author: searchParams.get('author') || '',
+    page: parseInt(searchParams.get('page') || '1')
+  };
+
+  useEffect(() => {
+    fetchPages();
+  }, [searchParams]);
+
+  const fetchPages = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get('/api/cms/pages/', { params: filters });
+      setPages(response.data);
+    } catch (error) {
+      showToast('Failed to load pages', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFilterChange = (key, value) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value) {
+      newParams.set(key, value);
+    } else {
+      newParams.delete(key);
+    }
+    newParams.set('page', '1');
+    setSearchParams(newParams);
+  };
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(pages.results?.map(p => p.id) || []);
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectPage = (id) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkAction = async (action) => {
+    if (selectedIds.length === 0) return;
+
+    if (action === 'delete' && !confirm(`Delete ${selectedIds.length} pages?`)) {
+      return;
+    }
+
+    try {
+      await api.post('/api/cms/pages/bulk/', { action, ids: selectedIds });
+      showToast(`${action} completed successfully`, 'success');
+      setSelectedIds([]);
+      fetchPages();
+    } catch (error) {
+      showToast('Bulk action failed', 'error');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this page?')) return;
+    try {
+      await api.delete(`/api/cms/pages/${id}/`);
+      showToast('Page deleted', 'success');
+      fetchPages();
+    } catch (error) {
+      showToast('Failed to delete page', 'error');
+    }
+  };
+
+  const handleToggleStatus = async (page) => {
+    const newStatus = page.status === 'published' ? 'draft' : 'published';
+    try {
+      await api.patch(`/api/cms/pages/${page.id}/`, { status: newStatus });
+      fetchPages();
+    } catch (error) {
+      showToast('Failed to update status', 'error');
+    }
+  };
+
+  return (
+    <div>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h1 className="h3 mb-0">Pages</h1>
+        <Link to="/admin/pages/new" className="btn btn-primary">
+          <i className="bi bi-plus-lg me-1"></i> New Page
+        </Link>
+      </div>
+
+      {/* Filters */}
+      <div className="card mb-4">
+        <div className="card-body">
+          <div className="row g-3">
+            <div className="col-md-4">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Search pages..."
+                value={filters.search}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
+              />
+            </div>
+            <div className="col-md-3">
+              <select
+                className="form-select"
+                value={filters.status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+              >
+                <option value="">All Status</option>
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+                <option value="scheduled">Scheduled</option>
+              </select>
+            </div>
+            <div className="col-md-3">
+              <select
+                className="form-select"
+                value={filters.author}
+                onChange={(e) => handleFilterChange('author', e.target.value)}
+              >
+                <option value="">All Authors</option>
+                {/* Authors would be loaded from API */}
+              </select>
+            </div>
+            <div className="col-md-2">
+              <button
+                className="btn btn-outline-secondary w-100"
+                onClick={() => setSearchParams({})}
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Pages Table */}
+      <div className="card">
+        <div className="card-body p-0">
+          {loading ? (
+            <div className="text-center py-5">
+              <div className="spinner-border text-primary"></div>
+            </div>
+          ) : (
+            <div className="table-responsive">
+              <table className="table table-hover mb-0">
+                <thead className="table-light">
+                  <tr>
+                    <th>
+                      <input
+                        type="checkbox"
+                        className="form-check-input"
+                        onChange={handleSelectAll}
+                        checked={selectedIds.length === (pages.results?.length || 0) && selectedIds.length > 0}
+                      />
+                    </th>
+                    <th>Title</th>
+                    <th>Author</th>
+                    <th>Status</th>
+                    <th>Template</th>
+                    <th>Date</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pages.results?.map(page => (
+                    <tr key={page.id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          className="form-check-input"
+                          checked={selectedIds.includes(page.id)}
+                          onChange={() => handleSelectPage(page.id)}
+                        />
+                      </td>
+                      <td>
+                        <Link to={`/admin/pages/${page.id}/edit`} className="text-decoration-none">
+                          <strong>{page.title}</strong>
+                        </Link>
+                        <br />
+                        <small className="text-muted">{page.slug}</small>
+                      </td>
+                      <td>
+                        <div className="d-flex align-items-center">
+                          {page.author?.avatar ? (
+                            <img src={page.author.avatar} className="rounded-circle me-2"
+                                 style={% raw %}{{ width: 24, height: 24, objectFit: 'cover' }}{% endraw %} alt="" />
+                          ) : (
+                            <div className="rounded-circle bg-secondary text-white me-2 d-flex align-items-center justify-content-center"
+                                 style={% raw %}{{ width: 24, height: 24, fontSize: 12 }}{% endraw %}>
+                              {page.author?.first_name?.[0]}
+                            </div>
+                          )}
+                          {page.author?.first_name} {page.author?.last_name}
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          className={`badge bg-${page.status === 'published' ? 'success' : page.status === 'draft' ? 'secondary' : 'warning'}`}
+                          style={% raw %}{{ cursor: 'pointer' }}{% endraw %}
+                          onClick={() => handleToggleStatus(page)}
+                          title="Click to toggle"
+                        >
+                          {page.status}
+                        </span>
+                      </td>
+                      <td>{page.template || 'Default'}</td>
+                      <td>
+                        {page.status === 'published'
+                          ? new Date(page.published_at).toLocaleDateString()
+                          : new Date(page.updated_at).toLocaleDateString()}
+                      </td>
+                      <td>
+                        <div className="dropdown">
+                          <button className="btn btn-sm btn-link text-muted" data-bs-toggle="dropdown">
+                            <i className="bi bi-three-dots-vertical"></i>
+                          </button>
+                          <ul className="dropdown-menu dropdown-menu-end">
+                            <li>
+                              <Link className="dropdown-item" to={`/admin/pages/${page.id}/edit`}>
+                                <i className="bi bi-pencil me-2"></i> Edit
+                              </Link>
+                            </li>
+                            <li>
+                              <a className="dropdown-item" href={`/${page.slug}`} target="_blank">
+                                <i className="bi bi-eye me-2"></i> View
+                              </a>
+                            </li>
+                            <li><hr className="dropdown-divider" /></li>
+                            <li>
+                              <button className="dropdown-item text-danger" onClick={() => handleDelete(page.id)}>
+                                <i className="bi bi-trash me-2"></i> Delete
+                              </button>
+                            </li>
+                          </ul>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {(!pages.results || pages.results.length === 0) && (
+                    <tr>
+                      <td colSpan="7" className="text-center py-5">
+                        <div className="mb-3" style={% raw %}{{ fontSize: '3rem' }}{% endraw %}>📄</div>
+                        <h5>No pages yet</h5>
+                        <p className="text-muted">Get started by creating your first page.</p>
+                        <Link to="/admin/pages/new" className="btn btn-primary">Create Page</Link>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bulk Actions */}
+      {selectedIds.length > 0 && (
+        <div className="card mt-3">
+          <div className="card-body d-flex align-items-center gap-3">
+            <span>{selectedIds.length} selected</span>
+            <select className="form-select form-select-sm" style={% raw %}{{ width: 'auto' }}{% endraw %} id="bulk-action">
+              <option value="">Bulk Actions</option>
+              <option value="publish">Publish</option>
+              <option value="unpublish">Unpublish</option>
+              <option value="delete">Delete</option>
+            </select>
+            <button
+              className="btn btn-sm btn-primary"
+              onClick={() => {
+                const action = document.getElementById('bulk-action').value;
+                if (action) handleBulkAction(action);
+              }}
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {pages.count > 10 && (
+        <nav className="mt-4">
+          <ul className="pagination justify-content-center">
+            {filters.page > 1 && (
+              <li className="page-item">
+                <button
+                  className="page-link"
+                  onClick={() => handleFilterChange('page', filters.page - 1)}
+                >
+                  Previous
+                </button>
+              </li>
+            )}
+            <li className="page-item active">
+              <span className="page-link">{filters.page}</span>
+            </li>
+            {pages.next && (
+              <li className="page-item">
+                <button
+                  className="page-link"
+                  onClick={() => handleFilterChange('page', filters.page + 1)}
+                >
+                  Next
+                </button>
+              </li>
+            )}
+          </ul>
+        </nav>
+      )}
+    </div>
+  );
+}

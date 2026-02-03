@@ -1,0 +1,45 @@
+{% raw %}{% extends "booking/base_booking.html" %}
+
+{% block title %}Services - {{ project_name_display }}{% endblock %}
+
+{% block booking_content %}
+<h1 class="mb-4">Our Services</h1>
+
+<!-- Category Filter -->
+<div class="mb-4">
+    <div class="btn-group" role="group"
+         hx-get="{% url 'booking:services' %}"
+         hx-target="#services-grid"
+         hx-swap="innerHTML"
+         hx-push-url="true">
+        <button type="button"
+                class="btn btn-{% if not category %}primary{% else %}outline-primary{% endif %}"
+                hx-vals='{"category": ""}'>
+            All
+        </button>
+        {% for cat in categories %}
+        <button type="button"
+                class="btn btn-{% if category == cat.slug %}primary{% else %}outline-primary{% endif %}"
+                hx-vals='{"category": "{{ cat.slug }}"}'>
+            {{ cat.name }}
+        </button>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Search -->
+<div class="mb-4">
+    <input type="search" class="form-control" placeholder="Search services..."
+           name="search"
+           hx-get="{% url 'booking:services' %}"
+           hx-trigger="keyup changed delay:300ms, search"
+           hx-target="#services-grid"
+           hx-swap="innerHTML"
+           hx-include="[name='category']">
+</div>
+
+<div id="services-grid">
+    {% include "booking/partials/services_grid.html" %}
+</div>
+{% endblock %}
+{% endraw %}

@@ -1,0 +1,110 @@
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: '{{ api_base_url|default:"" }}',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  {% if jwt_storage == 'httpOnly' %}
+  withCredentials: true,
+  {% endif %}
+});
+
+{% if jwt_storage == 'localStorage' %}
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) throw new Error('No refresh token');
+
+        const response = await axios.post(
+          `${api.defaults.baseURL}/api/auth/token/refresh/`,
+          { refresh: refreshToken }
+        );
+
+        localStorage.setItem('accessToken', response.data.access);
+        originalRequest.headers.Authorization = `Bearer ${response.data.access}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+{% else %}
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        await axios.post(
+          `${api.defaults.baseURL}/api/auth/token/refresh/`,
+          {},
+          { withCredentials: true }
+        );
+        return api(originalRequest);
+      } catch (refreshError) {
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+{% endif %}
+
+export const cmsAPI = {
+  // Pages
+  getPages: (params) => api.get('/api/cms/pages/', { params }),
+  getPage: (id) => api.get(`/api/cms/pages/${id}/`),
+  createPage: (data) => api.post('/api/cms/pages/', data),
+  updatePage: (id, data) => api.put(`/api/cms/pages/${id}/`, data),
+  deletePage: (id) => api.delete(`/api/cms/pages/${id}/`),
+  bulkAction: (action, ids) => api.post('/api/cms/pages/bulk/', { action, ids }),
+
+  // Media
+  getMedia: (params) => api.get('/api/cms/media/', { params }),
+  uploadMedia: (formData) => api.post('/api/cms/media/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  deleteMedia: (id) => api.delete(`/api/cms/media/${id}/`),
+
+  // Menus
+  getMenus: () => api.get('/api/cms/menus/'),
+  getMenu: (id) => api.get(`/api/cms/menus/${id}/`),
+  updateMenu: (id, data) => api.put(`/api/cms/menus/${id}/`, data),
+
+  // Utilities
+  generateSlug: (title) => api.post('/api/cms/generate-slug/', { title }),
+  generateSEO: (data) => api.post('/api/cms/generate-seo/', data),
+  checkSlug: (slug) => api.get('/api/cms/check-slug/', { params: { slug } }),
+};
+
+export default api;

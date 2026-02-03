@@ -1,0 +1,50 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { BookingProvider } from './context/BookingContext';
+import { ToastProvider } from './context/ToastContext';
+import Layout from './components/layout/Layout';
+import HomePage from './pages/HomePage';
+import ServiceListPage from './pages/ServiceListPage';
+import ServiceDetailPage from './pages/ServiceDetailPage';
+import BookingPage from './pages/BookingPage';
+import BookingConfirmationPage from './pages/BookingConfirmationPage';
+import MyBookingsPage from './pages/MyBookingsPage';
+import LoginPage from './pages/auth/LoginPage';
+import RegisterPage from './pages/auth/RegisterPage';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+
+{% if css_framework == 'bootstrap' %}
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap-icons/font/bootstrap-icons.css';
+{% else %}
+import './styles/tailwind.css';
+{% endif %}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BookingProvider>
+        <ToastProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Layout />}>
+                <Route index element={<HomePage />} />
+                <Route path="services" element={<ServiceListPage />} />
+                <Route path="services/:slug" element={<ServiceDetailPage />} />
+                <Route path="book/:slug" element={<BookingPage />} />
+                <Route path="confirmation/:reference" element={<BookingConfirmationPage />} />
+                <Route path="my-bookings" element={
+                  <ProtectedRoute>
+                    <MyBookingsPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="login" element={<LoginPage />} />
+                <Route path="register" element={<RegisterPage />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
+      </BookingProvider>
+    </AuthProvider>
+  );
+}

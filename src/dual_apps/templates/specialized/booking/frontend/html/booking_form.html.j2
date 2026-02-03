@@ -1,0 +1,221 @@
+{% raw %}{% extends "booking/base_booking.html" %}
+
+{% block title %}Book {{ service.name }} - {{ project_name_display }}{% endblock %}
+
+{% block booking_content %}
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'booking:services' %}">Services</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'booking:service_detail' service.slug %}">{{ service.name }}</a></li>
+        <li class="breadcrumb-item active">Book</li>
+    </ol>
+</nav>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Select Date & Time</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" id="booking-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="service" value="{{ service.pk }}">
+
+                    <!-- Staff Selection (if multiple) -->
+                    {% if staff_members.count > 1 %}
+                    <div class="mb-4">
+                        <label class="form-label">Select Staff (Optional)</label>
+                        <div class="row">
+                            <div class="col-md-4 mb-2">
+                                <label class="card h-100">
+                                    <input type="radio" name="staff" value="" class="d-none" checked>
+                                    <div class="card-body text-center">
+                                        <div class="mb-2" style="font-size: 2rem;">👤</div>
+                                        <strong>Any Available</strong>
+                                    </div>
+                                </label>
+                            </div>
+                            {% for staff in staff_members %}
+                            <div class="col-md-4 mb-2">
+                                <label class="card h-100">
+                                    <input type="radio" name="staff" value="{{ staff.pk }}" class="d-none">
+                                    <div class="card-body text-center">
+                                        {% if staff.avatar %}
+                                        <img src="{{ staff.avatar.url }}" class="rounded-circle mb-2"
+                                             style="width: 60px; height: 60px; object-fit: cover;">
+                                        {% else %}
+                                        <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center mb-2"
+                                             style="width: 60px; height: 60px;">{{ staff.name|first }}</div>
+                                        {% endif %}
+                                        <strong class="d-block">{{ staff.name }}</strong>
+                                        <small class="text-muted">{{ staff.title }}</small>
+                                    </div>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Date Selection -->
+                    <div class="mb-4">
+                        <label class="form-label">Select Date</label>
+                        <input type="text" id="booking-date" name="date" class="form-control" required
+                               placeholder="Click to select date">
+                    </div>
+
+                    <!-- Time Slots -->
+                    <div class="mb-4" id="time-slots-container" style="display: none;">
+                        <label class="form-label">Available Times</label>
+                        <div id="time-slots" class="d-flex flex-wrap gap-2">
+                            <!-- Time slots loaded dynamically -->
+                        </div>
+                        <input type="hidden" name="time_slot" id="selected-time">
+                    </div>
+
+                    <!-- Contact Information -->
+                    <h5 class="mt-5 mb-3">Your Information</h5>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">First Name *</label>
+                            <input type="text" name="first_name" class="form-control" required
+                                   value="{{ user.first_name|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Last Name *</label>
+                            <input type="text" name="last_name" class="form-control" required
+                                   value="{{ user.last_name|default:'' }}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email *</label>
+                            <input type="email" name="email" class="form-control" required
+                                   value="{{ user.email|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Phone *</label>
+                            <input type="tel" name="phone" class="form-control" required
+                                   pattern="[0-9+\-\s()]{7,20}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes (Optional)</label>
+                        <textarea name="notes" class="form-control" rows="3"
+                                  placeholder="Any special requests or information..."></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg" id="submit-btn" disabled>
+                        Confirm Booking
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Booking Summary -->
+        <div class="card sticky-top" style="top: 80px;">
+            <div class="card-header">
+                <h5 class="mb-0">Booking Summary</h5>
+            </div>
+            <div class="card-body">
+                {% if service.image %}
+                <img src="{{ service.image.url }}" class="img-fluid rounded mb-3" alt="{{ service.name }}">
+                {% endif %}
+                <h5>{{ service.name }}</h5>
+                <p class="text-muted mb-3">{{ service.short_description }}</p>
+
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Duration</span>
+                    <span>{{ service.duration }} minutes</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Date</span>
+                    <span id="summary-date">Not selected</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Time</span>
+                    <span id="summary-time">Not selected</span>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between">
+                    <strong>Total</strong>
+                    <strong>${{ service.price }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var datePicker = flatpickr('#booking-date', {
+        minDate: 'today',
+        maxDate: new Date().fp_incr(60),
+        disable: [
+            function(date) {
+                // Disable Sundays
+                return date.getDay() === 0;
+            }
+        ],
+        onChange: function(selectedDates, dateStr) {
+            loadTimeSlots(dateStr);
+            document.getElementById('summary-date').textContent = dateStr;
+        }
+    });
+
+    function loadTimeSlots(date) {
+        var staff = document.querySelector('input[name="staff"]:checked')?.value || '';
+        fetch('{% url "booking:time_slots" service.slug %}?date=' + date + '&staff=' + staff)
+            .then(response => response.json())
+            .then(data => {
+                var container = document.getElementById('time-slots');
+                container.innerHTML = '';
+
+                if (data.slots.length === 0) {
+                    container.innerHTML = '<p class="text-muted">No available times for this date.</p>';
+                } else {
+                    data.slots.forEach(function(slot) {
+                        var btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'btn btn-outline-primary';
+                        btn.textContent = slot.time;
+                        btn.onclick = function() {
+                            document.querySelectorAll('#time-slots button').forEach(b => b.classList.remove('active', 'btn-primary'));
+                            btn.classList.add('active', 'btn-primary');
+                            btn.classList.remove('btn-outline-primary');
+                            document.getElementById('selected-time').value = slot.id;
+                            document.getElementById('summary-time').textContent = slot.time;
+                            document.getElementById('submit-btn').disabled = false;
+                        };
+                        container.appendChild(btn);
+                    });
+                }
+
+                document.getElementById('time-slots-container').style.display = 'block';
+            });
+    }
+
+    // Reload time slots when staff changes
+    document.querySelectorAll('input[name="staff"]').forEach(function(input) {
+        input.addEventListener('change', function() {
+            var date = document.getElementById('booking-date').value;
+            if (date) {
+                loadTimeSlots(date);
+                document.getElementById('selected-time').value = '';
+                document.getElementById('summary-time').textContent = 'Not selected';
+                document.getElementById('submit-btn').disabled = true;
+            }
+        });
+    });
+});
+</script>
+
+<style>
+label.card { cursor: pointer; transition: all 0.2s; }
+label.card:has(input:checked) { border-color: var(--bs-primary); background-color: rgba(var(--bs-primary-rgb), 0.1); }
+</style>
+{% endblock %}
+{% endraw %}

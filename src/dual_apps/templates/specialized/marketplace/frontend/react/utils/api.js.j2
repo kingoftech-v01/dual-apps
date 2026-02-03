@@ -1,0 +1,119 @@
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: '{{ api_base_url|default:"" }}',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  {% if jwt_storage == 'httpOnly' %}
+  withCredentials: true,
+  {% endif %}
+});
+
+{% if jwt_storage == 'localStorage' %}
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) throw new Error('No refresh token');
+
+        const response = await axios.post(
+          `${api.defaults.baseURL}/api/auth/token/refresh/`,
+          { refresh: refreshToken }
+        );
+
+        localStorage.setItem('accessToken', response.data.access);
+        originalRequest.headers.Authorization = `Bearer ${response.data.access}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+{% else %}
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        await axios.post(
+          `${api.defaults.baseURL}/api/auth/token/refresh/`,
+          {},
+          { withCredentials: true }
+        );
+        return api(originalRequest);
+      } catch (refreshError) {
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+{% endif %}
+
+export const marketplaceAPI = {
+  // Listings
+  getListings: (params) => api.get('/api/marketplace/listings/', { params }),
+  getListing: (slug) => api.get(`/api/marketplace/listings/${slug}/`),
+  createListing: (formData) => api.post('/api/marketplace/listings/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  updateListing: (slug, formData) => api.put(`/api/marketplace/listings/${slug}/`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  deleteListing: (slug) => api.delete(`/api/marketplace/listings/${slug}/`),
+
+  // Favorites
+  getFavorites: () => api.get('/api/marketplace/favorites/'),
+  toggleFavorite: (listingId) => api.post(`/api/marketplace/listings/${listingId}/favorite/`),
+
+  // Messages
+  getConversations: () => api.get('/api/marketplace/conversations/'),
+  getMessages: (conversationId) => api.get(`/api/marketplace/conversations/${conversationId}/messages/`),
+  sendMessage: (listingId, message) => api.post(`/api/marketplace/listings/${listingId}/message/`, { message }),
+  
+  // Offers
+  makeOffer: (listingId, amount, message) => api.post(`/api/marketplace/listings/${listingId}/offer/`, { amount, message }),
+  respondToOffer: (offerId, action) => api.post(`/api/marketplace/offers/${offerId}/${action}/`),
+
+  // Sellers
+  getSellerProfile: (username) => api.get(`/api/marketplace/sellers/${username}/`),
+  followSeller: (username) => api.post(`/api/marketplace/sellers/${username}/follow/`),
+
+  // Categories
+  getCategories: () => api.get('/api/marketplace/categories/'),
+
+  // Search
+  search: (query) => api.get('/api/marketplace/search/', { params: { q: query } }),
+};
+
+export default api;

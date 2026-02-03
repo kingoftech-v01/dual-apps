@@ -1,0 +1,450 @@
+import { useState, useEffect } from 'react';
+import api from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+
+const TabButton = ({ active, onClick, children }) => (
+  <a
+    href="#"
+    className={`list-group-item list-group-item-action ${active ? 'active' : ''}`}
+    onClick={(e) => { e.preventDefault(); onClick(); }}
+  >
+    {children}
+  </a>
+);
+
+export default function SettingsPage() {
+  const { user, updateUser } = useAuth();
+  const [activeTab, setActiveTab] = useState('profile');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState(null);
+
+  // Profile form
+  const [profile, setProfile] = useState({
+    first_name: user?.first_name || '',
+    last_name: user?.last_name || '',
+    email: user?.email || '',
+    company: user?.profile?.company || '',
+    job_title: user?.profile?.job_title || '',
+    timezone: user?.profile?.timezone || 'UTC'
+  });
+
+  // Password form
+  const [passwords, setPasswords] = useState({
+    current_password: '',
+    new_password: '',
+    confirm_password: ''
+  });
+
+  // Notification preferences
+  const [notifications, setNotifications] = useState({
+    email_product_updates: true,
+    email_security_alerts: true,
+    email_billing: true,
+    email_team_activity: false,
+    email_marketing: false,
+    push_mentions: true,
+    push_reminders: true
+  });
+
+  // API Keys
+  const [apiKeys, setApiKeys] = useState([]);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyValue, setNewKeyValue] = useState(null);
+
+  useEffect(() => {
+    if (activeTab === 'api') {
+      fetchApiKeys();
+    }
+  }, [activeTab]);
+
+  const fetchApiKeys = async () => {
+    try {
+      const response = await api.get('/api/keys/');
+      setApiKeys(response.data);
+    } catch (error) {
+      console.error('Failed to fetch API keys:', error);
+    }
+  };
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const response = await api.patch('/api/users/me/', profile);
+      updateUser(response.data);
+      setMessage({ type: 'success', text: 'Profile updated successfully!' });
+    } catch (error) {
+      setMessage({ type: 'danger', text: 'Failed to update profile.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (passwords.new_password !== passwords.confirm_password) {
+      setMessage({ type: 'danger', text: 'Passwords do not match.' });
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.post('/api/users/me/change-password/', {
+        current_password: passwords.current_password,
+        new_password: passwords.new_password
+      });
+      setPasswords({ current_password: '', new_password: '', confirm_password: '' });
+      setMessage({ type: 'success', text: 'Password changed successfully!' });
+    } catch (error) {
+      setMessage({ type: 'danger', text: error.response?.data?.detail || 'Failed to change password.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNotificationsSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await api.patch('/api/users/me/notifications/', notifications);
+      setMessage({ type: 'success', text: 'Notification preferences saved!' });
+    } catch (error) {
+      setMessage({ type: 'danger', text: 'Failed to save preferences.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateApiKey = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const response = await api.post('/api/keys/', { name: newKeyName });
+      setNewKeyValue(response.data.key);
+      setNewKeyName('');
+      fetchApiKeys();
+    } catch (error) {
+      setMessage({ type: 'danger', text: 'Failed to create API key.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRevokeApiKey = async (keyId) => {
+    if (!confirm('Are you sure? This action cannot be undone.')) return;
+    try {
+      await api.delete(`/api/keys/${keyId}/`);
+      fetchApiKeys();
+      setMessage({ type: 'success', text: 'API key revoked.' });
+    } catch (error) {
+      setMessage({ type: 'danger', text: 'Failed to revoke API key.' });
+    }
+  };
+
+  return (
+    <div className="container py-4">
+      <h1 className="h3 mb-4">Settings</h1>
+
+      {message && (
+        <div className={`alert alert-${message.type} alert-dismissible`}>
+          {message.text}
+          <button type="button" className="btn-close" onClick={() => setMessage(null)}></button>
+        </div>
+      )}
+
+      <div className="row">
+        <div className="col-md-3">
+          <div className="list-group">
+            <TabButton active={activeTab === 'profile'} onClick={() => setActiveTab('profile')}>
+              Profile
+            </TabButton>
+            <TabButton active={activeTab === 'security'} onClick={() => setActiveTab('security')}>
+              Security
+            </TabButton>
+            <TabButton active={activeTab === 'notifications'} onClick={() => setActiveTab('notifications')}>
+              Notifications
+            </TabButton>
+            <TabButton active={activeTab === 'billing'} onClick={() => setActiveTab('billing')}>
+              Billing
+            </TabButton>
+            <TabButton active={activeTab === 'api'} onClick={() => setActiveTab('api')}>
+              API Keys
+            </TabButton>
+          </div>
+        </div>
+
+        <div className="col-md-9">
+          {/* Profile Tab */}
+          {activeTab === 'profile' && (
+            <div className="card">
+              <div className="card-header">
+                <h5 className="mb-0">Profile Settings</h5>
+              </div>
+              <div className="card-body">
+                <form onSubmit={handleProfileSubmit}>
+                  <div className="row">
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label">First Name</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={profile.first_name}
+                        onChange={(e) => setProfile({ ...profile, first_name: e.target.value })}
+                      />
+                    </div>
+                    <div className="col-md-6 mb-3">
+                      <label className="form-label">Last Name</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={profile.last_name}
+                        onChange={(e) => setProfile({ ...profile, last_name: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Email</label>
+                    <input
+                      type="email"
+                      className="form-control"
+                      value={profile.email}
+                      onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Company</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={profile.company}
+                      onChange={(e) => setProfile({ ...profile, company: e.target.value })}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Timezone</label>
+                    <select
+                      className="form-select"
+                      value={profile.timezone}
+                      onChange={(e) => setProfile({ ...profile, timezone: e.target.value })}
+                    >
+                      <option value="UTC">UTC</option>
+                      <option value="America/New_York">Eastern Time</option>
+                      <option value="America/Chicago">Central Time</option>
+                      <option value="America/Denver">Mountain Time</option>
+                      <option value="America/Los_Angeles">Pacific Time</option>
+                      <option value="Europe/London">London</option>
+                      <option value="Europe/Paris">Paris</option>
+                      <option value="Asia/Tokyo">Tokyo</option>
+                    </select>
+                  </div>
+                  <button type="submit" className="btn btn-primary" disabled={loading}>
+                    {loading ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Security Tab */}
+          {activeTab === 'security' && (
+            <div className="card">
+              <div className="card-header">
+                <h5 className="mb-0">Change Password</h5>
+              </div>
+              <div className="card-body">
+                <form onSubmit={handlePasswordSubmit}>
+                  <div className="mb-3">
+                    <label className="form-label">Current Password</label>
+                    <input
+                      type="password"
+                      className="form-control"
+                      value={passwords.current_password}
+                      onChange={(e) => setPasswords({ ...passwords, current_password: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">New Password</label>
+                    <input
+                      type="password"
+                      className="form-control"
+                      value={passwords.new_password}
+                      onChange={(e) => setPasswords({ ...passwords, new_password: e.target.value })}
+                      required
+                      minLength={8}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Confirm New Password</label>
+                    <input
+                      type="password"
+                      className="form-control"
+                      value={passwords.confirm_password}
+                      onChange={(e) => setPasswords({ ...passwords, confirm_password: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <button type="submit" className="btn btn-primary" disabled={loading}>
+                    {loading ? 'Updating...' : 'Update Password'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Notifications Tab */}
+          {activeTab === 'notifications' && (
+            <div className="card">
+              <div className="card-header">
+                <h5 className="mb-0">Notification Preferences</h5>
+              </div>
+              <div className="card-body">
+                <form onSubmit={handleNotificationsSubmit}>
+                  <h6 className="mb-3">Email Notifications</h6>
+                  {[
+                    ['email_product_updates', 'Product updates and announcements'],
+                    ['email_security_alerts', 'Security alerts'],
+                    ['email_billing', 'Billing notifications'],
+                    ['email_team_activity', 'Team activity'],
+                    ['email_marketing', 'Marketing and tips']
+                  ].map(([key, label]) => (
+                    <div className="form-check form-switch mb-3" key={key}>
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        checked={notifications[key]}
+                        onChange={(e) => setNotifications({ ...notifications, [key]: e.target.checked })}
+                      />
+                      <label className="form-check-label">{label}</label>
+                    </div>
+                  ))}
+
+                  <h6 className="mb-3 mt-4">Push Notifications</h6>
+                  {[
+                    ['push_mentions', 'Mentions and comments'],
+                    ['push_reminders', 'Task reminders']
+                  ].map(([key, label]) => (
+                    <div className="form-check form-switch mb-3" key={key}>
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        checked={notifications[key]}
+                        onChange={(e) => setNotifications({ ...notifications, [key]: e.target.checked })}
+                      />
+                      <label className="form-check-label">{label}</label>
+                    </div>
+                  ))}
+
+                  <button type="submit" className="btn btn-primary" disabled={loading}>
+                    {loading ? 'Saving...' : 'Save Preferences'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* API Keys Tab */}
+          {activeTab === 'api' && (
+            <div className="card">
+              <div className="card-header d-flex justify-content-between align-items-center">
+                <h5 className="mb-0">API Keys</h5>
+              </div>
+              <div className="card-body">
+                <div className="alert alert-warning">
+                  <strong>Keep your API keys secure!</strong> Do not share in public repositories or client-side code.
+                </div>
+
+                {newKeyValue && (
+                  <div className="alert alert-success">
+                    <strong>New API Key Created!</strong> Copy it now - you won't see it again:
+                    <div className="mt-2">
+                      <code className="user-select-all">{newKeyValue}</code>
+                      <button
+                        className="btn btn-sm btn-outline-secondary ms-2"
+                        onClick={() => navigator.clipboard.writeText(newKeyValue)}
+                      >
+                        Copy
+                      </button>
+                    </div>
+                    <button
+                      className="btn btn-sm btn-link mt-2 p-0"
+                      onClick={() => setNewKeyValue(null)}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+
+                <form onSubmit={handleCreateApiKey} className="mb-4">
+                  <div className="input-group">
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Key name (e.g., Production API)"
+                      value={newKeyName}
+                      onChange={(e) => setNewKeyName(e.target.value)}
+                      required
+                    />
+                    <button className="btn btn-primary" type="submit" disabled={loading}>
+                      Create Key
+                    </button>
+                  </div>
+                </form>
+
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Key</th>
+                      <th>Created</th>
+                      <th>Last Used</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {apiKeys.map(key => (
+                      <tr key={key.id}>
+                        <td>{key.name}</td>
+                        <td><code>{key.prefix}...{key.suffix}</code></td>
+                        <td>{new Date(key.created_at).toLocaleDateString()}</td>
+                        <td>{key.last_used ? new Date(key.last_used).toLocaleDateString() : 'Never'}</td>
+                        <td>
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => handleRevokeApiKey(key.id)}
+                          >
+                            Revoke
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {apiKeys.length === 0 && (
+                      <tr>
+                        <td colSpan="5" className="text-center text-muted py-4">
+                          No API keys yet. Create one above.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Billing Tab */}
+          {activeTab === 'billing' && (
+            <div className="card">
+              <div className="card-header">
+                <h5 className="mb-0">Billing</h5>
+              </div>
+              <div className="card-body text-center py-5">
+                <i className="bi bi-credit-card" style={% raw %}{{ fontSize: '3rem' }}{% endraw %}></i>
+                <p className="mt-3">Manage your subscription and billing details.</p>
+                <a href="/pricing" className="btn btn-primary">View Plans</a>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,49 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import AdminLayout from './components/layout/AdminLayout';
+import LoginPage from './pages/auth/LoginPage';
+import Dashboard from './pages/Dashboard';
+import PageList from './pages/PageList';
+import PageEditor from './pages/PageEditor';
+import MediaLibrary from './pages/MediaLibrary';
+import MenuEditor from './pages/MenuEditor';
+import SettingsPage from './pages/SettingsPage';
+
+{% if css_framework == 'bootstrap' %}
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap-icons/font/bootstrap-icons.css';
+{% else %}
+import './styles/tailwind.css';
+{% endif %}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+
+            <Route path="/admin" element={
+              <ProtectedRoute requiredRole="editor">
+                <AdminLayout />
+              </ProtectedRoute>
+            }>
+              <Route index element={<Dashboard />} />
+              <Route path="pages" element={<PageList />} />
+              <Route path="pages/new" element={<PageEditor />} />
+              <Route path="pages/:id/edit" element={<PageEditor />} />
+              <Route path="media" element={<MediaLibrary />} />
+              <Route path="menus" element={<MenuEditor />} />
+              <Route path="settings" element={<SettingsPage />} />
+            </Route>
+
+            <Route path="/" element={<Navigate to="/admin" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </ToastProvider>
+    </AuthProvider>
+  );
+}

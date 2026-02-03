@@ -1,0 +1,353 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import Flatpickr from 'react-flatpickr';
+import 'flatpickr/dist/flatpickr.min.css';
+import api from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+
+const StaffCard = ({ staff, selected, onSelect }) => (
+  <div className="col-md-4 mb-2">
+    <label className={`card h-100 ${selected ? 'border-primary bg-light' : ''}`} style={% raw %}{{ cursor: 'pointer' }}{% endraw %}>
+      <input
+        type="radio"
+        name="staff"
+        value={staff?.id || ''}
+        className="d-none"
+        checked={selected}
+        onChange={() => onSelect(staff?.id || null)}
+      />
+      <div className="card-body text-center">
+        {staff ? (
+          <>
+            {staff.avatar ? (
+              <img src={staff.avatar} className="rounded-circle mb-2"
+                   style={% raw %}{{ width: 60, height: 60, objectFit: 'cover' }}{% endraw %} alt="" />
+            ) : (
+              <div className="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center mb-2"
+                   style={% raw %}{{ width: 60, height: 60 }}{% endraw %}>{staff.name?.[0]}</div>
+            )}
+            <strong className="d-block">{staff.name}</strong>
+            <small className="text-muted">{staff.title}</small>
+          </>
+        ) : (
+          <>
+            <div className="mb-2" style={% raw %}{{ fontSize: '2rem' }}{% endraw %}>👤</div>
+            <strong>Any Available</strong>
+          </>
+        )}
+      </div>
+    </label>
+  </div>
+);
+
+export default function BookingPage() {
+  const { slug } = useParams();
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+  const { showToast } = useToast();
+
+  const [service, setService] = useState(null);
+  const [staffMembers, setStaffMembers] = useState([]);
+  const [timeSlots, setTimeSlots] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState({
+    staff: null,
+    date: '',
+    time_slot: '',
+    first_name: user?.first_name || '',
+    last_name: user?.last_name || '',
+    email: user?.email || '',
+    phone: '',
+    notes: ''
+  });
+
+  useEffect(() => {
+    fetchService();
+    fetchStaff();
+  }, [slug]);
+
+  useEffect(() => {
+    if (formData.date) {
+      fetchTimeSlots();
+    }
+  }, [formData.date, formData.staff]);
+
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        email: user.email || ''
+      }));
+    }
+  }, [user]);
+
+  const fetchService = async () => {
+    try {
+      const response = await api.get(`/api/booking/services/${slug}/`);
+      setService(response.data);
+    } catch (error) {
+      showToast('Service not found', 'error');
+      navigate('/services');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStaff = async () => {
+    try {
+      const response = await api.get(`/api/booking/services/${slug}/staff/`);
+      setStaffMembers(response.data);
+    } catch (error) {
+      console.error('Failed to fetch staff:', error);
+    }
+  };
+
+  const fetchTimeSlots = async () => {
+    try {
+      const params = { date: formData.date };
+      if (formData.staff) params.staff = formData.staff;
+      const response = await api.get(`/api/booking/services/${slug}/slots/`, { params });
+      setTimeSlots(response.data);
+      setFormData(prev => ({ ...prev, time_slot: '' }));
+    } catch (error) {
+      console.error('Failed to fetch time slots:', error);
+    }
+  };
+
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.time_slot) {
+      showToast('Please select a time slot', 'warning');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await api.post(`/api/booking/services/${slug}/book/`, {
+        ...formData,
+        service: service.id
+      });
+      showToast('Booking confirmed!', 'success');
+      navigate(`/confirmation/${response.data.reference}`);
+    } catch (error) {
+      showToast(error.response?.data?.detail || 'Booking failed', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="container py-5 text-center">
+        <div className="spinner-border text-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container py-4">
+      <nav aria-label="breadcrumb" className="mb-4">
+        <ol className="breadcrumb">
+          <li className="breadcrumb-item"><a href="/services">Services</a></li>
+          <li className="breadcrumb-item"><a href={`/services/${slug}`}>{service?.name}</a></li>
+          <li className="breadcrumb-item active">Book</li>
+        </ol>
+      </nav>
+
+      <div className="row">
+        <div className="col-lg-8">
+          <div className="card mb-4">
+            <div className="card-header">
+              <h5 className="mb-0">Select Date & Time</h5>
+            </div>
+            <div className="card-body">
+              <form onSubmit={handleSubmit}>
+                {/* Staff Selection */}
+                {staffMembers.length > 1 && (
+                  <div className="mb-4">
+                    <label className="form-label">Select Staff (Optional)</label>
+                    <div className="row">
+                      <StaffCard
+                        staff={null}
+                        selected={!formData.staff}
+                        onSelect={() => handleChange('staff', null)}
+                      />
+                      {staffMembers.map(staff => (
+                        <StaffCard
+                          key={staff.id}
+                          staff={staff}
+                          selected={formData.staff === staff.id}
+                          onSelect={() => handleChange('staff', staff.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Date Selection */}
+                <div className="mb-4">
+                  <label className="form-label">Select Date</label>
+                  <Flatpickr
+                    className="form-control"
+                    placeholder="Click to select date"
+                    value={formData.date}
+                    onChange={([date]) => handleChange('date', date?.toISOString().split('T')[0])}
+                    options={% raw %}{{
+                      minDate: 'today',
+                      maxDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+                      disable: [(date) => date.getDay() === 0]
+                    }}{% endraw %}
+                  />
+                </div>
+
+                {/* Time Slots */}
+                {formData.date && (
+                  <div className="mb-4">
+                    <label className="form-label">Available Times</label>
+                    <div className="d-flex flex-wrap gap-2">
+                      {timeSlots.length > 0 ? (
+                        timeSlots.map(slot => (
+                          <button
+                            key={slot.id}
+                            type="button"
+                            className={`btn ${formData.time_slot === slot.id ? 'btn-primary' : 'btn-outline-primary'}`}
+                            onClick={() => handleChange('time_slot', slot.id)}
+                            disabled={!slot.available}
+                          >
+                            {slot.time}
+                          </button>
+                        ))
+                      ) : (
+                        <p className="text-muted mb-0">No available times for this date.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Contact Information */}
+                <h5 className="mt-5 mb-3">Your Information</h5>
+                <div className="row">
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">First Name *</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={formData.first_name}
+                      onChange={(e) => handleChange('first_name', e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Last Name *</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={formData.last_name}
+                      onChange={(e) => handleChange('last_name', e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="row">
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Email *</label>
+                    <input
+                      type="email"
+                      className="form-control"
+                      value={formData.email}
+                      onChange={(e) => handleChange('email', e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="col-md-6 mb-3">
+                    <label className="form-label">Phone *</label>
+                    <input
+                      type="tel"
+                      className="form-control"
+                      value={formData.phone}
+                      onChange={(e) => handleChange('phone', e.target.value)}
+                      required
+                      pattern="[0-9+\-\s()]{7,20}"
+                    />
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <label className="form-label">Notes (Optional)</label>
+                  <textarea
+                    className="form-control"
+                    rows="3"
+                    value={formData.notes}
+                    onChange={(e) => handleChange('notes', e.target.value)}
+                    placeholder="Any special requests or information..."
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-lg"
+                  disabled={!formData.time_slot || submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2"></span>
+                      Confirming...
+                    </>
+                  ) : (
+                    'Confirm Booking'
+                  )}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        {/* Booking Summary */}
+        <div className="col-lg-4">
+          <div className="card sticky-top" style={% raw %}{{ top: 80 }}{% endraw %}>
+            <div className="card-header">
+              <h5 className="mb-0">Booking Summary</h5>
+            </div>
+            <div className="card-body">
+              {service?.image && (
+                <img src={service.image} className="img-fluid rounded mb-3" alt={service.name} />
+              )}
+              <h5>{service?.name}</h5>
+              <p className="text-muted mb-3">{service?.short_description}</p>
+
+              <div className="d-flex justify-content-between mb-2">
+                <span>Duration</span>
+                <span>{service?.duration} minutes</span>
+              </div>
+              <div className="d-flex justify-content-between mb-2">
+                <span>Date</span>
+                <span>{formData.date || 'Not selected'}</span>
+              </div>
+              <div className="d-flex justify-content-between mb-2">
+                <span>Time</span>
+                <span>
+                  {formData.time_slot
+                    ? timeSlots.find(s => s.id === formData.time_slot)?.time
+                    : 'Not selected'}
+                </span>
+              </div>
+              <hr />
+              <div className="d-flex justify-content-between">
+                <strong>Total</strong>
+                <strong>${service?.price}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,173 @@
+import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import api from '../utils/api';
+
+const BookingCard = ({ booking, onCancel }) => {
+  const statusColors = {
+    confirmed: 'success',
+    pending: 'warning',
+    cancelled: 'danger',
+    completed: 'secondary'
+  };
+
+  return (
+    <div className="col-md-6 mb-4">
+      <div className="card h-100">
+        <div className="card-header d-flex justify-content-between align-items-center">
+          <span className={`badge bg-${statusColors[booking.status] || 'secondary'}`}>
+            {booking.status}
+          </span>
+          <small className="text-muted">{booking.reference}</small>
+        </div>
+        <div className="card-body">
+          <h5 className="card-title">{booking.service?.name}</h5>
+
+          <div className="mb-3">
+            <div className="d-flex align-items-center mb-2">
+              <i className="bi bi-calendar text-primary me-2"></i>
+              {new Date(booking.date).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}
+            </div>
+            <div className="d-flex align-items-center mb-2">
+              <i className="bi bi-clock text-primary me-2"></i>
+              {booking.time_slot?.start_time} - {booking.time_slot?.end_time}
+            </div>
+            {booking.staff && (
+              <div className="d-flex align-items-center mb-2">
+                <i className="bi bi-person text-primary me-2"></i>
+                {booking.staff.name}
+              </div>
+            )}
+          </div>
+
+          <div className="d-flex justify-content-between align-items-center pt-3 border-top">
+            <strong>${booking.total}</strong>
+            <div>
+              {booking.status === 'confirmed' && booking.is_upcoming && (
+                <>
+                  <Link
+                    to={`/reschedule/${booking.reference}`}
+                    className="btn btn-sm btn-outline-primary me-1"
+                  >
+                    Reschedule
+                  </Link>
+                  <button
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={() => onCancel(booking.reference)}
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
+              {booking.status === 'completed' && !booking.has_review && (
+                <Link to={`/review/${booking.reference}`} className="btn btn-sm btn-primary">
+                  Leave Review
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="card-footer bg-transparent">
+          <Link to={`/booking/${booking.reference}`} className="btn btn-link btn-sm p-0">
+            View Details <i className="bi bi-chevron-right"></i>
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function MyBookingsPage() {
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const status = searchParams.get('status') || 'upcoming';
+
+  useEffect(() => {
+    fetchBookings();
+  }, [status]);
+
+  const fetchBookings = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get('/api/booking/my-bookings/', {
+        params: { status }
+      });
+      setBookings(response.data);
+    } catch (error) {
+      console.error('Failed to fetch bookings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = async (reference) => {
+    if (!confirm('Are you sure you want to cancel this booking?')) return;
+    try {
+      await api.post(`/api/booking/bookings/${reference}/cancel/`);
+      fetchBookings();
+    } catch (error) {
+      alert('Failed to cancel booking');
+    }
+  };
+
+  const tabs = [
+    { key: 'upcoming', label: 'Upcoming' },
+    { key: 'past', label: 'Past' },
+    { key: 'cancelled', label: 'Cancelled' }
+  ];
+
+  return (
+    <div className="container py-4">
+      <h1 className="mb-4">My Bookings</h1>
+
+      {/* Tabs */}
+      <ul className="nav nav-tabs mb-4">
+        {tabs.map(tab => (
+          <li key={tab.key} className="nav-item">
+            <button
+              className={`nav-link ${status === tab.key ? 'active' : ''}`}
+              onClick={() => setSearchParams({ status: tab.key })}
+            >
+              {tab.label}
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {loading ? (
+        <div className="text-center py-5">
+          <div className="spinner-border text-primary"></div>
+        </div>
+      ) : bookings.length > 0 ? (
+        <div className="row">
+          {bookings.map(booking => (
+            <BookingCard
+              key={booking.id}
+              booking={booking}
+              onCancel={handleCancel}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-5">
+          <div className="mb-4" style={% raw %}{{ fontSize: '5rem' }}{% endraw %}>📅</div>
+          <h3>No {status} bookings</h3>
+          <p className="text-muted">
+            {status === 'past'
+              ? "You haven't completed any bookings yet."
+              : status === 'cancelled'
+              ? "You don't have any cancelled bookings."
+              : "You don't have any upcoming appointments."}
+          </p>
+          <Link to="/services" className="btn btn-primary">Browse Services</Link>
+        </div>
+      )}
+    </div>
+  );
+}

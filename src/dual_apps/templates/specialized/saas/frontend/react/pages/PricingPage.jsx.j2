@@ -1,0 +1,309 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+
+const PlanCard = ({ plan, interval, currentPlan, onSelect }) => {
+  const isCurrentPlan = currentPlan?.id === plan.id;
+  const price = interval === 'yearly' ? Math.round(plan.price * 12 * 0.8) : plan.price;
+
+  return (
+    <div className={`card h-100 ${plan.recommended ? 'border-primary' : ''}`}>
+      {plan.recommended && (
+        <div className="card-header bg-primary text-white text-center">
+          Most Popular
+        </div>
+      )}
+      <div className="card-body d-flex flex-column">
+        <h4 className="card-title text-center">{plan.name}</h4>
+        <div className="text-center mb-4">
+          <span className="display-4 fw-bold">${price}</span>
+          <span className="text-muted">/{interval === 'yearly' ? 'year' : 'month'}</span>
+        </div>
+        <p className="text-center text-muted mb-4">{plan.description}</p>
+
+        <ul className="list-unstyled mb-4 flex-grow-1">
+          {plan.features?.map((feature, index) => (
+            <li key={index} className="mb-2">
+              <i className="bi bi-check-circle-fill text-success me-2"></i>
+              {feature}
+            </li>
+          ))}
+        </ul>
+
+        {isCurrentPlan ? (
+          <button className="btn btn-secondary w-100" disabled>
+            Current Plan
+          </button>
+        ) : (
+          <button
+            className={`btn btn-${plan.recommended ? 'primary' : 'outline-primary'} w-100`}
+            onClick={() => onSelect(plan)}
+          >
+            {plan.price > (currentPlan?.price || 0) ? 'Upgrade' : 'Select'} Plan
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const FAQ = ({ question, answer, isOpen, onToggle }) => (
+  <div className="accordion-item">
+    <h2 className="accordion-header">
+      <button
+        className={`accordion-button ${isOpen ? '' : 'collapsed'}`}
+        type="button"
+        onClick={onToggle}
+      >
+        {question}
+      </button>
+    </h2>
+    <div className={`accordion-collapse collapse ${isOpen ? 'show' : ''}`}>
+      <div className="accordion-body">{answer}</div>
+    </div>
+  </div>
+);
+
+export default function PricingPage() {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
+  const [plans, setPlans] = useState([]);
+  const [currentPlan, setCurrentPlan] = useState(null);
+  const [interval, setInterval] = useState('monthly');
+  const [loading, setLoading] = useState(true);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [openFaq, setOpenFaq] = useState(0);
+
+  const faqs = [
+    {
+      question: 'Can I change plans at any time?',
+      answer: "Yes! You can upgrade or downgrade your plan at any time. When upgrading, you'll be charged the prorated difference. When downgrading, the credit will be applied to future invoices."
+    },
+    {
+      question: 'What happens if I exceed my limits?',
+      answer: "We'll notify you when you're approaching your limits. If you exceed them, you can either upgrade your plan or pay for the overage at a per-unit rate."
+    },
+    {
+      question: 'Is there a free trial?',
+      answer: 'Yes! All plans come with a 14-day free trial. No credit card required to start.'
+    },
+    {
+      question: 'What payment methods do you accept?',
+      answer: 'We accept all major credit cards (Visa, MasterCard, American Express) and PayPal. Enterprise customers can also pay by invoice.'
+    }
+  ];
+
+  useEffect(() => {
+    fetchPlans();
+  }, []);
+
+  const fetchPlans = async () => {
+    try {
+      const [plansRes, subscriptionRes] = await Promise.all([
+        api.get('/api/plans/'),
+        isAuthenticated ? api.get('/api/subscription/') : Promise.resolve({ data: null })
+      ]);
+      setPlans(plansRes.data);
+      if (subscriptionRes.data) {
+        setCurrentPlan(subscriptionRes.data.plan);
+      }
+    } catch (error) {
+      console.error('Failed to fetch plans:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectPlan = (plan) => {
+    if (!isAuthenticated) {
+      navigate('/register', { state: { selectedPlan: plan.id } });
+      return;
+    }
+    setSelectedPlan(plan);
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmPlanChange = async () => {
+    setProcessing(true);
+    try {
+      await api.post('/api/subscription/change/', {
+        plan_id: selectedPlan.id,
+        interval
+      });
+      setCurrentPlan(selectedPlan);
+      setShowConfirmModal(false);
+      // Show success toast or redirect
+      navigate('/dashboard', { state: { message: 'Plan updated successfully!' } });
+    } catch (error) {
+      console.error('Failed to change plan:', error);
+      alert('Failed to change plan. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={% raw %}{{ minHeight: '400px' }}{% endraw %}>
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container py-5">
+      <div className="text-center mb-5">
+        <h1 className="display-5 fw-bold">Simple, Transparent Pricing</h1>
+        <p className="lead text-muted">Choose the plan that fits your needs. Upgrade or downgrade anytime.</p>
+
+        {/* Billing Toggle */}
+        <div className="btn-group mt-4" role="group">
+          <button
+            className={`btn btn-${interval === 'monthly' ? 'primary' : 'outline-primary'}`}
+            onClick={() => setInterval('monthly')}
+          >
+            Monthly
+          </button>
+          <button
+            className={`btn btn-${interval === 'yearly' ? 'primary' : 'outline-primary'}`}
+            onClick={() => setInterval('yearly')}
+          >
+            Yearly <span className="badge bg-success ms-1">Save 20%</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Pricing Cards */}
+      <div className="row justify-content-center mb-5">
+        {plans.map(plan => (
+          <div key={plan.id} className="col-lg-4 mb-4">
+            <PlanCard
+              plan={plan}
+              interval={interval}
+              currentPlan={currentPlan}
+              onSelect={handleSelectPlan}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Feature Comparison */}
+      <div className="mt-5">
+        <h3 className="text-center mb-4">Compare Plans</h3>
+        <div className="table-responsive">
+          <table className="table table-bordered">
+            <thead className="table-light">
+              <tr>
+                <th style={% raw %}{{ width: '40%' }}{% endraw %}>Feature</th>
+                <th className="text-center">Starter</th>
+                <th className="text-center">Professional</th>
+                <th className="text-center">Enterprise</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>API Requests</strong></td>
+                <td className="text-center">10,000/mo</td>
+                <td className="text-center">100,000/mo</td>
+                <td className="text-center">Unlimited</td>
+              </tr>
+              <tr>
+                <td><strong>Storage</strong></td>
+                <td className="text-center">5 GB</td>
+                <td className="text-center">50 GB</td>
+                <td className="text-center">500 GB</td>
+              </tr>
+              <tr>
+                <td><strong>Team Members</strong></td>
+                <td className="text-center">3</td>
+                <td className="text-center">10</td>
+                <td className="text-center">Unlimited</td>
+              </tr>
+              <tr>
+                <td><strong>Support</strong></td>
+                <td className="text-center">Email</td>
+                <td className="text-center">Priority Email</td>
+                <td className="text-center">24/7 Phone + Slack</td>
+              </tr>
+              <tr>
+                <td><strong>SSO/SAML</strong></td>
+                <td className="text-center"><i className="bi bi-x text-danger"></i></td>
+                <td className="text-center"><i className="bi bi-check text-success"></i></td>
+                <td className="text-center"><i className="bi bi-check text-success"></i></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* FAQ */}
+      <div className="mt-5">
+        <h3 className="text-center mb-4">Frequently Asked Questions</h3>
+        <div className="accordion" id="faq-accordion">
+          {faqs.map((faq, index) => (
+            <FAQ
+              key={index}
+              question={faq.question}
+              answer={faq.answer}
+              isOpen={openFaq === index}
+              onToggle={() => setOpenFaq(openFaq === index ? -1 : index)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="modal fade show d-block" tabIndex="-1" style={% raw %}{{ backgroundColor: 'rgba(0,0,0,0.5)' }}{% endraw %}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Confirm Plan Change</h5>
+                <button type="button" className="btn-close" onClick={() => setShowConfirmModal(false)}></button>
+              </div>
+              <div className="modal-body">
+                <p>You are about to switch to the <strong>{selectedPlan?.name}</strong> plan.</p>
+                <p className="mb-0">
+                  New price: <strong>
+                    ${interval === 'yearly' ? Math.round(selectedPlan?.price * 12 * 0.8) : selectedPlan?.price}
+                    /{interval === 'yearly' ? 'year' : 'month'}
+                  </strong>
+                </p>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowConfirmModal(false)}
+                  disabled={processing}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleConfirmPlanChange}
+                  disabled={processing}
+                >
+                  {processing ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2"></span>
+                      Processing...
+                    </>
+                  ) : (
+                    'Confirm Change'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,260 @@
+{% raw %}{% extends "cms/base_cms.html" %}
+
+{% block title %}Media Library - {{ project_name_display }}{% endblock %}
+
+{% block cms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Media Library</h1>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+        <i class="bi bi-upload me-1"></i> Upload Files
+    </button>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3 align-items-center">
+            <div class="col-md-4">
+                <input type="text" class="form-control" placeholder="Search media..." id="media-search">
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="type-filter">
+                    <option value="">All Types</option>
+                    <option value="image">Images</option>
+                    <option value="video">Videos</option>
+                    <option value="audio">Audio</option>
+                    <option value="document">Documents</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" id="sort-filter">
+                    <option value="-uploaded_at">Newest First</option>
+                    <option value="uploaded_at">Oldest First</option>
+                    <option value="name">Name A-Z</option>
+                    <option value="-name">Name Z-A</option>
+                    <option value="-size">Largest First</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <div class="btn-group w-100">
+                    <button class="btn btn-outline-secondary active" id="grid-view">
+                        <i class="bi bi-grid-3x3-gap"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary" id="list-view">
+                        <i class="bi bi-list"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Media Grid -->
+<div class="row g-4" id="media-grid">
+    {% for media in media_files %}
+    <div class="col-6 col-md-4 col-lg-3 col-xl-2 media-item" data-type="{{ media.file_type }}">
+        <div class="card h-100 media-card" data-id="{{ media.pk }}">
+            <div class="card-img-top bg-light d-flex align-items-center justify-content-center"
+                 style="height: 150px; overflow: hidden;">
+                {% if media.file_type == 'image' %}
+                <img src="{{ media.file.url }}" alt="{{ media.name }}"
+                     style="width: 100%; height: 100%; object-fit: cover;">
+                {% elif media.file_type == 'video' %}
+                <i class="bi bi-play-circle text-primary" style="font-size: 3rem;"></i>
+                {% elif media.file_type == 'audio' %}
+                <i class="bi bi-music-note-beamed text-info" style="font-size: 3rem;"></i>
+                {% else %}
+                <i class="bi bi-file-earmark text-secondary" style="font-size: 3rem;"></i>
+                {% endif %}
+            </div>
+            <div class="card-body p-2">
+                <p class="card-text small text-truncate mb-1" title="{{ media.name }}">{{ media.name }}</p>
+                <small class="text-muted">{{ media.size|filesizeformat }}</small>
+            </div>
+            <div class="card-footer p-2 d-flex justify-content-between">
+                <button class="btn btn-sm btn-outline-secondary" onclick="copyUrl('{{ media.file.url }}')">
+                    <i class="bi bi-link-45deg"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-primary" onclick="showMediaDetails({{ media.pk }})">
+                    <i class="bi bi-info-circle"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteMedia({{ media.pk }})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+        <div class="mb-3" style="font-size: 5rem;">🖼️</div>
+        <h3>No media files</h3>
+        <p class="text-muted">Upload your first file to get started.</p>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+            Upload Files
+        </button>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Upload Files</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="drop-zone" class="border border-dashed rounded p-5 text-center mb-3"
+                     style="border-style: dashed !important;">
+                    <i class="bi bi-cloud-upload" style="font-size: 3rem;"></i>
+                    <p class="mt-3 mb-1">Drag and drop files here</p>
+                    <p class="text-muted small">or</p>
+                    <label class="btn btn-outline-primary">
+                        Browse Files
+                        <input type="file" multiple class="d-none" id="file-input"
+                               accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx">
+                    </label>
+                    <p class="text-muted small mt-3">Max file size: 10MB</p>
+                </div>
+                <div id="upload-progress" style="display: none;">
+                    <div class="progress mb-2">
+                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div id="upload-status" class="small text-muted"></div>
+                </div>
+                <div id="upload-list"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Media Details Modal -->
+<div class="modal fade" id="mediaModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Media Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="media-details">
+                <!-- Loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Drag and drop
+var dropZone = document.getElementById('drop-zone');
+var fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    dropZone.classList.add('bg-light');
+});
+
+dropZone.addEventListener('dragleave', function() {
+    dropZone.classList.remove('bg-light');
+});
+
+dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('bg-light');
+    handleFiles(e.dataTransfer.files);
+});
+
+fileInput.addEventListener('change', function() {
+    handleFiles(this.files);
+});
+
+function handleFiles(files) {
+    var formData = new FormData();
+    for (var i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+    }
+
+    document.getElementById('upload-progress').style.display = 'block';
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '{% url "cms:media_upload" %}');
+    xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token }}');
+
+    xhr.upload.onprogress = function(e) {
+        var percent = (e.loaded / e.total) * 100;
+        document.querySelector('.progress-bar').style.width = percent + '%';
+        document.getElementById('upload-status').textContent =
+            'Uploading... ' + Math.round(percent) + '%';
+    };
+
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            location.reload();
+        } else {
+            alert('Upload failed');
+        }
+    };
+
+    xhr.send(formData);
+}
+
+function copyUrl(url) {
+    navigator.clipboard.writeText(window.location.origin + url);
+    alert('URL copied to clipboard!');
+}
+
+function showMediaDetails(id) {
+    fetch('{% url "cms:media_detail" 0 %}'.replace('0', id))
+        .then(r => r.text())
+        .then(html => {
+            document.getElementById('media-details').innerHTML = html;
+            new bootstrap.Modal(document.getElementById('mediaModal')).show();
+        });
+}
+
+function deleteMedia(id) {
+    if (!confirm('Delete this file?')) return;
+    fetch('{% url "cms:media_delete" 0 %}'.replace('0', id), {
+        method: 'POST',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    }).then(() => location.reload());
+}
+
+// Filter and search
+document.getElementById('media-search').addEventListener('input', filterMedia);
+document.getElementById('type-filter').addEventListener('change', filterMedia);
+
+function filterMedia() {
+    var search = document.getElementById('media-search').value.toLowerCase();
+    var type = document.getElementById('type-filter').value;
+
+    document.querySelectorAll('.media-item').forEach(function(item) {
+        var name = item.querySelector('.card-text').textContent.toLowerCase();
+        var itemType = item.dataset.type;
+
+        var matchSearch = !search || name.includes(search);
+        var matchType = !type || itemType === type;
+
+        item.style.display = matchSearch && matchType ? '' : 'none';
+    });
+}
+
+// View toggle
+document.getElementById('grid-view').addEventListener('click', function() {
+    document.querySelectorAll('.media-item').forEach(el => {
+        el.className = 'col-6 col-md-4 col-lg-3 col-xl-2 media-item';
+    });
+    this.classList.add('active');
+    document.getElementById('list-view').classList.remove('active');
+});
+
+document.getElementById('list-view').addEventListener('click', function() {
+    document.querySelectorAll('.media-item').forEach(el => {
+        el.className = 'col-12 media-item';
+    });
+    this.classList.add('active');
+    document.getElementById('grid-view').classList.remove('active');
+});
+</script>
+{% endblock %}
+{% endraw %}

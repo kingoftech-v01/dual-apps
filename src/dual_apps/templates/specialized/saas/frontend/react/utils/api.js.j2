@@ -1,0 +1,136 @@
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: '{{ api_base_url|default:"" }}',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  {% if jwt_storage == 'httpOnly' %}
+  withCredentials: true,
+  {% endif %}
+});
+
+{% if jwt_storage == 'localStorage' %}
+// Request interceptor to add auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor to handle token refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // If 401 and not already retrying
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) {
+          throw new Error('No refresh token');
+        }
+
+        const response = await axios.post(
+          `${api.defaults.baseURL}/api/auth/token/refresh/`,
+          { refresh: refreshToken }
+        );
+
+        const { access } = response.data;
+        localStorage.setItem('accessToken', access);
+
+        originalRequest.headers.Authorization = `Bearer ${access}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+{% else %}
+// Response interceptor to handle token refresh via cookies
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        await axios.post(
+          `${api.defaults.baseURL}/api/auth/token/refresh/`,
+          {},
+          { withCredentials: true }
+        );
+
+        return api(originalRequest);
+      } catch (refreshError) {
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+{% endif %}
+
+// API helper functions
+export const authAPI = {
+  login: (credentials) => api.post('/api/auth/login/', credentials),
+  register: (userData) => api.post('/api/auth/register/', userData),
+  logout: () => api.post('/api/auth/logout/'),
+  refreshToken: () => api.post('/api/auth/token/refresh/'),
+  forgotPassword: (email) => api.post('/api/auth/password-reset/', { email }),
+  resetPassword: (token, password) => api.post('/api/auth/password-reset/confirm/', { token, password }),
+};
+
+export const userAPI = {
+  getProfile: () => api.get('/api/users/me/'),
+  updateProfile: (data) => api.patch('/api/users/me/', data),
+  changePassword: (data) => api.post('/api/users/me/change-password/', data),
+  updateNotifications: (data) => api.patch('/api/users/me/notifications/', data),
+};
+
+export const subscriptionAPI = {
+  getCurrent: () => api.get('/api/subscription/'),
+  getPlans: () => api.get('/api/plans/'),
+  changePlan: (planId, interval) => api.post('/api/subscription/change/', { plan_id: planId, interval }),
+  cancel: () => api.post('/api/subscription/cancel/'),
+  getInvoices: () => api.get('/api/invoices/'),
+};
+
+export const teamAPI = {
+  getMembers: () => api.get('/api/team/members/'),
+  inviteMember: (email, role) => api.post('/api/team/invite/', { email, role }),
+  removeMember: (memberId) => api.delete(`/api/team/members/${memberId}/`),
+  updateRole: (memberId, role) => api.patch(`/api/team/members/${memberId}/`, { role }),
+};
+
+export const apiKeyAPI = {
+  list: () => api.get('/api/keys/'),
+  create: (name) => api.post('/api/keys/', { name }),
+  revoke: (keyId) => api.delete(`/api/keys/${keyId}/`),
+};
+
+export const dashboardAPI = {
+  getStats: () => api.get('/api/dashboard/stats/'),
+  getChartData: (period) => api.get(`/api/dashboard/chart/?period=${period}`),
+  getActivity: (offset = 0) => api.get(`/api/dashboard/activity/?offset=${offset}`),
+};
+
+export default api;

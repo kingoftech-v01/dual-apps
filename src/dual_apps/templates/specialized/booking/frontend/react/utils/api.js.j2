@@ -1,0 +1,110 @@
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: '{{ api_base_url|default:"" }}',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  {% if jwt_storage == 'httpOnly' %}
+  withCredentials: true,
+  {% endif %}
+});
+
+{% if jwt_storage == 'localStorage' %}
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        const refreshToken = localStorage.getItem('refreshToken');
+        if (!refreshToken) throw new Error('No refresh token');
+
+        const response = await axios.post(
+          `${api.defaults.baseURL}/api/auth/token/refresh/`,
+          { refresh: refreshToken }
+        );
+
+        localStorage.setItem('accessToken', response.data.access);
+        originalRequest.headers.Authorization = `Bearer ${response.data.access}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+{% else %}
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        await axios.post(
+          `${api.defaults.baseURL}/api/auth/token/refresh/`,
+          {},
+          { withCredentials: true }
+        );
+        return api(originalRequest);
+      } catch (refreshError) {
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+{% endif %}
+
+export const bookingAPI = {
+  // Services
+  getServices: (params) => api.get('/api/booking/services/', { params }),
+  getService: (slug) => api.get(`/api/booking/services/${slug}/`),
+  getServiceStaff: (slug) => api.get(`/api/booking/services/${slug}/staff/`),
+  getTimeSlots: (slug, params) => api.get(`/api/booking/services/${slug}/slots/`, { params }),
+
+  // Categories
+  getCategories: () => api.get('/api/booking/categories/'),
+
+  // Bookings
+  createBooking: (slug, data) => api.post(`/api/booking/services/${slug}/book/`, data),
+  getMyBookings: (params) => api.get('/api/booking/my-bookings/', { params }),
+  getBooking: (reference) => api.get(`/api/booking/bookings/${reference}/`),
+  cancelBooking: (reference) => api.post(`/api/booking/bookings/${reference}/cancel/`),
+  rescheduleBooking: (reference, data) => api.post(`/api/booking/bookings/${reference}/reschedule/`, data),
+
+  // Calendar
+  addToCalendar: (reference) => api.get(`/api/booking/bookings/${reference}/calendar/`),
+
+  // Reviews
+  submitReview: (reference, data) => api.post(`/api/booking/bookings/${reference}/review/`, data),
+
+  // Promo codes
+  validatePromo: (slug, code) => api.post(`/api/booking/services/${slug}/validate-promo/`, { code }),
+};
+
+export default api;

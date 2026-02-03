@@ -1,0 +1,57 @@
+{% extends "marketplace/htmx/base_marketplace.html" %}
+
+{% block marketplace_content %}
+<div class="row">
+    <div class="col-lg-3 mb-4">
+        <div class="card sticky-top" style="top: 1rem;">
+            <div class="card-header">
+                <h6 class="mb-0">Filters</h6>
+            </div>
+            <div class="card-body">
+                <form hx-get="{% url 'marketplace:listings' %}"
+                      hx-target="#listings-container"
+                      hx-trigger="change delay:300ms, submit"
+                      hx-push-url="true">
+                    <div class="mb-3">
+                        <input type="text" name="q" class="form-control" placeholder="Search..."
+                               value="{{ request.GET.q }}">
+                    </div>
+                    <div class="mb-3">
+                        <select name="category" class="form-select">
+                            <option value="">All Categories</option>
+                            {% for category in categories %}
+                            <option value="{{ category.slug }}" {% if request.GET.category == category.slug %}selected{% endif %}>
+                                {{ category.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <input type="number" name="min_price" class="form-control" placeholder="Min $">
+                        </div>
+                        <div class="col-6">
+                            <input type="number" name="max_price" class="form-control" placeholder="Max $">
+                        </div>
+                    </div>
+                    <select name="sort" class="form-select mb-3">
+                        <option value="-created_at">Newest</option>
+                        <option value="price">Price: Low-High</option>
+                        <option value="-price">Price: High-Low</option>
+                    </select>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <span class="htmx-indicator spinner-border spinner-border-sm me-1"></span>
+                        Apply
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-9">
+        <div id="listings-container">
+            {% include "marketplace/htmx/partials/listings_grid.html" %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import Navbar from './components/layout/Navbar';
+import Footer from './components/layout/Footer';
+import HomePage from './pages/HomePage';
+import ListingsPage from './pages/ListingsPage';
+import ListingDetailPage from './pages/ListingDetailPage';
+import CreateListingPage from './pages/CreateListingPage';
+import SellerProfilePage from './pages/SellerProfilePage';
+import MessagesPage from './pages/MessagesPage';
+import MyListingsPage from './pages/MyListingsPage';
+import FavoritesPage from './pages/FavoritesPage';
+import LoginPage from './pages/auth/LoginPage';
+import RegisterPage from './pages/auth/RegisterPage';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <ToastProvider>
+          <div className="d-flex flex-column min-vh-100">
+            <Navbar />
+            <main className="flex-grow-1">
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/listings" element={<ListingsPage />} />
+                <Route path="/listing/:slug" element={<ListingDetailPage />} />
+                <Route path="/seller/:username" element={<SellerProfilePage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/create-listing" element={
+                  <ProtectedRoute><CreateListingPage /></ProtectedRoute>
+                } />
+                <Route path="/my-listings" element={
+                  <ProtectedRoute><MyListingsPage /></ProtectedRoute>
+                } />
+                <Route path="/favorites" element={
+                  <ProtectedRoute><FavoritesPage /></ProtectedRoute>
+                } />
+                <Route path="/messages" element={
+                  <ProtectedRoute><MessagesPage /></ProtectedRoute>
+                } />
+              </Routes>
+            </main>
+            <Footer />
+          </div>
+        </ToastProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
+
+export default App;

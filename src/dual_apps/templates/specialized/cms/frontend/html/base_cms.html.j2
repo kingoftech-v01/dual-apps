@@ -1,0 +1,60 @@
+{% raw %}{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Admin Sidebar -->
+        <nav class="col-md-2 d-none d-md-block bg-light sidebar py-3">
+            <div class="position-sticky">
+                <h6 class="sidebar-heading px-3 mb-3">Content</h6>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'cms:pages' %}">📄 Pages</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'cms:posts' %}">📝 Blog Posts</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'cms:media' %}">🖼️ Media Library</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'cms:menus' %}">📋 Menus</a>
+                    </li>
+                </ul>
+
+                <h6 class="sidebar-heading px-3 mt-4 mb-3">Customization</h6>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'cms:themes' %}">🎨 Themes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'cms:widgets' %}">🧩 Widgets</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'cms:forms' %}">📋 Forms</a>
+                    </li>
+                </ul>
+
+                <h6 class="sidebar-heading px-3 mt-4 mb-3">Settings</h6>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'cms:users' %}">👥 Users</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'cms:settings' %}">⚙️ Settings</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'cms:seo' %}">🔍 SEO</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="col-md-10 ms-sm-auto px-md-4 py-4">
+            {% block cms_content %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% endblock %}
+{% endraw %}

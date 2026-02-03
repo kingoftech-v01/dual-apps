@@ -1,0 +1,229 @@
+{% raw %}{% extends "cms/base_cms.html" %}
+
+{% block title %}Pages - {{ project_name_display }}{% endblock %}
+
+{% block cms_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3 mb-0">Pages</h1>
+    <a href="{% url 'cms:page_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1"></i> New Page
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control" placeholder="Search pages..."
+                       value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-select">
+                    <option value="">All Status</option>
+                    <option value="published" {% if request.GET.status == 'published' %}selected{% endif %}>Published</option>
+                    <option value="draft" {% if request.GET.status == 'draft' %}selected{% endif %}>Draft</option>
+                    <option value="scheduled" {% if request.GET.status == 'scheduled' %}selected{% endif %}>Scheduled</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select name="author" class="form-select">
+                    <option value="">All Authors</option>
+                    {% for author in authors %}
+                    <option value="{{ author.pk }}" {% if request.GET.author == author.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ author.get_full_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Pages Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>
+                            <input type="checkbox" class="form-check-input" id="select-all">
+                        </th>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Status</th>
+                        <th>Template</th>
+                        <th>Date</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for page in pages %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="form-check-input page-checkbox" value="{{ page.pk }}">
+                        </td>
+                        <td>
+                            <a href="{% url 'cms:page_edit' page.pk %}" class="text-decoration-none">
+                                <strong>{{ page.title }}</strong>
+                            </a>
+                            <br>
+                            <small class="text-muted">{{ page.slug }}</small>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if page.author.avatar %}
+                                <img src="{{ page.author.avatar.url }}" class="rounded-circle me-2"
+                                     style="width: 24px; height: 24px; object-fit: cover;">
+                                {% else %}
+                                <div class="rounded-circle bg-secondary text-white me-2 d-flex align-items-center justify-content-center"
+                                     style="width: 24px; height: 24px; font-size: 12px;">
+                                    {{ page.author.first_name|first }}
+                                </div>
+                                {% endif %}
+                                {{ page.author.get_full_name }}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if page.status == 'published' %}success{% elif page.status == 'draft' %}secondary{% else %}warning{% endif %}">
+                                {{ page.status|title }}
+                            </span>
+                        </td>
+                        <td>{{ page.template|default:"Default"|title }}</td>
+                        <td>
+                            {% if page.status == 'published' %}
+                            {{ page.published_at|date:"M d, Y" }}
+                            {% elif page.status == 'scheduled' %}
+                            <span class="text-warning">{{ page.publish_date|date:"M d, Y H:i" }}</span>
+                            {% else %}
+                            <span class="text-muted">{{ page.updated_at|date:"M d, Y" }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-link text-muted" data-bs-toggle="dropdown">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'cms:page_edit' page.pk %}">
+                                            <i class="bi bi-pencil me-2"></i> Edit
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ page.get_absolute_url }}" target="_blank">
+                                            <i class="bi bi-eye me-2"></i> View
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'cms:page_duplicate' page.pk %}">
+                                            <i class="bi bi-files me-2"></i> Duplicate
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <form method="post" action="{% url 'cms:page_delete' page.pk %}"
+                                              onsubmit="return confirm('Delete this page?')">
+                                            {% csrf_token %}
+                                            <button type="submit" class="dropdown-item text-danger">
+                                                <i class="bi bi-trash me-2"></i> Delete
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <div class="mb-3" style="font-size: 3rem;">📄</div>
+                            <h5>No pages yet</h5>
+                            <p class="text-muted">Get started by creating your first page.</p>
+                            <a href="{% url 'cms:page_create' %}" class="btn btn-primary">Create Page</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Actions -->
+<div class="card mt-3" id="bulk-actions" style="display: none;">
+    <div class="card-body d-flex align-items-center gap-3">
+        <span id="selected-count">0</span> selected
+        <select class="form-select form-select-sm" style="width: auto;" id="bulk-action">
+            <option value="">Bulk Actions</option>
+            <option value="publish">Publish</option>
+            <option value="unpublish">Unpublish</option>
+            <option value="delete">Delete</option>
+        </select>
+        <button class="btn btn-sm btn-primary" onclick="applyBulkAction()">Apply</button>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if pages.has_other_pages %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if pages.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ pages.previous_page_number }}">Previous</a>
+        </li>
+        {% endif %}
+        {% for num in pages.paginator.page_range %}
+        <li class="page-item {% if pages.number == num %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        {% if pages.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ pages.next_page_number }}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<script>
+document.getElementById('select-all').addEventListener('change', function() {
+    document.querySelectorAll('.page-checkbox').forEach(cb => cb.checked = this.checked);
+    updateBulkActions();
+});
+
+document.querySelectorAll('.page-checkbox').forEach(cb => {
+    cb.addEventListener('change', updateBulkActions);
+});
+
+function updateBulkActions() {
+    var checked = document.querySelectorAll('.page-checkbox:checked').length;
+    document.getElementById('selected-count').textContent = checked;
+    document.getElementById('bulk-actions').style.display = checked > 0 ? 'block' : 'none';
+}
+
+function applyBulkAction() {
+    var action = document.getElementById('bulk-action').value;
+    if (!action) return;
+
+    var ids = Array.from(document.querySelectorAll('.page-checkbox:checked')).map(cb => cb.value);
+    if (ids.length === 0) return;
+
+    if (action === 'delete' && !confirm('Delete ' + ids.length + ' pages?')) return;
+
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{% url "cms:bulk_action" %}';
+    form.innerHTML = '{% csrf_token %}<input name="action" value="' + action + '">';
+    ids.forEach(id => form.innerHTML += '<input name="ids" value="' + id + '">');
+    document.body.appendChild(form);
+    form.submit();
+}
+</script>
+{% endblock %}
+{% endraw %}

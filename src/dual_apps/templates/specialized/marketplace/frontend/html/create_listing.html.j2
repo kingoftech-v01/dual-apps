@@ -1,0 +1,217 @@
+{% raw %}{% extends "marketplace/base_marketplace.html" %}
+
+{% block title %}{% if listing %}Edit Listing{% else %}Create Listing{% endif %} - {{ project_name_display }}{% endblock %}
+
+{% block marketplace_content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">{% if listing %}Edit Listing{% else %}Create New Listing{% endif %}</h4>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" id="listing-form">
+                    {% csrf_token %}
+
+                    <!-- Basic Information -->
+                    <h5 class="mb-3">Basic Information</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Title *</label>
+                        <input type="text" name="title" class="form-control" required
+                               value="{{ listing.title|default:'' }}" maxlength="200"
+                               placeholder="What are you selling?">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Category *</label>
+                            <select name="category" class="form-select" required>
+                                <option value="">Select category</option>
+                                {% for category in categories %}
+                                <option value="{{ category.pk }}" {% if listing.category_id == category.pk %}selected{% endif %}>
+                                    {{ category.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Condition *</label>
+                            <select name="condition" class="form-select" required>
+                                <option value="new" {% if listing.condition == 'new' %}selected{% endif %}>New</option>
+                                <option value="like_new" {% if listing.condition == 'like_new' %}selected{% endif %}>Like New</option>
+                                <option value="good" {% if listing.condition == 'good' %}selected{% endif %}>Good</option>
+                                <option value="fair" {% if listing.condition == 'fair' %}selected{% endif %}>Fair</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Description *</label>
+                        <textarea name="description" class="form-control" rows="6" required
+                                  placeholder="Describe your item in detail...">{{ listing.description|default:'' }}</textarea>
+                    </div>
+
+                    <!-- Pricing -->
+                    <h5 class="mb-3">Pricing</h5>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Price *</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="price" class="form-control" required
+                                       min="0" step="0.01" value="{{ listing.price|default:'' }}"
+                                       placeholder="0.00">
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3 d-flex align-items-end">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="is_negotiable"
+                                       {% if listing.is_negotiable %}checked{% endif %}>
+                                <label class="form-check-label">Price is negotiable</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="allow_buy_now"
+                                   {% if listing.allow_buy_now %}checked{% endif %}>
+                            <label class="form-check-label">Allow "Buy Now" (direct purchase)</label>
+                        </div>
+                    </div>
+
+                    <!-- Images -->
+                    <h5 class="mb-3">Images</h5>
+                    <div class="mb-4">
+                        <label class="form-label">Upload Images (up to 10)</label>
+                        <div id="image-drop-zone" class="border rounded p-4 text-center mb-3"
+                             style="border-style: dashed !important; cursor: pointer;">
+                            <i class="bi bi-cloud-upload" style="font-size: 2rem;"></i>
+                            <p class="mb-0 mt-2">Drag & drop images or click to browse</p>
+                            <small class="text-muted">Max 5MB per image. JPG, PNG, WebP supported.</small>
+                            <input type="file" name="images" multiple accept="image/*" class="d-none" id="image-input">
+                        </div>
+
+                        <div id="image-preview" class="d-flex flex-wrap gap-2">
+                            {% for image in listing.images.all %}
+                            <div class="position-relative existing-image" data-id="{{ image.pk }}">
+                                <img src="{{ image.image.url }}" class="rounded" style="width: 100px; height: 100px; object-fit: cover;">
+                                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 remove-image">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                                <input type="hidden" name="keep_images" value="{{ image.pk }}">
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Location -->
+                    <h5 class="mb-3">Location</h5>
+                    <div class="mb-4">
+                        <label class="form-label">Location</label>
+                        <input type="text" name="location" class="form-control"
+                               value="{{ listing.location|default:'' }}"
+                               placeholder="City, State or ZIP code">
+                    </div>
+
+                    <!-- Specifications (Optional) -->
+                    <h5 class="mb-3">Specifications (Optional)</h5>
+                    <div id="specifications">
+                        {% for key, value in listing.specifications.items %}
+                        <div class="row mb-2 spec-row">
+                            <div class="col-5">
+                                <input type="text" name="spec_key[]" class="form-control" value="{{ key }}" placeholder="e.g., Brand">
+                            </div>
+                            <div class="col-5">
+                                <input type="text" name="spec_value[]" class="form-control" value="{{ value }}" placeholder="e.g., Apple">
+                            </div>
+                            <div class="col-2">
+                                <button type="button" class="btn btn-outline-danger remove-spec"><i class="bi bi-x"></i></button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm mb-4" id="add-spec">
+                        <i class="bi bi-plus"></i> Add Specification
+                    </button>
+
+                    <!-- Submit -->
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <a href="{% if listing %}{% url 'marketplace:listing_detail' listing.slug %}{% else %}{% url 'marketplace:listings' %}{% endif %}"
+                           class="btn btn-outline-secondary">Cancel</a>
+                        <div>
+                            <button type="submit" name="action" value="draft" class="btn btn-outline-primary me-2">Save as Draft</button>
+                            <button type="submit" name="action" value="publish" class="btn btn-primary">
+                                {% if listing %}Update{% else %}Publish{% endif %} Listing
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Image upload
+var dropZone = document.getElementById('image-drop-zone');
+var imageInput = document.getElementById('image-input');
+var preview = document.getElementById('image-preview');
+
+dropZone.addEventListener('click', () => imageInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('bg-light'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('bg-light'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('bg-light');
+    handleFiles(e.dataTransfer.files);
+});
+imageInput.addEventListener('change', () => handleFiles(imageInput.files));
+
+function handleFiles(files) {
+    Array.from(files).forEach(file => {
+        if (!file.type.startsWith('image/')) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var div = document.createElement('div');
+            div.className = 'position-relative new-image';
+            div.innerHTML = `
+                <img src="${e.target.result}" class="rounded" style="width: 100px; height: 100px; object-fit: cover;">
+                <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 remove-image">
+                    <i class="bi bi-x"></i>
+                </button>
+            `;
+            preview.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+// Remove image
+preview.addEventListener('click', function(e) {
+    if (e.target.closest('.remove-image')) {
+        e.target.closest('.position-relative').remove();
+    }
+});
+
+// Specifications
+document.getElementById('add-spec').addEventListener('click', function() {
+    var row = document.createElement('div');
+    row.className = 'row mb-2 spec-row';
+    row.innerHTML = `
+        <div class="col-5"><input type="text" name="spec_key[]" class="form-control" placeholder="e.g., Brand"></div>
+        <div class="col-5"><input type="text" name="spec_value[]" class="form-control" placeholder="e.g., Apple"></div>
+        <div class="col-2"><button type="button" class="btn btn-outline-danger remove-spec"><i class="bi bi-x"></i></button></div>
+    `;
+    document.getElementById('specifications').appendChild(row);
+});
+
+document.getElementById('specifications').addEventListener('click', function(e) {
+    if (e.target.closest('.remove-spec')) {
+        e.target.closest('.spec-row').remove();
+    }
+});
+</script>
+{% endblock %}
+{% endraw %}

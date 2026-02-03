@@ -1,0 +1,80 @@
+{% raw %}{% extends "booking/base_booking.html" %}
+
+{% block title %}Services - {{ project_name_display }}{% endblock %}
+
+{% block booking_content %}
+<h1 class="mb-4">Our Services</h1>
+
+<!-- Category Filter -->
+<div class="mb-4">
+    <div class="btn-group" role="group">
+        <a href="{% url 'booking:services' %}" class="btn btn-{% if not category %}primary{% else %}outline-primary{% endif %}">
+            All
+        </a>
+        {% for cat in categories %}
+        <a href="{% url 'booking:services' %}?category={{ cat.slug }}"
+           class="btn btn-{% if category == cat.slug %}primary{% else %}outline-primary{% endif %}">
+            {{ cat.name }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="row">
+    {% for service in services %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+            {% if service.image %}
+            <img src="{{ service.image.url }}" class="card-img-top" alt="{{ service.name }}"
+                 style="height: 200px; object-fit: cover;">
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title">{{ service.name }}</h5>
+                <p class="card-text text-muted">{{ service.description|truncatewords:20 }}</p>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="h5 mb-0">${{ service.price }}</span>
+                    <span class="badge bg-secondary">{{ service.duration }} min</span>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'booking:service_detail' service.slug %}" class="btn btn-outline-primary">
+                        View Details
+                    </a>
+                    <a href="{% url 'booking:book' service.slug %}" class="btn btn-primary">
+                        Book Now
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+        <div class="mb-4" style="font-size: 5rem;">📅</div>
+        <h3>No services available</h3>
+        <p class="text-muted">Check back later for our services.</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% if services.has_other_pages %}
+<nav aria-label="Services pagination">
+    <ul class="pagination justify-content-center">
+        {% if services.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ services.previous_page_number }}">Previous</a>
+        </li>
+        {% endif %}
+        {% for num in services.paginator.page_range %}
+        <li class="page-item {% if services.number == num %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        {% if services.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ services.next_page_number }}">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}
+{% endraw %}

@@ -1,0 +1,156 @@
+import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import api from '../utils/api';
+
+const ServiceCard = ({ service }) => (
+  <div className="col-md-6 col-lg-4 mb-4">
+    <div className="card h-100">
+      {service.image && (
+        <img
+          src={service.image}
+          className="card-img-top"
+          alt={service.name}
+          style={% raw %}{{ height: 200, objectFit: 'cover' }}{% endraw %}
+        />
+      )}
+      <div className="card-body">
+        <h5 className="card-title">{service.name}</h5>
+        <p className="card-text text-muted">
+          {service.description?.substring(0, 100)}...
+        </p>
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <span className="h5 mb-0">${service.price}</span>
+          <span className="badge bg-secondary">{service.duration} min</span>
+        </div>
+        <div className="d-flex gap-2">
+          <Link to={`/services/${service.slug}`} className="btn btn-outline-primary">
+            View Details
+          </Link>
+          <Link to={`/book/${service.slug}`} className="btn btn-primary">
+            Book Now
+          </Link>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+export default function ServiceListPage() {
+  const [services, setServices] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const category = searchParams.get('category') || '';
+  const search = searchParams.get('search') || '';
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    fetchServices();
+  }, [category, search]);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/api/booking/categories/');
+      setCategories(response.data);
+    } catch (error) {
+      console.error('Failed to fetch categories:', error);
+    }
+  };
+
+  const fetchServices = async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (category) params.category = category;
+      if (search) params.search = search;
+      const response = await api.get('/api/booking/services/', { params });
+      setServices(response.data);
+    } catch (error) {
+      console.error('Failed to fetch services:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCategoryChange = (cat) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (cat) {
+      newParams.set('category', cat);
+    } else {
+      newParams.delete('category');
+    }
+    setSearchParams(newParams);
+  };
+
+  const handleSearchChange = (e) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (e.target.value) {
+      newParams.set('search', e.target.value);
+    } else {
+      newParams.delete('search');
+    }
+    setSearchParams(newParams);
+  };
+
+  return (
+    <div className="container py-4">
+      <h1 className="mb-4">Our Services</h1>
+
+      {/* Category Filter */}
+      <div className="mb-4">
+        <div className="btn-group" role="group">
+          <button
+            className={`btn btn-${!category ? 'primary' : 'outline-primary'}`}
+            onClick={() => handleCategoryChange('')}
+          >
+            All
+          </button>
+          {categories.map(cat => (
+            <button
+              key={cat.slug}
+              className={`btn btn-${category === cat.slug ? 'primary' : 'outline-primary'}`}
+              onClick={() => handleCategoryChange(cat.slug)}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="mb-4">
+        <input
+          type="search"
+          className="form-control"
+          placeholder="Search services..."
+          value={search}
+          onChange={handleSearchChange}
+        />
+      </div>
+
+      {/* Services Grid */}
+      {loading ? (
+        <div className="text-center py-5">
+          <div className="spinner-border text-primary"></div>
+        </div>
+      ) : (
+        <div className="row">
+          {services.map(service => (
+            <ServiceCard key={service.id} service={service} />
+          ))}
+          {services.length === 0 && (
+            <div className="col-12 text-center py-5">
+              <div className="mb-4" style={% raw %}{{ fontSize: '5rem' }}{% endraw %}>📅</div>
+              <h3>No services available</h3>
+              <p className="text-muted">Check back later for our services.</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
