@@ -1,6 +1,6 @@
 # CLI Reference
 
-Complete reference for all dual-apps commands.
+Complete reference for all dual-apps CLI commands.
 
 ## Global Options
 
@@ -10,6 +10,99 @@ dual_apps --help       # Show help
 ```
 
 ## Commands
+
+### `dual_apps init project`
+
+Generate a complete Django project.
+
+```bash
+dual_apps init project <name> [options]
+```
+
+**Arguments:**
+- `name`: Project name
+
+**Options:**
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--apps` | `-a` | `core` | Apps to generate (CSV) |
+| `--template` | `-t` | `default` | Template: default, ecommerce, blog, saas, cms, booking, marketplace |
+| `--type` | | `fullstack` | Project type: backend, frontend, fullstack |
+| `--db` | | `postgres` | Database: postgres, mysql, sqlite |
+| `--auth` | | `jwt` | Authentication: jwt, session, allauth |
+| `--jwt-storage` | | `httpOnly` | JWT storage: httpOnly, localStorage |
+| `--frontend` | `-f` | `htmx` | Frontend: html, htmx, react |
+| `--css` | `-c` | `bootstrap` | CSS framework: bootstrap, tailwind |
+| `--docker/--no-docker` | | True | Include Docker files |
+| `--i18n` | | False | Include i18n support |
+| `--celery` | | False | Include Celery support |
+| `--interactive` | `-i` | False | Interactive wizard |
+| `--config` | | None | Config file path |
+| `--output` | `-o` | `.` | Output directory |
+
+**Examples:**
+```bash
+# Basic project
+dual_apps init project myproject
+
+# Multiple apps
+dual_apps init project myproject --apps=jobs,users,products
+
+# Ecommerce store with React
+dual_apps init project myshop \
+    --template=ecommerce \
+    --frontend=react \
+    --css=tailwind
+
+# SaaS with HTMX and Celery
+dual_apps init project mysaas \
+    --template=saas \
+    --frontend=htmx \
+    --css=bootstrap \
+    --celery
+
+# Blog with basic HTML
+dual_apps init project myblog \
+    --template=blog \
+    --frontend=html
+
+# CMS with internationalization
+dual_apps init project mycms \
+    --template=cms \
+    --i18n
+
+# Booking system
+dual_apps init project mybooking \
+    --template=booking \
+    --frontend=react
+
+# Marketplace
+dual_apps init project mymarket \
+    --template=marketplace \
+    --frontend=react
+
+# Backend-only API
+dual_apps init project myapi \
+    --type=backend \
+    --auth=jwt
+
+# With all options
+dual_apps init project myproject \
+    --apps=jobs,users \
+    --template=saas \
+    --type=fullstack \
+    --db=postgres \
+    --auth=jwt \
+    --jwt-storage=httpOnly \
+    --frontend=htmx \
+    --css=tailwind \
+    --docker \
+    --celery \
+    --i18n
+
+# Interactive mode
+dual_apps init project --interactive
+```
 
 ### `dual_apps init app`
 
@@ -51,53 +144,16 @@ dual_apps init app products --fields="name:str,price:decimal,active:bool"
 # API only
 dual_apps init app api_service --api-only
 
+# Full featured
+dual_apps init app users \
+    --model=UserProfile \
+    --auth \
+    --i18n \
+    --docker \
+    --celery
+
 # Interactive mode
 dual_apps init app --interactive
-```
-
-### `dual_apps init project`
-
-Generate a complete Django project.
-
-```bash
-dual_apps init project <name> [options]
-```
-
-**Arguments:**
-- `name`: Project name
-
-**Options:**
-| Option | Short | Default | Description |
-|--------|-------|---------|-------------|
-| `--apps` | `-a` | `jobs` | Apps to generate (CSV) |
-| `--template` | `-t` | `default` | Project template |
-| `--db` | | `postgres` | Database type |
-| `--auth` | | `jwt` | Authentication type |
-| `--docker/--no-docker` | | True | Include Docker files |
-| `--i18n` | | False | Include i18n support |
-| `--celery` | | False | Include Celery support |
-| `--interactive` | `-i` | False | Interactive wizard |
-| `--config` | `-c` | None | Config file path |
-| `--output` | `-o` | `.` | Output directory |
-
-**Examples:**
-```bash
-# Basic project
-dual_apps init project myproject
-
-# Multiple apps
-dual_apps init project myproject --apps=jobs,users,products
-
-# With all options
-dual_apps init project myproject \
-    --apps=jobs,users \
-    --db=postgres \
-    --auth=jwt \
-    --celery \
-    --docker
-
-# Interactive mode
-dual_apps init project --interactive
 ```
 
 ### `dual_apps add app`
@@ -139,6 +195,31 @@ dual_apps config [options]
 dual_apps config --output=myconfig.yaml
 ```
 
+### `dual_apps help`
+
+Show help for a topic.
+
+```bash
+dual_apps help [topic]
+```
+
+**Topics:**
+| Topic | Description |
+|-------|-------------|
+| `overview` | General overview |
+| `commands` | Available commands |
+| `templates` | Template types |
+| `quickstart` | Quick start guide |
+| `config` | Configuration file |
+| `examples` | Example commands |
+
+**Examples:**
+```bash
+dual_apps help
+dual_apps help templates
+dual_apps help quickstart
+```
+
 ### `dual_apps info`
 
 Show package information.
@@ -146,6 +227,40 @@ Show package information.
 ```bash
 dual_apps info
 ```
+
+## Template Types
+
+| Template | Description | Default Apps |
+|----------|-------------|--------------|
+| `default` | Standard project | core |
+| `ecommerce` | Online store | shop, cart, orders |
+| `blog` | Content platform | blog, comments |
+| `saas` | SaaS application | subscriptions, billing |
+| `cms` | Content management | pages, media |
+| `booking` | Reservation system | services, appointments |
+| `marketplace` | Multi-vendor platform | listings, sellers |
+
+## Frontend Options
+
+| Frontend | Description | Features |
+|----------|-------------|----------|
+| `html` | Basic HTML templates | Server-rendered, no JS |
+| `htmx` | HTMX + Alpine.js | Dynamic updates, auth flow |
+| `react` | React SPA with Vite | JWT auth, API client |
+
+## CSS Frameworks
+
+| Framework | Description |
+|-----------|-------------|
+| `bootstrap` | Bootstrap 5 with responsive grid |
+| `tailwind` | Utility-first CSS framework |
+
+## JWT Storage Options
+
+| Option | Description | Security |
+|--------|-------------|----------|
+| `httpOnly` | Stored in httpOnly cookies | More secure (default) |
+| `localStorage` | Stored in browser localStorage | Less secure |
 
 ## Field Types
 
@@ -167,25 +282,51 @@ When specifying fields with `--fields`:
 ## Configuration File Format
 
 ```yaml
+# dual-apps.yaml
 project:
   name: myproject
+  template: ecommerce
+  type: fullstack
   apps:
-    - jobs
-    - users
-  template: default
-  db: postgres
+    - shop
+    - cart
+    - orders
+
+database:
+  engine: postgres
+  name: myproject_db
+
+auth:
+  type: jwt
+  jwt_storage: httpOnly
+
+frontend:
+  framework: react
+  css: tailwind
+
+features:
   docker: true
-  celery: false
+  celery: true
+  i18n: false
 
 apps:
-  jobs:
-    model: JobPosting
+  shop:
+    model: Product
     fields:
       - name: title
         type: str
-      - name: salary
+      - name: price
         type: decimal
-
-options:
-  auth: jwt
+      - name: stock
+        type: int
 ```
+
+## Exit Codes
+
+| Code | Description |
+|------|-------------|
+| 0 | Success |
+| 1 | General error |
+| 2 | Invalid arguments |
+| 3 | File/directory exists |
+| 4 | Template not found |

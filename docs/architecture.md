@@ -7,40 +7,200 @@ Technical deep dive into dual-apps architecture.
 Every generated app has two layers:
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                      Browser                            │
-└─────────────────────────────────────────────────────────┘
-          │                           │
-          ▼                           ▼
-┌─────────────────────┐   ┌─────────────────────┐
-│   Frontend Layer    │   │     API Layer       │
-│   (HTMX Views)      │   │   (DRF ViewSets)    │
-│                     │   │                     │
-│   /{app}/           │   │   /api/v1/{app}/    │
-│   - list.html       │   │   - GET (list)      │
-│   - detail.html     │   │   - POST (create)   │
-│   - form.html       │   │   - PUT (update)    │
-│   - partials/       │   │   - DELETE          │
-└─────────────────────┘   └─────────────────────┘
-          │                           │
-          └───────────┬───────────────┘
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│                    Django ORM                           │
-│                                                         │
-│   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐  │
-│   │   Models    │   │ Serializers │   │    Forms    │  │
-│   │  UUID PK    │   │  DRF        │   │  Django     │  │
-│   │ Timestamps  │   │  Validation │   │  CSRF       │  │
-│   │   Owner     │   │             │   │             │  │
-│   └─────────────┘   └─────────────┘   └─────────────┘  │
-└─────────────────────────────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│                   Database                              │
-│              PostgreSQL / SQLite                        │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                           Browser                                    │
+└─────────────────────────────────────────────────────────────────────┘
+          │                    │                         │
+          ▼                    ▼                         ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐
+│  HTML Frontend  │  │  HTMX Frontend  │  │     React Frontend      │
+│  (Basic)        │  │  (Dynamic)      │  │     (SPA)               │
+│                 │  │                 │  │                         │
+│  Server-side    │  │  Partial page   │  │  JWT Authentication     │
+│  rendering      │  │  updates        │  │  API Client             │
+│  No JavaScript  │  │  Alpine.js      │  │  Vite build             │
+└─────────────────┘  └─────────────────┘  └─────────────────────────┘
+          │                    │                         │
+          └────────────────────┼─────────────────────────┘
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        API Layer (DRF)                               │
+│                                                                      │
+│   /api/v1/{app}/                                                     │
+│   - GET (list/retrieve)                                              │
+│   - POST (create)                                                    │
+│   - PUT/PATCH (update)                                               │
+│   - DELETE                                                           │
+└─────────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Django ORM                                   │
+│                                                                      │
+│   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐              │
+│   │   Models    │   │ Serializers │   │    Forms    │              │
+│   │  UUID PK    │   │  DRF        │   │  Django     │              │
+│   │ Timestamps  │   │  Validation │   │  CSRF       │              │
+│   │   Owner     │   │             │   │             │              │
+│   └─────────────┘   └─────────────┘   └─────────────┘              │
+└─────────────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Database                                     │
+│                PostgreSQL / MySQL / SQLite                           │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Specialized Template Architecture
+
+dual-apps provides 6 specialized templates, each with its own app structure:
+
+### Ecommerce Template
+```
+myshop/
+├── apps/
+│   ├── shop/           # Products, categories, variants
+│   ├── cart/           # Shopping cart, sessions
+│   └── orders/         # Order management, payments
+├── templates/
+│   └── ecommerce/      # Store templates
+└── frontend/           # React components (if react)
+    └── components/
+        ├── ProductCard.jsx
+        ├── CartDrawer.jsx
+        └── CheckoutForm.jsx
+```
+
+### SaaS Template
+```
+mysaas/
+├── apps/
+│   ├── subscriptions/  # Plans, pricing tiers
+│   ├── billing/        # Invoices, payments
+│   └── tenants/        # Multi-tenancy
+├── templates/
+│   └── saas/           # SaaS templates
+└── frontend/
+    └── components/
+        └── PricingPage.jsx
+```
+
+### Blog Template
+```
+myblog/
+├── apps/
+│   ├── blog/           # Posts, categories, tags
+│   └── comments/       # Comment system
+├── templates/
+│   └── blog/           # Blog templates
+└── frontend/
+    └── components/
+        └── PostCard.jsx
+```
+
+### CMS Template
+```
+mycms/
+├── apps/
+│   ├── pages/          # Page builder, blocks
+│   └── media/          # Media library
+├── templates/
+│   └── cms/            # CMS templates
+└── frontend/
+    └── components/
+        └── PageEditor.jsx
+```
+
+### Booking Template
+```
+mybooking/
+├── apps/
+│   ├── services/       # Service catalog
+│   └── appointments/   # Scheduling, calendar
+├── templates/
+│   └── booking/        # Booking templates
+└── frontend/
+    └── components/
+        └── BookingCalendar.jsx
+```
+
+### Marketplace Template
+```
+mymarket/
+├── apps/
+│   ├── listings/       # Product listings
+│   └── sellers/        # Seller profiles
+├── templates/
+│   └── marketplace/    # Marketplace templates
+└── frontend/
+    └── components/
+        ├── ListingCard.jsx
+        └── SellerProfile.jsx
+```
+
+## Frontend Architecture
+
+### HTML Frontend (Basic)
+Simple server-rendered templates with no JavaScript dependencies.
+
+```
+templates/
+├── base.html           # Base template with CSS framework
+├── components/
+│   ├── navbar.html
+│   └── footer.html
+└── {app_name}/
+    ├── list.html
+    ├── detail.html
+    └── form.html
+```
+
+### HTMX Frontend (Dynamic)
+HTMX + Alpine.js for dynamic updates without full page reloads.
+
+```
+templates/
+├── base.html           # HTMX + Alpine.js loaded
+├── auth/
+│   ├── login.html
+│   ├── register.html
+│   └── password_reset.html
+├── partials/           # HTMX partial templates
+│   ├── navbar.html
+│   └── messages.html
+└── {app_name}/
+    ├── list.html
+    ├── detail.html
+    ├── form.html
+    └── partials/
+        ├── card.html
+        └── table_row.html
+```
+
+### React Frontend (SPA)
+Full single-page application with Vite.
+
+```
+frontend/
+├── package.json        # Vite, React, dependencies
+├── vite.config.js      # Vite configuration
+├── index.html          # Entry point
+└── src/
+    ├── main.jsx        # React entry
+    ├── App.jsx         # Router setup
+    ├── App.css
+    ├── api/
+    │   └── client.js   # JWT API client
+    ├── components/
+    │   ├── common/
+    │   └── {app_name}/
+    ├── pages/
+    │   ├── Login.jsx
+    │   ├── Register.jsx
+    │   └── Dashboard.jsx
+    └── hooks/
+        └── useAuth.js
 ```
 
 ## Model Pattern
@@ -80,76 +240,101 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
         return obj.owner == request.user
 ```
 
-## Request Flow
+## Authentication Architecture
 
-### Frontend (HTMX)
+### JWT Authentication (API)
 ```
-Browser → HTMX Request → Django View → Template → HTML → Browser (swap)
-```
-
-### API (DRF)
-```
-Client → HTTP → DRF ViewSet → Serializer → JSON → Client
-```
-
-## File Structure
-
-### App Structure
-```
-app_name/
-├── app_name/
-│   ├── __init__.py
-│   ├── models.py           # UUID + timestamps + owner
-│   ├── views_api.py        # DRF ViewSet
-│   ├── views_frontend.py   # HTMX views
-│   ├── serializers.py      # API serializers
-│   ├── urls.py             # Dual URL patterns
-│   ├── forms.py            # Django forms
-│   ├── permissions.py      # IsOwnerOrReadOnly
-│   ├── admin.py
-│   ├── templates/app_name/ # HTMX templates
-│   └── migrations/
-├── tests/                   # 45+ tests
-├── docs/
-└── pyproject.toml
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Login     │ -> │  Validate   │ -> │ Issue JWT   │
+│   Request   │    │  Credentials│    │  Tokens     │
+└─────────────┘    └─────────────┘    └─────────────┘
+                                              │
+                                              ▼
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   API       │ <- │  Validate   │ <- │   Store     │
+│   Request   │    │   Token     │    │   Token     │
+└─────────────┘    └─────────────┘    └─────────────┘
 ```
 
-### Project Structure
-```
-project_name/
-├── project_name/
-│   ├── settings/
-│   │   ├── base.py         # Common settings
-│   │   ├── dev.py          # Development
-│   │   ├── prod.py         # Production
-│   │   └── security.py     # OWASP settings
-│   ├── urls.py             # Root URLs
-│   └── wsgi.py
-├── apps/                    # All apps here
-├── templates/               # Global templates
-├── tests/                   # Integration tests
-├── docker/                  # Docker configs
-└── requirements/            # Dependencies
-```
+### JWT Storage Options
+
+| Option | Storage | Security | Use Case |
+|--------|---------|----------|----------|
+| httpOnly | Cookie | High | Web apps (default) |
+| localStorage | Browser | Medium | Mobile/PWA apps |
 
 ## Security Architecture
+
+### Core Security Module
+```
+apps/core/security/
+├── __init__.py
+├── validators.py       # Input validation
+├── middleware.py       # Security headers
+├── throttling.py       # Rate limiting
+├── mixins.py           # View mixins
+└── decorators.py       # Security decorators
+```
 
 ### OWASP Headers
 ```python
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_PRELOAD = True
+SECURE_SSL_REDIRECT = True
 ```
 
-### Authentication
-- JWT tokens for API
-- Session for frontend
-- OAuth2 for social auth
+### Rate Limiting
+```python
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour'
+    }
+}
+```
 
-### Authorization
-- Object-level permissions
-- Owner-based access control
-- Role-based for admin
+## Testing Architecture
+
+### Test Pyramid
+```
+┌───────────────────┐
+│   E2E Tests       │  (Playwright)
+│   5%              │
+├───────────────────┤
+│   Integration     │  (pytest)
+│   25%             │
+├───────────────────┤
+│   Unit Tests      │  (pytest)
+│   70%             │
+└───────────────────┘
+```
+
+### Coverage Targets
+- **Overall**: 97%+
+- **Models**: 100%
+- **Views**: 95%
+- **Serializers**: 95%
+
+### E2E Test Structure
+```
+e2e/
+├── playwright.config.js
+├── package.json
+├── fixtures/
+│   └── auth.js
+└── tests/
+    ├── auth.spec.js
+    ├── ecommerce.spec.js
+    ├── saas.spec.js
+    ├── booking.spec.js
+    └── marketplace.spec.js
+```
 
 ## Scalability
 
@@ -162,3 +347,11 @@ SECURE_HSTS_SECONDS = 31536000
 - Redis for session storage
 - WhiteNoise for static files
 - Django cache framework
+
+### Async Tasks (Celery)
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Request   │ -> │   Queue     │ -> │   Worker    │
+│             │    │   (Redis)   │    │  (Celery)   │
+└─────────────┘    └─────────────┘    └─────────────┘
+```

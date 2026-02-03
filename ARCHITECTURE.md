@@ -1,19 +1,20 @@
 
-# ARCHITECTURE.md - dual-apps v3.1
+# ARCHITECTURE.md - dual-apps v4.0
 
-**Technical Deep Dive** - Complete System Architecture  
-**Version**: 3.1.0 | **Date**: February 02, 2026  
+**Technical Deep Dive** - Complete System Architecture
+**Version**: 4.0.0 | **Date**: February 03, 2026
 **[Overview ←](OVERVIEW.md)** | **[CLI →](CLI-REFERENCE.md)**
 
 ## Table of Contents
 1. [Dual Layer Architecture](#dual-layer) - Pages 1-2
-2. [File Structure](#structure) - Pages 2-4
-3. [Settings Auto-Config](#settings) - Page 5
-4. [Docker Philosophy](#docker) - Pages 5-6
-5. [Tests Pyramid](#tests) - Page 7
-6. [Permissions Flow](#permissions) - Page 7
-7. [Extensibility](#extensible) - Page 8
-8. [Performance](#perf) - Page 8
+2. [Specialized Templates](#specialized) - Pages 2-3
+3. [Frontend Architecture](#frontend) - Pages 3-4
+4. [File Structure](#structure) - Pages 4-5
+5. [Settings Auto-Config](#settings) - Page 5
+6. [Docker Philosophy](#docker) - Page 6
+7. [Tests Pyramid](#tests) - Page 6
+8. [Security Architecture](#security) - Page 7
+9. [Performance](#perf) - Page 8
 
 ---
 
@@ -23,18 +24,18 @@
 **Every app MUST have BOTH layers** - no exceptions.
 
 ```
-Frontend Layer (Human)    → HTML + HTMX + Alpine.js + Tailwind
+Frontend Layer (Human)    → HTML / HTMX / React
 API Layer (Machine)       → DRF ViewSets + OpenAPI/Swagger
-Database Layer            → PostgreSQL + UUID PK + indexes
+Database Layer            → PostgreSQL / MySQL / SQLite + UUID PK + indexes
 ```
 
 ### Data Flow Complete
 ```mermaid
 graph TB
-    subgraph "Frontend Layer"
-        UI[User Interface /jobs/]
-        VF[views_frontend.py]
-        HTMX[HTMX Requests]
+    subgraph "Frontend Options"
+        HTML[HTML Templates]
+        HTMX[HTMX + Alpine.js]
+        REACT[React SPA]
     end
 
     subgraph "API Layer"
@@ -44,21 +45,18 @@ graph TB
     end
 
     subgraph "Data Layer"
-        DB[PostgreSQL]
+        DB[PostgreSQL/MySQL/SQLite]
         Cache[Redis]
     end
 
-    UI --> VF
-    VF --> HTMX
+    HTML --> VA
     HTMX --> VA
+    REACT --> VA
     VA --> S
     S --> DB
     DB --> Cache
     Cache --> S
     S --> VA
-    VA --> HTMX
-    HTMX --> VF
-    VF --> UI
 ```
 
 ### Namespace Precision
@@ -73,9 +71,103 @@ api:v1:jobs:job-posting-list   → /api/v1/jobs/job-postings/
 
 ---
 
-## 2. File Structure Complete (Pages 2-4)
+## 2. Specialized Templates (Pages 2-3)
 
-### Project Root (28 files + 6 folders)
+### 6 Industry-Ready Templates
+
+| Template | Description | Default Apps | Frontend Types |
+|----------|-------------|--------------|----------------|
+| `ecommerce` | Online store | shop, cart, orders | HTML, HTMX, React |
+| `blog` | Content platform | blog, comments | HTML, HTMX, React |
+| `saas` | SaaS application | subscriptions, billing | HTML, HTMX, React |
+| `cms` | Content management | pages, media | HTML, HTMX, React |
+| `booking` | Reservation system | services, appointments | HTML, HTMX, React |
+| `marketplace` | Multi-vendor | listings, sellers | HTML, HTMX, React |
+
+### Template Architecture
+```
+Each specialized template includes:
+├── Backend models with business logic
+├── API endpoints with DRF ViewSets
+├── Frontend templates (HTML/HTMX/React)
+├── Admin configurations
+├── Test suites
+└── Documentation
+```
+
+---
+
+## 3. Frontend Architecture (Pages 3-4)
+
+### Three Frontend Options
+
+#### HTML (Basic)
+```
+templates/
+├── base.html           # CSS framework loaded
+├── components/
+│   ├── navbar.html
+│   └── footer.html
+└── {app_name}/
+    ├── list.html
+    ├── detail.html
+    └── form.html
+```
+
+#### HTMX (Dynamic)
+```
+templates/
+├── base.html           # HTMX + Alpine.js loaded
+├── auth/
+│   ├── login.html
+│   ├── register.html
+│   └── password_reset.html
+├── partials/
+│   └── messages.html
+└── {app_name}/
+    ├── list.html
+    ├── detail.html
+    ├── form.html
+    └── partials/
+        ├── card.html
+        └── table_row.html
+```
+
+#### React (SPA)
+```
+frontend/
+├── package.json        # Vite + React
+├── vite.config.js
+├── index.html
+└── src/
+    ├── main.jsx
+    ├── App.jsx
+    ├── api/
+    │   └── client.js   # JWT API client
+    ├── components/
+    │   └── {AppName}/
+    ├── pages/
+    │   ├── Login.jsx
+    │   └── Dashboard.jsx
+    └── hooks/
+        └── useAuth.js
+```
+
+### CSS Framework Support
+- **Bootstrap 5**: Responsive grid, components, utilities
+- **Tailwind CSS**: Utility-first, customizable, JIT compiler
+
+### JWT Storage Options
+| Option | Storage | Security | Use Case |
+|--------|---------|----------|----------|
+| `httpOnly` | Cookie | High | Web apps (default) |
+| `localStorage` | Browser | Medium | Mobile/PWA apps |
+
+---
+
+## 4. File Structure Complete (Pages 4-5)
+
+### Project Root
 ```
 monprojet/                           # Generated structure
 ├── README.md                       # MVP instructions
@@ -83,13 +175,11 @@ monprojet/                           # Generated structure
 ├── CONTRIBUTING.md                 # Git flow + PR template
 ├── TODO.md                         # Actionable milestones
 ├── SECURITY.md                     # OWASP checklist
-├── COVERAGE.md                     # 70/85/95 targets
-├── ARCHITECTURE.md                 # This file :)
 ├── LICENSE                         # MIT
 ├── pyproject.toml                  # pip install -e .
 ├── pytest.ini                      # Zero-config tests
-├── docker-compose.dev.yml          # Postgres+Redis
-├── docker-compose.prod.yml         # Nginx+Gunicorn
+├── docker-compose.yml              # Dev orchestration
+├── docker-compose.prod.yml         # Prod orchestration
 ├── .env.example
 │
 ├── docker/                         # Docker configs
@@ -97,45 +187,57 @@ monprojet/                           # Generated structure
 │   ├── Dockerfile.celery
 │   └── nginx.conf
 │
-├── docs/                           # 64 pages total
-│   ├── CONVENTION-v3.md
-│   └── API.md
+├── docs/                           # Documentation
+│   ├── API.md
+│   └── DEPLOYMENT.md
 │
-├── scripts/                        # User automation
+├── scripts/                        # Automation
 │   ├── setup.sh
 │   └── deploy.sh
 │
-├── templates/                      # Global HTMX base
+├── templates/                      # Global templates
 │   └── base.html
-├── staticfiles/                    # Global CSS/JS
-│   └── css/dual-base.css
+├── static/                         # Global assets
+│   └── css/
 │
-├── tests/                          # Project integration
+├── frontend/                       # React (if --frontend=react)
+│   └── src/
+│
+├── e2e/                            # Playwright E2E tests
+│   ├── playwright.config.js
+│   └── tests/
+│
+├── tests/                          # Integration tests
 │   └── conftest.py
-└── apps/jobs/                      # Autonomous app
+│
+└── apps/                           # Django apps
+    ├── core/                       # Core with security
+    │   └── security/
+    └── {app_name}/                 # Generated apps
 ```
 
-### App Autonomous Structure (jobs/)
+### App Structure
 ```
 apps/jobs/
-├── [7 root files: README, TODO, etc.]
 ├── jobs/                          # Django app
 │   ├── apps.py                    # AppConfig
-│   ├── models.py                  # JobPosting UUID PK
+│   ├── models.py                  # UUID PK models
 │   ├── views_frontend.py          # HTMX CRUD
 │   ├── views_api.py               # DRF ViewSets
 │   ├── urls.py                    # Dual patterns
-│   └── serializers.py
+│   ├── serializers.py
+│   ├── forms.py
+│   ├── permissions.py
+│   └── admin.py
 ├── templates/jobs/                # App templates
 ├── static/jobs/                   # App assets
-├── tests/                         # 45 app tests
-├── docker/Dockerfile.jobs         # App-specific
-└── docs/API-jobs.md               # App API spec
+├── tests/                         # App tests
+└── migrations/
 ```
 
 ---
 
-## 3. Settings Auto-Config (Page 5)
+## 5. Settings Auto-Config (Page 5)
 
 ### Zero Manual Edits - Generated Perfect
 
@@ -151,7 +253,7 @@ TEMPLATES = [
 
 # STATIC - Zero config collectstatic
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'staticfiles']      # Global CSS
+STATICFILES_DIRS = [BASE_DIR / 'static']      # Global CSS
 STATIC_ROOT = BASE_DIR / 'staticfiles_collected'
 
 # SECURITY - OWASP headers auto
@@ -161,16 +263,9 @@ SECURE_HSTS_PRELOAD = True
 X_FRAME_OPTIONS = 'DENY'
 ```
 
-**Result**:
-```
-👤 No settings.py edits EVER
-🤖 dual-apps configures everything
-✅ collectstatic works instantly
-```
-
 ---
 
-## 4. Docker Philosophy (Pages 5-6)
+## 6. Docker Philosophy (Page 6)
 
 ### Multi-Level Docker Strategy
 
@@ -179,15 +274,12 @@ X_FRAME_OPTIONS = 'DENY'
    ├── Dockerfile.app     # Gunicorn base ALL apps
    └── nginx.conf         # HTTPS reverse proxy
 
-2. APP docker/ (jobs/)
-   └── Dockerfile.jobs    # jobs-specific deps
-
-3. COMPOSE (root)
-   ├── docker-compose.dev.yml
-   └── docker-compose.prod.yml
+2. COMPOSE (root)
+   ├── docker-compose.yml      # Development
+   └── docker-compose.prod.yml # Production
 ```
 
-### docker-compose.dev.yml (Generated)
+### docker-compose.yml (Generated)
 ```yaml
 version: '3.8'
 services:
@@ -197,94 +289,92 @@ services:
   redis:
     image: redis:7
   app:
-    build: 
+    build:
       context: .
       dockerfile: docker/Dockerfile.app
     ports: [8000:8000]
     volumes: ['./:/app']    # Hot reload
 ```
 
-**Usage**:
-```bash
-docker-compose up  # Dev instant
-docker-compose -f docker-compose.prod.yml up  # Staging
+---
+
+## 7. Tests Pyramid (Page 6)
+
+### 392+ Tests Generated (97% Coverage)
+
+```
+Level 1: Unit (70%)     → models.py, serializers.py
+Level 2: API (20%)      → DRF ViewSets CRUD
+Level 3: Integration    → Workflow end-to-end
+Level 4: E2E (5%)       → Playwright browser tests
+
+$ pytest  # Zero config - passes immediately
+```
+
+### E2E Test Structure
+```
+e2e/
+├── playwright.config.js
+├── package.json
+├── fixtures/
+│   └── auth.js
+└── tests/
+    ├── auth.spec.js
+    ├── ecommerce.spec.js
+    ├── saas.spec.js
+    ├── booking.spec.js
+    └── marketplace.spec.js
 ```
 
 ---
 
-## 5. Tests Pyramid (Page 7)
+## 8. Security Architecture (Page 7)
 
-### 150+ Tests Generated (88% Coverage)
-
+### Core Security Module
 ```
-Level 1: Unit (60%)     → models.py, serializers.py
-Level 2: API (25%)      → DRF ViewSets CRUD
-Level 3: Integration    → Jobs workflow end2end
-Level 4: Frontend       → Response codes + HTMX
-
-$ pytest  # Zero config - 12s total
+apps/core/security/
+├── __init__.py
+├── validators.py       # Input validation
+├── middleware.py       # Security headers
+├── throttling.py       # Rate limiting
+├── mixins.py           # View mixins
+└── decorators.py       # Security decorators
 ```
 
-**conftest.py magic**:
+### OWASP Headers (Auto-configured)
 ```python
-@pytest.fixture
-def api_client_authenticated(superuser):
-    client = APIClient()
-    client.force_authenticate(superuser)
-    return client
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_PRELOAD = True
+SECURE_SSL_REDIRECT = True
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
 ```
 
----
-
-## 6. Permissions Flow (Page 7)
-
-### Mermaid Permissions
-```mermaid
-graph TD
-    Anonymous[Anonymous] -->|Public only| ReadPublic
-    User[Authenticated] -->|Own + Public| ReadOwn
-    Owner[Owner] -->|Full CRUD| WriteOwn
-    Staff[Staff] -->|All| AdminAll
-
-    ReadPublic -->|GET list| JobList
-    ReadOwn -->|GET detail| JobDetail
-    WriteOwn -->|POST/PUT/DELETE| JobCRUD
-    AdminAll -->|Bulk ops| JobAdmin
-```
-
-**Generated**: `permissions.py` + `IsOwnerOrReadOnly`
-
----
-
-## 7. Extensibility Hooks (Page 8)
-
-### Plugin System Ready
-```
-1. apps.py → ready() signals
-2. Custom management commands
-3. Template overrides
-4. Settings CUSTOM_DUAL_APPS = {...}
-```
-
-**Example**:
+### Rate Limiting
 ```python
-# apps/jobs/apps.py
-def ready(self):
-    import jobs.signals  # post_save_job
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour'
+    }
+}
 ```
 
-### signals.py Hook
-```python
-# Auto-email on job publish
-@receiver(post_save, sender=JobPosting)
-def job_published(sender, instance, **kwargs):
-    if instance.status == 'published':
-        send_job_notification.delay(instance.id)
-```
+### JWT Security
+- Access token expiration: 15 minutes
+- Refresh token expiration: 7 days
+- httpOnly cookie storage (default)
+- Token refresh handling in React
 
 ---
 
-## 8. Performance Baseline (Page 8)
+## 9. Performance Baseline (Page 8)
 
 ### Generated Benchmarks
 ```
@@ -302,6 +392,7 @@ scripts/benchmark.sh → Full report
 ✅ .only('title', 'status') lists
 ✅ Redis cache views
 ✅ Gunicorn preload_app
+✅ WhiteNoise static serving
 ```
 
 ---
@@ -309,4 +400,4 @@ scripts/benchmark.sh → Full report
 **Next**: [CLI-REFERENCE.md →](CLI-REFERENCE.md)
 
 ---
-*Page 8/8 | dual-apps v3.1 | Feb 02, 2026*
+*Page 8/8 | dual-apps v4.0 | Feb 03, 2026*

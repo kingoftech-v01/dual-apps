@@ -1,26 +1,28 @@
 
-# SECURITY-GUIDE.md - dual-apps v3.1
+# SECURITY-GUIDE.md - dual-apps v4.0
 
-**Complete OWASP Django Security Guide**  
-**Version**: 3.1.0 | **Date**: February 02, 2026  
+**Complete OWASP Django Security Guide**
+**Version**: 4.0.0 | **Date**: February 03, 2026
 [CLI ←](CLI-REFERENCE.md) | [Development →](DEVELOPMENT.md)
 
 ## Table of Contents
-1. [OWASP Top 10 Coverage](#owasp) 
-2. [Generated Security Headers](#headers) 
-3. [Permission System](#permissions) 
-4. [Database Security](#database) 
-5. [CI/CD Security Scans](#scans) 
-6. [Docker Security](#docker) 
-7. [Audit Checklist](#audit) 
-8. [Incident Response](#incident) 
+1. [OWASP Top 10 Coverage](#owasp)
+2. [Generated Security Headers](#headers)
+3. [JWT Security](#jwt)
+4. [Permission System](#permissions)
+5. [Database Security](#database)
+6. [Frontend Security](#frontend)
+7. [CI/CD Security Scans](#scans)
+8. [Docker Security](#docker)
+9. [Audit Checklist](#audit)
+10. [Incident Response](#incident)
 
 ---
 
 ## 1. OWASP Top 10 Coverage (Pages 1-3)
 
 ### A1: Broken Access Control ✅ IMPLEMENTED
-dual-apps génère **permissions.py** avec 4 niveaux :
+dual-apps generates **permissions.py** with 4 levels:
 
 ```
 Anonymous → Public read-only
@@ -37,16 +39,16 @@ class IsOwnerOrReadOnly(BasePermission):
             return True
         return obj.owner == request.user
 
-# Usage auto dans ViewSets
+# Auto-usage in ViewSets
 permission_classes = [IsOwnerOrReadOnly]
 ```
 
 ### A2: Cryptographic Failures ✅ HEADERS + HTTPS
-**settings/security.py** généré :
+**settings/security.py** generated:
 
 ```python
 SECURE_SSL_REDIRECT = True
-SECURE_HSTS_SECONDS = 31536000      # 1 an
+SECURE_HSTS_SECONDS = 31536000      # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -97,7 +99,100 @@ curl -I http://localhost:8000/ | grep -i security
 
 ---
 
-## 3. Permission System Mermaid (Pages 4-5)
+## 3. JWT Security (Pages 4-5)
+
+### JWT Storage Options
+
+dual-apps supports two JWT storage methods:
+
+| Option | Storage | Security Level | Use Case |
+|--------|---------|----------------|----------|
+| `httpOnly` | Cookie | **High** (default) | Web applications |
+| `localStorage` | Browser | Medium | Mobile apps, PWAs |
+
+### httpOnly Cookie Storage (Recommended)
+
+**Configuration**:
+```bash
+dual_apps init project myproject --auth=jwt --jwt-storage=httpOnly
+```
+
+**Generated settings**:
+```python
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_COOKIE': 'access_token',
+    'AUTH_COOKIE_SECURE': True,
+    'AUTH_COOKIE_HTTP_ONLY': True,
+    'AUTH_COOKIE_SAMESITE': 'Lax',
+}
+```
+
+**Security Benefits**:
+- ✅ Tokens not accessible via JavaScript (XSS protection)
+- ✅ Automatic cookie handling by browser
+- ✅ CSRF protection via SameSite attribute
+- ✅ Secure flag enforces HTTPS
+
+### localStorage Storage
+
+**Configuration**:
+```bash
+dual_apps init project myproject --auth=jwt --jwt-storage=localStorage
+```
+
+**When to use**:
+- Mobile applications (React Native, etc.)
+- Progressive Web Apps (PWAs)
+- Cross-domain API access
+
+**Additional protections applied**:
+- Short access token lifetime (15 minutes)
+- Token refresh mechanism
+- Automatic token rotation
+
+### React Frontend JWT Handling
+
+**Generated api/client.js**:
+```javascript
+// JWT API client with automatic token refresh
+const apiClient = axios.create({
+    baseURL: '/api/v1/',
+    withCredentials: true, // For httpOnly cookies
+});
+
+// Interceptor for token refresh
+apiClient.interceptors.response.use(
+    response => response,
+    async error => {
+        if (error.response?.status === 401) {
+            const refreshed = await refreshToken();
+            if (refreshed) {
+                return apiClient.request(error.config);
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+```
+
+### HTMX CSRF Protection
+
+**Generated templates include**:
+```html
+<script>
+    document.body.addEventListener('htmx:configRequest', function(evt) {
+        evt.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+    });
+</script>
+```
+
+---
+
+## 4. Permission System (Pages 5-6)
 
 ### Visual Permission Flow
 ```mermaid
@@ -132,16 +227,14 @@ class OwnerRequiredMixin:
     permission_classes = [IsOwnerOrReadOnly]
 ```
 
-**Usage auto** dans ViewSets.
-
 ---
 
-## 4. Database Security Checklist (Page 6)
+## 5. Database Security Checklist (Page 6)
 
 ### Generated Protections
 ```
 ✅ UUIDField PK (no enumeration)
-✅ Indexes optimisés (select_related)
+✅ Indexes optimized (select_related)
 ✅ Connection pooling PgBouncer
 ✅ django-filter validated inputs
 ✅ No raw SQL (ORM only)
@@ -164,7 +257,33 @@ class JobPosting(models.Model):
 
 ---
 
-## 5. CI/CD Scans Configuration (Page 6)
+## 6. Frontend Security (Page 6)
+
+### HTML Frontend Security
+- CSRF tokens in all forms
+- XSS protection via Django template escaping
+- No inline JavaScript
+
+### HTMX Frontend Security
+- CSRF token injection via JavaScript
+- hx-headers for authentication
+- Safe HTML swapping (no eval)
+
+### React Frontend Security
+- JWT token handling (httpOnly or localStorage)
+- Axios interceptors for token refresh
+- Input sanitization
+- Content Security Policy headers
+
+### CSS Framework Security
+Both Bootstrap and Tailwind are loaded from CDN with integrity checks:
+```html
+<link href="..." integrity="sha384-..." crossorigin="anonymous">
+```
+
+---
+
+## 7. CI/CD Scans Configuration (Page 7)
 
 ### GitHub Actions security.yml (auto)
 ```yaml
@@ -185,11 +304,11 @@ jobs:
         image-ref: 'dual-apps:latest'
 ```
 
-**Weekly scans** + **PR blocks** si fails.
+**Weekly scans** + **PR blocks** if fails.
 
 ---
 
-## 6. Docker Security (Page 7)
+## 8. Docker Security (Page 7)
 
 ### Non-Root Containers
 **Dockerfile.app** (generated):
@@ -219,11 +338,11 @@ services:
 
 ---
 
-## 7. Printable Audit Checklist (Page 7)
+## 9. Printable Audit Checklist (Page 8)
 
 ### Weekly Security Audit
 ```
-[ ] 1. Headers vérifiés (curl -I)
+[ ] 1. Headers verified (curl -I)
 [ ] 2. pytest security tests
 [ ] 3. safety check --full-report
 [ ] 4. bandit score < B100
@@ -231,6 +350,8 @@ services:
 [ ] 6. Permissions test (pytest test_permissions)
 [ ] 7. CSRF test (form POST)
 [ ] 8. Rate limiting (DRF throttle)
+[ ] 9. JWT token expiration test
+[ ] 10. E2E auth flow (Playwright)
 ```
 
 **Run audit**:
@@ -240,7 +361,7 @@ services:
 
 ---
 
-## 8. Incident Response Template (Page 8)
+## 10. Incident Response Template (Page 8)
 
 ### Security Incident Workflow
 ```
@@ -269,4 +390,4 @@ Mitigation:
 **Next**: [DEVELOPMENT.md →](DEVELOPMENT.md)
 
 ---
-*Page 8/8 | dual-apps v3.1 | Feb 02, 2026*
+*Page 8/8 | dual-apps v4.0 | Feb 03, 2026*
