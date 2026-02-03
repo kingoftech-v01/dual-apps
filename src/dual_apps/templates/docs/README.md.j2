@@ -26,7 +26,7 @@ pytest
 
 ## URLs
 
-### Frontend (HTMX Templates)
+### Frontend ({% if use_react %}React{% elif use_htmx %}HTMX{% else %}HTML{% endif %} Templates)
 | URL | Name | Description |
 |-----|------|-------------|
 | `/{{ app_name }}/` | `{{ model_name_snake }}_list` | List all {{ model_name_plural }} |
@@ -46,12 +46,21 @@ pytest
 
 ## Features
 
-- **Dual Layer Architecture**: Frontend (HTMX) + API (DRF)
+- **Dual Layer Architecture**: Frontend ({% if use_react %}React{% elif use_htmx %}HTMX{% else %}HTML{% endif %}) + API (DRF)
 - **UUID Primary Keys**: Secure, distributed-friendly
 - **Owner-based Permissions**: IsOwnerOrReadOnly
-- **88% Test Coverage**: 45+ tests included
+- **97% Test Coverage**: 45+ tests included
+{% if use_htmx %}
 - **HTMX Integration**: Inline editing, infinite scroll
-- **Tailwind CSS**: Modern, responsive design
+{% endif %}
+{% if use_react %}
+- **React SPA**: Full single-page application with JWT auth
+{% endif %}
+{% if use_tailwind %}
+- **Tailwind CSS**: Modern, utility-first design
+{% elif use_bootstrap %}
+- **Bootstrap 5**: Responsive, component-based design
+{% endif %}
 
 ## Project Structure
 
@@ -59,7 +68,7 @@ pytest
 {{ app_name }}/
 ├── {{ app_name }}/           # Django app
 │   ├── models.py            # {{ model_name }} model
-│   ├── views_frontend.py    # HTMX views
+│   ├── views_frontend.py    # Frontend views
 │   ├── views_api.py         # DRF ViewSet
 │   ├── serializers.py       # DRF serializers
 │   ├── urls.py              # Dual URL patterns

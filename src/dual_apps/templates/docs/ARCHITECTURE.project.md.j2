@@ -3,43 +3,100 @@
 ## Overview
 
 {{ project_name_display }} follows the **Dual-Layer Architecture** pattern:
-- **Frontend Layer**: HTMX + Alpine.js + Tailwind CSS
+- **Frontend Layer**: {% if use_react %}React SPA with Vite{% elif use_htmx %}HTMX + Alpine.js{% else %}Server-rendered HTML{% endif %} + {% if use_tailwind %}Tailwind CSS{% else %}Bootstrap 5{% endif %}
+
 - **API Layer**: Django REST Framework + OpenAPI
+{% if use_jwt %}
+- **Authentication**: JWT with {% if use_httponly_jwt %}httpOnly cookies{% else %}localStorage{% endif %}
+{% endif %}
 
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    {{ project_name_display }}           │
-├─────────────────────────────────────────────────────────┤
-│  Frontend (HTMX)          │   API (DRF)                 │
-│  /{app}/                  │   /api/v1/{app}/            │
-│  - ListView               │   - list()                  │
-│  - DetailView             │   - retrieve()              │
-│  - CreateView             │   - create()                │
-│  - UpdateView             │   - update()                │
-│  - DeleteView             │   - destroy()               │
-├─────────────────────────────────────────────────────────┤
-│                      Models                             │
-│  - UUID Primary Keys                                    │
-│  - Timestamps (created_at, updated_at)                  │
-│  - Owner relationship                                   │
-├─────────────────────────────────────────────────────────┤
-│                    Permissions                          │
-│  - IsOwnerOrReadOnly                                    │
-│  - Session + Token Auth                                 │
-├─────────────────────────────────────────────────────────┤
-│                     Database                            │
-│  - PostgreSQL (prod) / SQLite (dev)                     │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                      {{ project_name_display }}                      │
+├─────────────────────────────────────────────────────────────────────┤
+{% if use_react %}
+│  Frontend (React SPA)        │   API (DRF)                          │
+│  Vite + React Router         │   /api/v1/{app}/                     │
+│  - Pages                     │   - list()                           │
+│  - Components                │   - retrieve()                       │
+│  - API Client (JWT)          │   - create()                         │
+│  - Token Management          │   - update()                         │
+│                              │   - destroy()                        │
+{% elif use_htmx %}
+│  Frontend (HTMX)             │   API (DRF)                          │
+│  /{app}/                     │   /api/v1/{app}/                     │
+│  - ListView                  │   - list()                           │
+│  - DetailView                │   - retrieve()                       │
+│  - CreateView                │   - create()                         │
+│  - UpdateView                │   - update()                         │
+│  - DeleteView                │   - destroy()                        │
+│  - Partials (HTMX swap)      │                                      │
+{% else %}
+│  Frontend (HTML)             │   API (DRF)                          │
+│  /{app}/                     │   /api/v1/{app}/                     │
+│  - ListView                  │   - list()                           │
+│  - DetailView                │   - retrieve()                       │
+│  - CreateView                │   - create()                         │
+│  - UpdateView                │   - update()                         │
+│  - DeleteView                │   - destroy()                        │
+{% endif %}
+├─────────────────────────────────────────────────────────────────────┤
+│                           Models                                     │
+│  - UUID Primary Keys                                                 │
+│  - Timestamps (created_at, updated_at)                               │
+│  - Owner relationship                                                │
+├─────────────────────────────────────────────────────────────────────┤
+│                     Security Module                                  │
+│  - Validators (input validation)                                     │
+│  - Middleware (security headers)                                     │
+│  - Throttling (rate limiting)                                        │
+├─────────────────────────────────────────────────────────────────────┤
+│                        Permissions                                   │
+│  - IsOwnerOrReadOnly                                                 │
+{% if use_jwt %}
+│  - JWT Authentication ({% if use_httponly_jwt %}httpOnly{% else %}localStorage{% endif %})                                       │
+{% else %}
+│  - Session Authentication                                            │
+{% endif %}
+├─────────────────────────────────────────────────────────────────────┤
+│                         Database                                     │
+│  - {{ db | default('PostgreSQL') }} (prod) / SQLite (dev)            │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Request Flow
+{% if use_react %}
+
+### Frontend Flow (React)
+```
+Browser → React Router → Component → API Client → Django API → JSON → State Update → Re-render
+```
+
+### JWT Authentication Flow
+```
+Login → POST /api/v1/auth/login/ → JWT Token → {% if use_httponly_jwt %}httpOnly Cookie{% else %}localStorage{% endif %} → API Requests with Token
+```
+{% elif use_htmx %}
 
 ### Frontend Flow (HTMX)
 ```
 Browser → HTMX Request → Django View → Template → HTML Partial → Browser (swap)
 ```
+
+### HTMX Features
+- Partial page updates via `hx-swap`
+- Form validation with `hx-post`
+- Infinite scroll with `hx-trigger`
+- Real-time updates with `hx-trigger="every 5s"`
+{% else %}
+
+### Frontend Flow (HTML)
+```
+Browser → HTTP Request → Django View → Template → Full HTML Page → Browser
+```
+{% endif %}
 
 ### API Flow (DRF)
 ```
@@ -53,11 +110,14 @@ Client → HTTP Request → DRF ViewSet → Serializer → JSON Response → Cli
 
 **Files:**
 - `apps/{{ app.name }}/models.py` - Data model
-- `apps/{{ app.name }}/views_frontend.py` - HTMX views
+- `apps/{{ app.name }}/views_frontend.py` - Frontend views
 - `apps/{{ app.name }}/views_api.py` - DRF ViewSet
 - `apps/{{ app.name }}/serializers.py` - API serializers
 - `apps/{{ app.name }}/permissions.py` - Access control
 - `apps/{{ app.name }}/templates/` - HTML templates
+{% if use_react %}
+- `frontend/src/components/{{ app.name_title }}/` - React components
+{% endif %}
 
 **URLs:**
 - Frontend: `{{ app.name }}:list`, `{{ app.name }}:detail`, etc.
@@ -66,19 +126,73 @@ Client → HTTP Request → DRF ViewSet → Serializer → JSON Response → Cli
 
 ## Security Architecture
 
+### Core Security Module
+```
+apps/core/security/
+├── __init__.py
+├── validators.py       # Input validation
+├── middleware.py       # Security headers
+├── throttling.py       # Rate limiting
+├── mixins.py           # View mixins
+└── decorators.py       # Security decorators
+```
+
 ### Authentication
+{% if use_jwt %}
+- JWT-based authentication
+- Storage: {% if use_httponly_jwt %}httpOnly cookies (XSS protected){% else %}localStorage with token refresh{% endif %}
+
+- Access token: 15 minutes
+- Refresh token: 7 days
+{% else %}
 - Session-based for frontend
 - Token-based for API (optional)
+{% endif %}
 
 ### Authorization
 - `IsOwnerOrReadOnly` permission class
 - Object-level permissions
+- Role-based access (Staff/Superuser)
 
 ### OWASP Compliance
 - CSRF protection
 - XSS prevention (template escaping)
 - SQL injection prevention (ORM)
 - Secure headers (CSP, HSTS, X-Frame-Options)
+- Rate limiting (DRF throttling)
+
+## Testing Architecture
+
+### Test Pyramid
+```
+┌───────────────────┐
+│   E2E Tests       │  (Playwright)
+│   5%              │
+├───────────────────┤
+│   Integration     │  (pytest)
+│   25%             │
+├───────────────────┤
+│   Unit Tests      │  (pytest)
+│   70%             │
+└───────────────────┘
+```
+
+### E2E Tests (Playwright)
+```
+e2e/
+├── playwright.config.js
+└── tests/
+    ├── auth.spec.js
+{% if template == "ecommerce" %}
+    └── ecommerce.spec.js
+{% elif template == "saas" %}
+    └── saas.spec.js
+{% elif template == "booking" %}
+    └── booking.spec.js
+{% elif template == "marketplace" %}
+    └── marketplace.spec.js
+{% endif %}
+```
 
 ## Scalability
 
@@ -91,10 +205,40 @@ Client → HTTP Request → DRF ViewSet → Serializer → JSON Response → Cli
 - Redis for session storage
 - Django cache framework
 - Static file caching (WhiteNoise)
-
 {% if celery %}
+
 ### Background Tasks
 - Celery workers for async tasks
 - Redis as message broker
 - Beat scheduler for periodic tasks
+{% endif %}
+{% if use_react %}
+
+## React Frontend Architecture
+
+### Directory Structure
+```
+frontend/
+├── src/
+│   ├── api/
+│   │   └── client.js       # Axios with JWT interceptors
+│   ├── components/
+│   │   ├── common/         # Shared components
+│   │   └── {AppName}/      # App-specific components
+│   ├── pages/
+│   │   ├── Login.jsx
+│   │   ├── Register.jsx
+│   │   └── Dashboard.jsx
+│   ├── hooks/
+│   │   └── useAuth.js      # Authentication hook
+│   ├── App.jsx             # Router setup
+│   └── main.jsx            # Entry point
+├── package.json
+└── vite.config.js
+```
+
+### State Management
+- React Context for auth state
+- Custom hooks for API data
+- Local state for UI components
 {% endif %}
