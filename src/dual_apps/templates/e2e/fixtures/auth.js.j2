@@ -1,0 +1,190 @@
+/**
+ * Authentication helpers for E2E tests.
+ *
+ * Provides utilities for:
+ * - User login/logout
+ * - Token management
+ * - Authenticated page contexts
+ */
+const { expect } = require('@playwright/test');
+
+/**
+ * Test user credentials
+ */
+const TEST_USER = {
+  username: 'testuser',
+  email: 'testuser@example.com',
+  password: 'TestP@ssw0rd!',
+};
+
+const ADMIN_USER = {
+  username: 'admin',
+  email: 'admin@example.com',
+  password: 'AdminP@ssw0rd!',
+};
+
+/**
+ * Login via the web interface
+ */
+async function loginViaUI(page, credentials = TEST_USER) {
+  await page.goto('/accounts/login/');
+
+  // Fill login form
+  await page.fill('input[name="username"], input[name="email"]', credentials.username);
+  await page.fill('input[name="password"]', credentials.password);
+
+  // Submit form
+  await page.click('button[type="submit"], input[type="submit"]');
+
+  // Wait for redirect
+  await page.waitForURL((url) => !url.pathname.includes('/login'));
+
+  return page;
+}
+
+/**
+ * Login via API and get tokens
+ */
+async function loginViaAPI(request, credentials = TEST_USER) {
+  const response = await request.post('/api/v1/auth/login/', {
+    data: {
+      {% if use_jwt %}
+      username: credentials.username,
+      password: credentials.password,
+      {% else %}
+      email: credentials.email,
+      password: credentials.password,
+      {% endif %}
+    },
+  });
+
+  expect(response.ok()).toBeTruthy();
+
+  const data = await response.json();
+  return {
+    {% if use_jwt %}
+    accessToken: data.access,
+    refreshToken: data.refresh,
+    {% else %}
+    sessionId: response.headers()['set-cookie'],
+    {% endif %}
+  };
+}
+
+/**
+ * Create authenticated API context
+ */
+async function createAuthenticatedContext(request, credentials = TEST_USER) {
+  const tokens = await loginViaAPI(request, credentials);
+
+  return {
+    ...tokens,
+    headers: {
+      {% if use_jwt %}
+      'Authorization': `Bearer ${tokens.accessToken}`,
+      {% endif %}
+      'Content-Type': 'application/json',
+    },
+  };
+}
+
+/**
+ * Logout via UI
+ */
+async function logoutViaUI(page) {
+  // Try common logout patterns
+  const logoutLink = page.locator('a[href*="logout"], button:has-text("Logout"), a:has-text("Logout")');
+
+  if (await logoutLink.isVisible()) {
+    await logoutLink.click();
+    await page.waitForURL((url) => url.pathname.includes('/login') || url.pathname === '/');
+  }
+
+  return page;
+}
+
+/**
+ * Register a new user via UI
+ */
+async function registerViaUI(page, userData) {
+  await page.goto('/accounts/signup/');
+
+  await page.fill('input[name="username"]', userData.username);
+  await page.fill('input[name="email"]', userData.email);
+  await page.fill('input[name="password1"], input[name="password"]', userData.password);
+  await page.fill('input[name="password2"], input[name="password_confirm"]', userData.password);
+
+  await page.click('button[type="submit"]');
+
+  // Wait for success
+  await page.waitForURL((url) => !url.pathname.includes('/signup'));
+
+  return page;
+}
+
+/**
+ * Register a new user via API
+ */
+async function registerViaAPI(request, userData) {
+  const response = await request.post('/api/v1/auth/register/', {
+    data: {
+      username: userData.username,
+      email: userData.email,
+      password: userData.password,
+      password_confirm: userData.password,
+    },
+  });
+
+  expect(response.ok()).toBeTruthy();
+  return await response.json();
+}
+
+/**
+ * Check if user is authenticated
+ */
+async function isAuthenticated(page) {
+  // Check for common authenticated indicators
+  const authIndicators = [
+    'text=Logout',
+    'text=My Account',
+    'text=Profile',
+    '[data-testid="user-menu"]',
+  ];
+
+  for (const indicator of authIndicators) {
+    const element = page.locator(indicator);
+    if (await element.isVisible({ timeout: 1000 }).catch(() => false)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Save authentication state for reuse
+ */
+async function saveAuthState(page, path = 'playwright/.auth/user.json') {
+  await page.context().storageState({ path });
+}
+
+/**
+ * Load authentication state
+ */
+async function loadAuthState(browser, path = 'playwright/.auth/user.json') {
+  return await browser.newContext({ storageState: path });
+}
+
+module.exports = {
+  TEST_USER,
+  ADMIN_USER,
+  loginViaUI,
+  loginViaAPI,
+  createAuthenticatedContext,
+  logoutViaUI,
+  registerViaUI,
+  registerViaAPI,
+  isAuthenticated,
+  saveAuthState,
+  loadAuthState,
+};

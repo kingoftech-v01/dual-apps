@@ -1,0 +1,107 @@
+/**
+ * Playwright E2E Test Configuration
+ *
+ * This configuration sets up Playwright for end-to-end testing of the
+ * {{ project_name }} Django application.
+ *
+ * Run tests: npm test
+ * Run with UI: npm run test:ui
+ * Generate report: npm run test:report
+ */
+const { defineConfig, devices } = require('@playwright/test');
+
+module.exports = defineConfig({
+  // Test directory
+  testDir: './tests',
+
+  // Test file pattern
+  testMatch: '**/*.spec.js',
+
+  // Maximum time one test can run
+  timeout: 30000,
+
+  // Expect timeout
+  expect: {
+    timeout: 5000,
+  },
+
+  // Run tests in parallel
+  fullyParallel: true,
+
+  // Fail the build on CI if you accidentally left test.only in the source code
+  forbidOnly: !!process.env.CI,
+
+  // Retry on CI only
+  retries: process.env.CI ? 2 : 0,
+
+  // Limit parallel workers on CI
+  workers: process.env.CI ? 1 : undefined,
+
+  // Reporter configuration
+  reporter: [
+    ['html', { outputFolder: 'playwright-report' }],
+    ['list'],
+  ],
+
+  // Shared settings for all projects
+  use: {
+    // Base URL for navigation
+    baseURL: process.env.BASE_URL || 'http://localhost:8000',
+
+    // Collect trace when retrying failed test
+    trace: 'on-first-retry',
+
+    // Screenshot on failure
+    screenshot: 'only-on-failure',
+
+    // Video on failure
+    video: 'on-first-retry',
+
+    // Extra HTTP headers
+    extraHTTPHeaders: {
+      'Accept': 'application/json, text/html',
+    },
+  },
+
+  // Configure projects for different browsers
+  projects: [
+    // Desktop browsers
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
+
+    // Mobile browsers
+    {
+      name: 'mobile-chrome',
+      use: { ...devices['Pixel 5'] },
+    },
+    {
+      name: 'mobile-safari',
+      use: { ...devices['iPhone 12'] },
+    },
+  ],
+
+  // Web server configuration - start Django before tests
+  webServer: {
+    command: 'python ../manage.py runserver 8000',
+    url: 'http://localhost:8000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000,
+    env: {
+      DJANGO_SETTINGS_MODULE: '{{ project_name }}.settings.dev',
+    },
+  },
+
+  // Global setup and teardown
+  globalSetup: require.resolve('./fixtures/global-setup.js'),
+  globalTeardown: require.resolve('./fixtures/global-teardown.js'),
+});

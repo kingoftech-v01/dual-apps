@@ -1,0 +1,285 @@
+"""
+Tests for DRF throttling classes.
+
+Tests cover:
+- Burst rate throttling
+- Sustained rate throttling
+- Login throttling
+- Endpoint-specific throttling
+"""
+import pytest
+from unittest.mock import Mock, patch, MagicMock
+from rest_framework.test import APIRequestFactory
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+from apps.core.security.throttling import (
+    BurstRateThrottle,
+    SustainedRateThrottle,
+    LoginRateThrottle,
+    PasswordResetThrottle,
+    RegistrationThrottle,
+    APIKeyThrottle,
+    SearchThrottle,
+    ExportThrottle,
+    UploadThrottle,
+    SensitiveOperationThrottle,
+    get_throttle_rate,
+    clear_throttle_cache,
+)
+
+
+class TestBurstRateThrottle:
+    """Tests for burst rate throttle."""
+
+    def test_throttle_scope(self):
+        """Should have correct scope."""
+        throttle = BurstRateThrottle()
+        assert throttle.scope == 'burst'
+
+    def test_throttle_rate(self):
+        """Should have correct default rate."""
+        throttle = BurstRateThrottle()
+        assert throttle.rate == '60/min'
+
+    @patch('rest_framework.throttling.AnonRateThrottle.get_cache_key')
+    def test_allows_requests_within_limit(self, mock_get_key):
+        """Requests within limit should be allowed."""
+        mock_get_key.return_value = 'test_key'
+        throttle = BurstRateThrottle()
+        throttle.history = []
+        throttle.now = 1000
+
+        factory = APIRequestFactory()
+        request = factory.get('/')
+        request.META['REMOTE_ADDR'] = '192.168.1.1'
+
+        # Should allow first request
+        assert throttle.allow_request(request, None) is True
+
+
+class TestSustainedRateThrottle:
+    """Tests for sustained rate throttle."""
+
+    def test_throttle_scope(self):
+        """Should have correct scope."""
+        throttle = SustainedRateThrottle()
+        assert throttle.scope == 'sustained'
+
+    def test_throttle_rate(self):
+        """Should have correct default rate."""
+        throttle = SustainedRateThrottle()
+        assert throttle.rate == '1000/day'
+
+
+class TestLoginRateThrottle:
+    """Tests for login rate throttle."""
+
+    def test_throttle_scope(self):
+        """Should have correct scope."""
+        throttle = LoginRateThrottle()
+        assert throttle.scope == 'login'
+
+    def test_throttle_rate(self):
+        """Should have strict rate limit."""
+        throttle = LoginRateThrottle()
+        assert throttle.rate == '5/min'
+
+    def test_cache_key_includes_username(self):
+        """Cache key should include username when provided."""
+        throttle = LoginRateThrottle()
+        throttle.get_ident = Mock(return_value='192.168.1.1')
+
+        factory = APIRequestFactory()
+        request = factory.post('/login/', {'username': 'testuser'})
+
+        key = throttle.get_cache_key(request, None)
+        assert 'testuser' in key
+
+    def test_cache_key_without_username(self):
+        """Cache key should work without username."""
+        throttle = LoginRateThrottle()
+        throttle.get_ident = Mock(return_value='192.168.1.1')
+
+        factory = APIRequestFactory()
+        request = factory.post('/login/', {})
+
+        key = throttle.get_cache_key(request, None)
+        assert '192.168.1.1' in key
+
+
+class TestPasswordResetThrottle:
+    """Tests for password reset throttle."""
+
+    def test_throttle_scope(self):
+        """Should have correct scope."""
+        throttle = PasswordResetThrottle()
+        assert throttle.scope == 'password_reset'
+
+    def test_throttle_rate(self):
+        """Should have very strict rate limit."""
+        throttle = PasswordResetThrottle()
+        assert throttle.rate == '3/hour'
+
+
+class TestRegistrationThrottle:
+    """Tests for registration throttle."""
+
+    def test_throttle_scope(self):
+        """Should have correct scope."""
+        throttle = RegistrationThrottle()
+        assert throttle.scope == 'registration'
+
+    def test_throttle_rate(self):
+        """Should have appropriate rate limit."""
+        throttle = RegistrationThrottle()
+        assert throttle.rate == '5/hour'
+
+
+class TestAPIKeyThrottle:
+    """Tests for API key throttle."""
+
+    def test_throttle_scope(self):
+        """Should have correct scope."""
+        throttle = APIKeyThrottle()
+        assert throttle.scope == 'api_key'
+
+    def test_throttle_rate(self):
+        """Should have higher rate limit for API access."""
+        throttle = APIKeyThrottle()
+        assert throttle.rate == '10000/day'
+
+    def test_cache_key_with_api_key(self):
+        """Cache key should use API key when present."""
+        throttle = APIKeyThrottle()
+
+        factory = APIRequestFactory()
+        request = factory.get('/', HTTP_X_API_KEY='test_api_key_123')
+
+        key = throttle.get_cache_key(request, None)
+        assert 'test_api_key_123' in key
+
+    def test_cache_key_with_authenticated_user(self):
+        """Cache key should use user ID for authenticated users."""
+        throttle = APIKeyThrottle()
+
+        factory = APIRequestFactory()
+        request = factory.get('/')
+        request.user = Mock(is_authenticated=True, pk=123)
+
+        key = throttle.get_cache_key(request, None)
+        assert '123' in key
+
+
+class TestSearchThrottle:
+    """Tests for search throttle."""
+
+    def test_throttle_scope(self):
+        """Should have correct scope."""
+        throttle = SearchThrottle()
+        assert throttle.scope == 'search'
+
+    def test_throttle_rate(self):
+        """Should have moderate rate limit."""
+        throttle = SearchThrottle()
+        assert throttle.rate == '30/min'
+
+
+class TestExportThrottle:
+    """Tests for export throttle."""
+
+    def test_throttle_scope(self):
+        """Should have correct scope."""
+        throttle = ExportThrottle()
+        assert throttle.scope == 'export'
+
+    def test_throttle_rate(self):
+        """Should have strict rate limit for expensive operations."""
+        throttle = ExportThrottle()
+        assert throttle.rate == '10/hour'
+
+
+class TestUploadThrottle:
+    """Tests for upload throttle."""
+
+    def test_throttle_scope(self):
+        """Should have correct scope."""
+        throttle = UploadThrottle()
+        assert throttle.scope == 'upload'
+
+    def test_throttle_rate(self):
+        """Should have appropriate rate limit."""
+        throttle = UploadThrottle()
+        assert throttle.rate == '100/hour'
+
+
+class TestSensitiveOperationThrottle:
+    """Tests for sensitive operation throttle."""
+
+    def test_throttle_scope(self):
+        """Should have correct scope."""
+        throttle = SensitiveOperationThrottle()
+        assert throttle.scope == 'sensitive'
+
+    def test_throttle_rate(self):
+        """Should have strict rate limit."""
+        throttle = SensitiveOperationThrottle()
+        assert throttle.rate == '10/hour'
+
+
+class TestUtilityFunctions:
+    """Tests for throttling utility functions."""
+
+    @patch('apps.core.security.throttling.cache')
+    def test_clear_throttle_cache_single_scope(self, mock_cache):
+        """Should clear cache for specific scope."""
+        clear_throttle_cache('192.168.1.1', 'login')
+        mock_cache.delete.assert_called_with('throttle_login_192.168.1.1')
+
+    @patch('apps.core.security.throttling.cache')
+    def test_clear_throttle_cache_all_scopes(self, mock_cache):
+        """Should clear cache for all scopes."""
+        clear_throttle_cache('192.168.1.1')
+        # Should be called for each known scope
+        assert mock_cache.delete.call_count >= 10
+
+
+class TestThrottleIntegration:
+    """Integration tests for throttles with views."""
+
+    @pytest.fixture
+    def throttled_view(self):
+        """Create a view with throttling."""
+        class ThrottledView(APIView):
+            throttle_classes = [BurstRateThrottle]
+
+            def get(self, request):
+                return Response({'status': 'ok'})
+
+        return ThrottledView.as_view()
+
+    @pytest.fixture
+    def factory(self):
+        return APIRequestFactory()
+
+    @patch('rest_framework.throttling.AnonRateThrottle.allow_request')
+    def test_view_with_throttle_allowed(self, mock_allow, throttled_view, factory):
+        """View should work when throttle allows."""
+        mock_allow.return_value = True
+
+        request = factory.get('/')
+        response = throttled_view(request)
+
+        assert response.status_code == 200
+
+    @patch('rest_framework.throttling.AnonRateThrottle.allow_request')
+    @patch('rest_framework.throttling.AnonRateThrottle.wait')
+    def test_view_with_throttle_blocked(self, mock_wait, mock_allow, throttled_view, factory):
+        """View should return 429 when throttle blocks."""
+        mock_allow.return_value = False
+        mock_wait.return_value = 60
+
+        request = factory.get('/')
+        response = throttled_view(request)
+
+        assert response.status_code == 429

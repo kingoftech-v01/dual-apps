@@ -1,0 +1,346 @@
+"""
+Tests for security validators.
+
+Tests cover:
+- SQL Injection prevention
+- XSS prevention
+- Input sanitization
+- Pre-configured validators
+"""
+import pytest
+from django.core.exceptions import ValidationError
+
+from apps.core.security.validators import (
+    SQLInjectionValidator,
+    XSSValidator,
+    SafeFilenameValidator,
+    email_validator,
+    phone_validator,
+    username_validator,
+    slug_validator,
+    password_validator,
+    no_html_validator,
+    sanitize_html,
+    strip_html,
+    sanitize_filename,
+    validate_and_sanitize,
+)
+
+
+class TestSQLInjectionValidator:
+    """Tests for SQL injection prevention."""
+
+    @pytest.fixture
+    def validator(self):
+        return SQLInjectionValidator()
+
+    @pytest.fixture
+    def validator_allow_quotes(self):
+        return SQLInjectionValidator(allow_quotes=True)
+
+    # Safe inputs that should pass
+    @pytest.mark.parametrize("value", [
+        "Hello World",
+        "John Doe",
+        "user@example.com",
+        "My Product Name",
+        "123 Main Street",
+        "This is a description.",
+        "Price: $99.99",
+        "2024-01-15",
+    ])
+    def test_safe_input_passes(self, validator, value):
+        """Safe input should pass validation."""
+        assert validator(value) == value
+
+    # SQL injection attempts that should be blocked
+    @pytest.mark.parametrize("value", [
+        "'; DROP TABLE users; --",
+        "1 OR 1=1",
+        "1' OR '1'='1",
+        "admin'--",
+        "1; SELECT * FROM users",
+        "UNION SELECT * FROM passwords",
+        "INSERT INTO users VALUES",
+        "DELETE FROM users WHERE",
+        "UPDATE users SET password",
+        "1/**/OR/**/1=1",
+        "1 AND 1=1",
+    ])
+    def test_sql_injection_blocked(self, validator, value):
+        """SQL injection attempts should be blocked."""
+        with pytest.raises(ValidationError) as exc_info:
+            validator(value)
+        assert exc_info.value.code == 'sql_injection_attempt'
+
+    def test_allow_quotes_option(self, validator_allow_quotes):
+        """With allow_quotes=True, single quotes should be allowed."""
+        # This should still block SQL keywords
+        with pytest.raises(ValidationError):
+            validator_allow_quotes("SELECT * FROM users")
+
+    def test_case_insensitive(self, validator):
+        """SQL keywords should be detected regardless of case."""
+        with pytest.raises(ValidationError):
+            validator("select * from users")
+        with pytest.raises(ValidationError):
+            validator("SELECT * FROM users")
+        with pytest.raises(ValidationError):
+            validator("SeLeCt * FrOm users")
+
+    def test_custom_message(self):
+        """Custom error message should be used."""
+        custom_msg = "Custom SQL error"
+        validator = SQLInjectionValidator(message=custom_msg)
+        with pytest.raises(ValidationError) as exc_info:
+            validator("'; DROP TABLE users; --")
+        assert custom_msg in str(exc_info.value)
+
+
+class TestXSSValidator:
+    """Tests for XSS prevention."""
+
+    @pytest.fixture
+    def validator(self):
+        return XSSValidator(sanitize=False)
+
+    @pytest.fixture
+    def sanitizing_validator(self):
+        return XSSValidator(sanitize=True)
+
+    @pytest.fixture
+    def stripping_validator(self):
+        return XSSValidator(strip=True)
+
+    # Safe inputs
+    @pytest.mark.parametrize("value", [
+        "Hello World",
+        "Normal text content",
+        "Email: user@example.com",
+        "Price: $99.99",
+        "https://example.com",
+    ])
+    def test_safe_input_passes(self, validator, value):
+        """Safe input should pass validation."""
+        assert validator(value) == value
+
+    # XSS attempts that should be blocked
+    @pytest.mark.parametrize("value", [
+        "<script>alert('xss')</script>",
+        "<script src='evil.js'></script>",
+        "<img src=x onerror=alert('xss')>",
+        "<svg onload=alert('xss')>",
+        "javascript:alert('xss')",
+        "<iframe src='evil.com'>",
+        "<object data='evil.swf'>",
+        "<a onclick=alert('xss')>click</a>",
+        "expression(alert('xss'))",
+        "<link rel='stylesheet' href='evil.css'>",
+    ])
+    def test_xss_blocked(self, validator, value):
+        """XSS attempts should be blocked."""
+        with pytest.raises(ValidationError) as exc_info:
+            validator(value)
+        assert exc_info.value.code == 'xss_attempt'
+
+    def test_sanitize_mode(self, sanitizing_validator):
+        """Sanitize mode should escape HTML instead of raising error."""
+        result = sanitizing_validator("<script>alert('xss')</script>")
+        assert "<script>" not in result
+        assert "&lt;script&gt;" in result
+
+    def test_strip_mode(self, stripping_validator):
+        """Strip mode should remove all HTML tags."""
+        result = stripping_validator("<p>Hello <b>World</b></p>")
+        assert result == "Hello World"
+
+    def test_case_insensitive(self, validator):
+        """XSS patterns should be detected regardless of case."""
+        with pytest.raises(ValidationError):
+            validator("<SCRIPT>alert('xss')</SCRIPT>")
+        with pytest.raises(ValidationError):
+            validator("<ScRiPt>alert('xss')</ScRiPt>")
+
+
+class TestSafeFilenameValidator:
+    """Tests for filename validation."""
+
+    @pytest.fixture
+    def validator(self):
+        return SafeFilenameValidator()
+
+    # Safe filenames
+    @pytest.mark.parametrize("value", [
+        "document.pdf",
+        "image_001.jpg",
+        "my-file.txt",
+        "report2024.xlsx",
+    ])
+    def test_safe_filename_passes(self, validator, value):
+        """Safe filenames should pass validation."""
+        assert validator(value) == value
+
+    # Dangerous filenames
+    @pytest.mark.parametrize("value", [
+        "../../../etc/passwd",
+        "..\\..\\windows\\system32\\config",
+        "file\x00name.txt",
+        "<script>.js",
+        "file|name.txt",
+        ".htaccess",
+        "CON",
+        "PRN",
+        "AUX",
+    ])
+    def test_dangerous_filename_blocked(self, validator, value):
+        """Dangerous filenames should be blocked."""
+        with pytest.raises(ValidationError):
+            validator(value)
+
+
+class TestPreConfiguredValidators:
+    """Tests for pre-configured regex validators."""
+
+    # Email validator
+    @pytest.mark.parametrize("value,valid", [
+        ("user@example.com", True),
+        ("user.name@example.co.uk", True),
+        ("invalid", False),
+        ("@example.com", False),
+        ("user@", False),
+        ("user@.com", False),
+    ])
+    def test_email_validator(self, value, valid):
+        if valid:
+            email_validator(value)
+        else:
+            with pytest.raises(ValidationError):
+                email_validator(value)
+
+    # Phone validator
+    @pytest.mark.parametrize("value,valid", [
+        ("+1234567890", True),
+        ("+442071234567", True),
+        ("1234567890", True),
+        ("123", False),
+        ("abc", False),
+    ])
+    def test_phone_validator(self, value, valid):
+        if valid:
+            phone_validator(value)
+        else:
+            with pytest.raises(ValidationError):
+                phone_validator(value)
+
+    # Username validator
+    @pytest.mark.parametrize("value,valid", [
+        ("john_doe", True),
+        ("user123", True),
+        ("JohnDoe", True),
+        ("ab", False),  # Too short
+        ("123user", False),  # Starts with number
+        ("user-name", False),  # Contains hyphen
+    ])
+    def test_username_validator(self, value, valid):
+        if valid:
+            username_validator(value)
+        else:
+            with pytest.raises(ValidationError):
+                username_validator(value)
+
+    # Slug validator
+    @pytest.mark.parametrize("value,valid", [
+        ("my-slug", True),
+        ("slug123", True),
+        ("my-long-slug-name", True),
+        ("My-Slug", False),  # Uppercase
+        ("my_slug", False),  # Underscore
+        ("-slug", False),  # Starts with hyphen
+    ])
+    def test_slug_validator(self, value, valid):
+        if valid:
+            slug_validator(value)
+        else:
+            with pytest.raises(ValidationError):
+                slug_validator(value)
+
+    # Password validator
+    @pytest.mark.parametrize("value,valid", [
+        ("MyP@ssw0rd!", True),
+        ("Str0ng#Pass", True),
+        ("password", False),  # No uppercase, number, special
+        ("PASSWORD1!", False),  # No lowercase
+        ("Password!", False),  # No number
+        ("Password1", False),  # No special char
+        ("Short1!", False),  # Too short
+    ])
+    def test_password_validator(self, value, valid):
+        if valid:
+            password_validator(value)
+        else:
+            with pytest.raises(ValidationError):
+                password_validator(value)
+
+    # No HTML validator
+    @pytest.mark.parametrize("value,valid", [
+        ("Plain text", True),
+        ("Text with numbers 123", True),
+        ("<p>HTML</p>", False),
+        ("Text with <tag>", False),
+    ])
+    def test_no_html_validator(self, value, valid):
+        if valid:
+            no_html_validator(value)
+        else:
+            with pytest.raises(ValidationError):
+                no_html_validator(value)
+
+
+class TestSanitizationFunctions:
+    """Tests for sanitization helper functions."""
+
+    def test_sanitize_html(self):
+        """HTML should be escaped."""
+        result = sanitize_html("<script>alert('xss')</script>")
+        assert "<script>" not in result
+        assert "&lt;script&gt;" in result
+
+    def test_strip_html(self):
+        """HTML tags should be removed."""
+        result = strip_html("<p>Hello <b>World</b></p>")
+        assert result == "Hello World"
+
+    def test_sanitize_filename(self):
+        """Filenames should be sanitized."""
+        assert sanitize_filename("../file.txt") == "file.txt"
+        assert sanitize_filename(".htaccess") == "htaccess"
+        assert sanitize_filename("my file.txt") == "my_file.txt"
+        assert sanitize_filename("file<script>.js") == "filescript.js"
+
+    def test_validate_and_sanitize(self):
+        """Combined validation and sanitization."""
+        result = validate_and_sanitize("Hello <b>World</b>")
+        assert "<b>" not in result
+
+        with pytest.raises(ValidationError):
+            validate_and_sanitize("'; DROP TABLE users; --")
+
+
+class TestValidatorEquality:
+    """Tests for validator equality comparison."""
+
+    def test_sql_validator_equality(self):
+        v1 = SQLInjectionValidator()
+        v2 = SQLInjectionValidator()
+        v3 = SQLInjectionValidator(allow_quotes=True)
+
+        assert v1 == v2
+        assert v1 != v3
+
+    def test_xss_validator_equality(self):
+        v1 = XSSValidator(sanitize=True)
+        v2 = XSSValidator(sanitize=True)
+        v3 = XSSValidator(sanitize=False)
+
+        assert v1 == v2
+        assert v1 != v3

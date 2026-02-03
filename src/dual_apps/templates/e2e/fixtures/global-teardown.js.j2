@@ -1,0 +1,18 @@
+/**
+ * Global teardown for Playwright tests.
+ *
+ * Runs once after all tests:
+ * - Cleans up test data
+ * - Closes connections
+ */
+module.exports = async () => {
+  console.log('🧹 Global teardown starting...');
+
+  // Add any cleanup tasks here
+  // For example:
+  // - Clear test database
+  // - Delete uploaded test files
+  // - Clear cache
+
+  console.log('✅ Global teardown complete');
+};

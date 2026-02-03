@@ -524,10 +524,14 @@ class TestInteractiveProjectSetup:
         """Test interactive project setup returns config dict."""
         mock_prompt.side_effect = [
             "myproject",  # Project name
+            "fullstack",  # Project type
+            "default",  # Template
             "jobs,users",  # Apps
             "postgres",  # Database
             "jwt",  # Auth
-            "default",  # Template
+            "httpOnly",  # JWT storage
+            "htmx",  # Frontend
+            "bootstrap",  # CSS
         ]
         mock_confirm.side_effect = [True, True, False]  # docker, celery, i18n
 
@@ -547,11 +551,14 @@ class TestInteractiveProjectSetup:
     def test_interactive_project_setup_all_options(self, mock_confirm, mock_prompt):
         """Test interactive project setup with all options."""
         mock_prompt.side_effect = [
-            "fullproject",
-            "api,web,admin",
-            "sqlite",
-            "allauth",
-            "ecommerce",
+            "fullproject",  # Project name
+            "fullstack",  # Project type
+            "ecommerce",  # Template
+            "api,web,admin",  # Apps
+            "sqlite",  # Database
+            "allauth",  # Auth (no JWT storage prompt for allauth)
+            "react",  # Frontend
+            "tailwind",  # CSS
         ]
         mock_confirm.side_effect = [False, False, True]
 

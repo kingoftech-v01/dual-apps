@@ -25,6 +25,15 @@ import yaml
 import json
 import sys
 
+# Valid choices for CLI options
+PROJECT_TYPES = ["fullstack", "backend", "frontend"]
+FRONTEND_CHOICES = ["html", "htmx", "react"]
+CSS_FRAMEWORKS = ["bootstrap", "tailwind"]
+JWT_STORAGE_OPTIONS = ["httpOnly", "localStorage"]
+TEMPLATE_CHOICES = ["default", "ecommerce", "blog", "saas", "cms", "booking", "marketplace", "api"]
+DB_CHOICES = ["postgres", "mysql", "sqlite"]
+AUTH_CHOICES = ["jwt", "session", "allauth", "none"]
+
 from dual_apps import __version__
 from dual_apps.generators.app_generator import AppGenerator
 from dual_apps.generators.project_generator import ProjectGenerator
@@ -165,6 +174,24 @@ def interactive_project_setup() -> dict:
         default="myproject"
     )
 
+    # Project type
+    console.print("\n[bold]Project Type:[/]")
+    console.print("[dim]  fullstack - Full stack with API + Frontend (default)[/]")
+    console.print("[dim]  backend   - API only (DRF ViewSets, no templates)[/]")
+    console.print("[dim]  frontend  - Frontend only (no API processing)[/]")
+    config['project_type'] = Prompt.ask(
+        "[yellow]Project type[/]",
+        choices=PROJECT_TYPES,
+        default="fullstack"
+    )
+
+    # Template
+    config['template'] = Prompt.ask(
+        "[yellow]Project template[/]",
+        choices=TEMPLATE_CHOICES,
+        default="default"
+    )
+
     # Apps
     console.print("\n[dim]Enter apps to generate (comma-separated)[/]")
     apps_str = Prompt.ask(
@@ -176,29 +203,53 @@ def interactive_project_setup() -> dict:
     # Database
     config['db'] = Prompt.ask(
         "[yellow]Database[/]",
-        choices=["postgres", "sqlite"],
+        choices=DB_CHOICES,
         default="postgres"
     )
 
     # Authentication
     config['auth'] = Prompt.ask(
         "[yellow]Authentication[/]",
-        choices=["jwt", "session", "allauth", "none"],
+        choices=AUTH_CHOICES,
         default="jwt"
     )
+
+    # JWT Storage (only if using JWT)
+    if config['auth'] == 'jwt':
+        console.print("\n[bold]JWT Token Storage:[/]")
+        console.print("[dim]  httpOnly     - Secure httpOnly cookies (recommended)[/]")
+        console.print("[dim]  localStorage - Browser localStorage (simpler)[/]")
+        config['jwt_storage'] = Prompt.ask(
+            "[yellow]JWT storage method[/]",
+            choices=JWT_STORAGE_OPTIONS,
+            default="httpOnly"
+        )
+
+    # Frontend framework (only if not backend-only)
+    if config['project_type'] != 'backend':
+        console.print("\n[bold]Frontend Framework:[/]")
+        console.print("[dim]  html  - Basic Django templates, server-side rendering[/]")
+        console.print("[dim]  htmx  - HTMX dynamic templates, SPA-like feel[/]")
+        console.print("[dim]  react - React SPA with Vite, full client-side[/]")
+        config['frontend'] = Prompt.ask(
+            "[yellow]Frontend framework[/]",
+            choices=FRONTEND_CHOICES,
+            default="htmx"
+        )
+
+        # CSS Framework
+        console.print("\n[bold]CSS Framework:[/]")
+        config['css'] = Prompt.ask(
+            "[yellow]CSS framework[/]",
+            choices=CSS_FRAMEWORKS,
+            default="bootstrap"
+        )
 
     # Options
     console.print("\n[bold]Options:[/]")
     config['docker'] = Confirm.ask("[yellow]Include Docker files?[/]", default=True)
     config['celery'] = Confirm.ask("[yellow]Include Celery support?[/]", default=False)
     config['i18n'] = Confirm.ask("[yellow]Include i18n support?[/]", default=False)
-
-    # Template
-    config['template'] = Prompt.ask(
-        "[yellow]Project template[/]",
-        choices=["default", "ecommerce", "blog", "saas", "cms", "booking", "marketplace", "api"],
-        default="default"
-    )
 
     return config
 
@@ -411,6 +462,11 @@ def init_project_command(
         None,
         help="Project name (e.g., 'myproject' or 'saas-platform')",
     ),
+    project_type: str = typer.Option(
+        "fullstack",
+        "--type",
+        help="Project type: 'fullstack' (both API + Frontend), 'backend' (API only), 'frontend' (Frontend only)",
+    ),
     apps: str = typer.Option(
         "jobs",
         "--apps",
@@ -426,12 +482,17 @@ def init_project_command(
     db: str = typer.Option(
         "postgres",
         "--db",
-        help="Database: 'postgres' or 'sqlite'",
+        help="Database: 'postgres', 'mysql', or 'sqlite'",
     ),
     auth: str = typer.Option(
         "jwt",
         "--auth",
         help="Authentication: 'jwt', 'session', 'allauth', or 'none'",
+    ),
+    jwt_storage: str = typer.Option(
+        None,
+        "--jwt-storage",
+        help="JWT token storage: 'httpOnly' (secure cookies) or 'localStorage'",
     ),
     docker: bool = typer.Option(
         True,
@@ -453,6 +514,11 @@ def init_project_command(
         "--frontend",
         "-f",
         help="Frontend framework: 'html' (basic), 'htmx' (dynamic), 'react' (SPA)",
+    ),
+    css: str = typer.Option(
+        "bootstrap",
+        "--css",
+        help="CSS framework: 'bootstrap' or 'tailwind'",
     ),
     interactive: bool = typer.Option(
         False,
@@ -478,6 +544,9 @@ def init_project_command(
 
     Examples:
         dual_apps init project myproject --apps=jobs,users
+        dual_apps init project myproject --type backend --template ecommerce
+        dual_apps init project myproject --frontend react --css tailwind
+        dual_apps init project myproject --auth jwt --jwt-storage httpOnly
         dual_apps init project myproject --interactive
         dual_apps init project myproject --config=dual-apps.yaml
     """
@@ -485,14 +554,17 @@ def init_project_command(
     if interactive or name is None:
         cfg = interactive_project_setup()
         name = cfg.get('name', name)
+        project_type = cfg.get('project_type', project_type)
         apps = ",".join(cfg.get('apps', [apps]))
         template = cfg.get('template', template)
         db = cfg.get('db', db)
         auth = cfg.get('auth', auth)
+        jwt_storage = cfg.get('jwt_storage', jwt_storage)
         docker = cfg.get('docker', docker)
         celery = cfg.get('celery', celery)
         i18n = cfg.get('i18n', i18n)
         frontend = cfg.get('frontend', frontend)
+        css = cfg.get('css', css)
 
     # Config file
     if config:
@@ -500,18 +572,45 @@ def init_project_command(
         if 'project' in file_config:
             cfg = file_config['project']
             name = cfg.get('name', name)
+            project_type = cfg.get('type', cfg.get('project_type', project_type))
             if 'apps' in cfg:
                 apps = ",".join(cfg['apps']) if isinstance(cfg['apps'], list) else cfg['apps']
             template = cfg.get('template', template)
             db = cfg.get('db', db)
+            auth = cfg.get('auth', auth)
+            jwt_storage = cfg.get('jwt_storage', jwt_storage)
             docker = cfg.get('docker', docker)
             celery = cfg.get('celery', celery)
             i18n = cfg.get('i18n', i18n)
             frontend = cfg.get('frontend', frontend)
+            css = cfg.get('css', css)
 
     if not name:
         console.print("[red]Error: Project name is required[/]")
         raise typer.Exit(1)
+
+    # Validate options
+    if project_type not in PROJECT_TYPES:
+        console.print(f"[red]Error: Invalid project type '{project_type}'. Choose from: {', '.join(PROJECT_TYPES)}[/]")
+        raise typer.Exit(1)
+
+    if frontend not in FRONTEND_CHOICES:
+        console.print(f"[red]Error: Invalid frontend '{frontend}'. Choose from: {', '.join(FRONTEND_CHOICES)}[/]")
+        raise typer.Exit(1)
+
+    if css not in CSS_FRAMEWORKS:
+        console.print(f"[red]Error: Invalid CSS framework '{css}'. Choose from: {', '.join(CSS_FRAMEWORKS)}[/]")
+        raise typer.Exit(1)
+
+    # Default jwt_storage if not specified (don't prompt - just use default)
+    if jwt_storage is None:
+        jwt_storage = "httpOnly"
+
+    # Adjust settings based on project type
+    if project_type == "backend":
+        frontend = "none"  # No frontend for backend-only
+    elif project_type == "frontend":
+        auth = "none"  # No auth processing for frontend-only (connects to external API)
 
     console.print(Panel.fit(
         f"[bold green]Creating Django Project:[/] [cyan]{name}[/]",
@@ -532,14 +631,17 @@ def init_project_command(
 
         generator = ProjectGenerator(
             project_name=name,
+            project_type=project_type,
             apps=apps_list,
             template=template,
             db=db,
             auth=auth,
+            jwt_storage=jwt_storage,
             docker=docker,
             i18n=i18n,
             celery=celery,
             frontend=frontend,
+            css=css,
             output_dir=output_dir,
         )
 

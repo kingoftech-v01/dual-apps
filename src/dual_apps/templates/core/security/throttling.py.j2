@@ -1,0 +1,295 @@
+"""
+DRF Throttling classes for API rate limiting.
+
+Provides multiple throttling strategies:
+- Burst rate limiting (short-term)
+- Sustained rate limiting (long-term)
+- Endpoint-specific throttling
+- User-based throttling
+
+Usage in DRF views:
+    class MyViewSet(viewsets.ModelViewSet):
+        throttle_classes = [BurstRateThrottle, SustainedRateThrottle]
+
+Configuration in settings.py:
+    REST_FRAMEWORK = {
+        'DEFAULT_THROTTLE_CLASSES': [
+            'apps.core.security.throttling.BurstRateThrottle',
+            'apps.core.security.throttling.SustainedRateThrottle',
+        ],
+        'DEFAULT_THROTTLE_RATES': {
+            'burst': '60/min',
+            'sustained': '1000/day',
+            'login': '5/min',
+            'password_reset': '3/hour',
+            'api_key': '10000/day',
+            'anon': '20/min',
+            'user': '100/min',
+        }
+    }
+"""
+from typing import Optional
+from django.core.cache import cache
+from rest_framework.throttling import (
+    AnonRateThrottle,
+    UserRateThrottle,
+    SimpleRateThrottle,
+)
+from rest_framework.request import Request
+
+
+class BurstRateThrottle(AnonRateThrottle):
+    """
+    Limits burst requests from any user (authenticated or anonymous).
+
+    Prevents rapid-fire requests that could overwhelm the server.
+    Default: 60 requests per minute.
+
+    Usage:
+        class MyView(APIView):
+            throttle_classes = [BurstRateThrottle]
+    """
+    scope = 'burst'
+    rate = '60/min'
+
+
+class SustainedRateThrottle(UserRateThrottle):
+    """
+    Limits sustained requests from authenticated users.
+
+    Prevents abuse over longer periods.
+    Default: 1000 requests per day.
+
+    Usage:
+        class MyView(APIView):
+            throttle_classes = [SustainedRateThrottle]
+    """
+    scope = 'sustained'
+    rate = '1000/day'
+
+
+class LoginRateThrottle(AnonRateThrottle):
+    """
+    Strict rate limiting for login attempts.
+
+    Protects against brute force password attacks.
+    Default: 5 attempts per minute.
+
+    Apply to login endpoints:
+        class LoginView(APIView):
+            throttle_classes = [LoginRateThrottle]
+    """
+    scope = 'login'
+    rate = '5/min'
+
+    def get_cache_key(self, request: Request, view) -> Optional[str]:
+        """Include username in cache key if provided."""
+        ident = self.get_ident(request)
+
+        # Also include username to track per-user attempts
+        username = request.data.get('username', request.data.get('email', ''))
+        if username:
+            return f'throttle_login_{ident}_{username}'
+
+        return f'throttle_login_{ident}'
+
+
+class PasswordResetThrottle(AnonRateThrottle):
+    """
+    Rate limiting for password reset requests.
+
+    Prevents email bombing and enumeration attacks.
+    Default: 3 requests per hour.
+
+    Apply to password reset endpoints:
+        class PasswordResetView(APIView):
+            throttle_classes = [PasswordResetThrottle]
+    """
+    scope = 'password_reset'
+    rate = '3/hour'
+
+
+class RegistrationThrottle(AnonRateThrottle):
+    """
+    Rate limiting for registration attempts.
+
+    Prevents automated account creation.
+    Default: 5 registrations per hour per IP.
+
+    Apply to registration endpoints:
+        class RegisterView(APIView):
+            throttle_classes = [RegistrationThrottle]
+    """
+    scope = 'registration'
+    rate = '5/hour'
+
+
+class APIKeyThrottle(SimpleRateThrottle):
+    """
+    Rate limiting for API key authenticated requests.
+
+    Higher limits for programmatic API access.
+    Default: 10000 requests per day.
+
+    Usage:
+        class MyAPIView(APIView):
+            throttle_classes = [APIKeyThrottle]
+    """
+    scope = 'api_key'
+    rate = '10000/day'
+
+    def get_cache_key(self, request: Request, view) -> Optional[str]:
+        """Use API key as identifier if present."""
+        api_key = request.META.get('HTTP_X_API_KEY')
+        if api_key:
+            return f'throttle_api_key_{api_key}'
+
+        # Fall back to user ID for authenticated users
+        if request.user and request.user.is_authenticated:
+            return f'throttle_api_key_user_{request.user.pk}'
+
+        return None
+
+
+class SearchThrottle(UserRateThrottle):
+    """
+    Rate limiting for search endpoints.
+
+    Prevents expensive search queries from overwhelming the database.
+    Default: 30 searches per minute.
+
+    Usage:
+        class SearchView(APIView):
+            throttle_classes = [SearchThrottle]
+    """
+    scope = 'search'
+    rate = '30/min'
+
+
+class ExportThrottle(UserRateThrottle):
+    """
+    Rate limiting for data export endpoints.
+
+    Prevents resource exhaustion from large exports.
+    Default: 10 exports per hour.
+
+    Usage:
+        class ExportView(APIView):
+            throttle_classes = [ExportThrottle]
+    """
+    scope = 'export'
+    rate = '10/hour'
+
+
+class UploadThrottle(UserRateThrottle):
+    """
+    Rate limiting for file upload endpoints.
+
+    Prevents storage abuse.
+    Default: 100 uploads per hour.
+
+    Usage:
+        class UploadView(APIView):
+            throttle_classes = [UploadThrottle]
+    """
+    scope = 'upload'
+    rate = '100/hour'
+
+
+class WebhookThrottle(SimpleRateThrottle):
+    """
+    Rate limiting for incoming webhooks.
+
+    Prevents abuse from external webhook sources.
+    Default: 100 requests per minute per source.
+
+    Usage:
+        class WebhookView(APIView):
+            throttle_classes = [WebhookThrottle]
+    """
+    scope = 'webhook'
+    rate = '100/min'
+
+    def get_cache_key(self, request: Request, view) -> Optional[str]:
+        """Use webhook source identifier."""
+        source = request.META.get('HTTP_X_WEBHOOK_SOURCE', '')
+        ident = self.get_ident(request)
+        return f'throttle_webhook_{source}_{ident}'
+
+
+class SensitiveOperationThrottle(UserRateThrottle):
+    """
+    Rate limiting for sensitive operations.
+
+    Use for operations like:
+    - Changing email/password
+    - Deleting account
+    - Financial transactions
+
+    Default: 10 per hour.
+
+    Usage:
+        class DeleteAccountView(APIView):
+            throttle_classes = [SensitiveOperationThrottle]
+    """
+    scope = 'sensitive'
+    rate = '10/hour'
+
+
+class EmailThrottle(UserRateThrottle):
+    """
+    Rate limiting for email sending endpoints.
+
+    Prevents email abuse.
+    Default: 20 emails per hour.
+
+    Usage:
+        class SendEmailView(APIView):
+            throttle_classes = [EmailThrottle]
+    """
+    scope = 'email'
+    rate = '20/hour'
+
+
+# =============================================================================
+# Utility Functions
+# =============================================================================
+
+def get_throttle_rate(scope: str) -> Optional[str]:
+    """
+    Get the configured throttle rate for a scope.
+
+    Args:
+        scope: The throttle scope name
+
+    Returns:
+        The rate string (e.g., '100/min') or None
+    """
+    from django.conf import settings
+    rates = getattr(settings, 'REST_FRAMEWORK', {}).get('DEFAULT_THROTTLE_RATES', {})
+    return rates.get(scope)
+
+
+def clear_throttle_cache(identifier: str, scope: str = None) -> None:
+    """
+    Clear throttle cache for a specific identifier.
+
+    Useful for admin override or testing.
+
+    Args:
+        identifier: The throttle identifier (IP, user ID, etc.)
+        scope: Optional scope to clear (clears all if None)
+    """
+    if scope:
+        cache_key = f'throttle_{scope}_{identifier}'
+        cache.delete(cache_key)
+    else:
+        # Clear all known scopes
+        scopes = [
+            'burst', 'sustained', 'login', 'password_reset',
+            'registration', 'api_key', 'search', 'export',
+            'upload', 'webhook', 'sensitive', 'email'
+        ]
+        for s in scopes:
+            cache_key = f'throttle_{s}_{identifier}'
+            cache.delete(cache_key)

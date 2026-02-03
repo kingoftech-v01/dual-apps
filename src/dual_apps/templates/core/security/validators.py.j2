@@ -1,0 +1,435 @@
+"""
+Security validators for input validation and sanitization.
+
+Provides protection against:
+- SQL Injection
+- XSS (Cross-Site Scripting)
+- Invalid input formats
+
+Usage:
+    from apps.core.security.validators import (
+        SQLInjectionValidator,
+        XSSValidator,
+        email_validator,
+        password_validator,
+    )
+
+    # In forms
+    class MyForm(forms.Form):
+        email = forms.EmailField(validators=[email_validator])
+        content = forms.CharField(validators=[XSSValidator()])
+
+    # In serializers
+    class MySerializer(serializers.Serializer):
+        username = serializers.CharField(validators=[username_validator])
+"""
+import re
+import html
+from typing import Optional, List, Pattern
+from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
+from django.utils.html import strip_tags
+from django.utils.translation import gettext_lazy as _
+
+
+class SQLInjectionValidator:
+    """
+    Validates input against SQL injection patterns.
+
+    This validator detects common SQL injection attempts including:
+    - SQL keywords (SELECT, INSERT, UPDATE, DELETE, DROP, UNION, ALTER)
+    - SQL comments (--, /*, */)
+    - Tautology attacks (OR 1=1, AND 1=1)
+    - Quote characters (', ", `)
+
+    Usage:
+        validator = SQLInjectionValidator()
+        validator("safe input")  # OK
+        validator("'; DROP TABLE users; --")  # Raises ValidationError
+    """
+
+    DANGEROUS_PATTERNS: List[str] = [
+        r"(\b(SELECT|INSERT|UPDATE|DELETE|DROP|UNION|ALTER|TRUNCATE|EXEC|EXECUTE)\b)",
+        r"(--|;|\/\*|\*\/)",
+        r"(\bOR\b\s+[\d'\"]+\s*=\s*[\d'\"]+)",
+        r"(\bAND\b\s+[\d'\"]+\s*=\s*[\d'\"]+)",
+        r"(\'|\"|`)",
+        r"(\bWHERE\b\s+\d+\s*=\s*\d+)",
+        r"(CHAR\s*\(|CONCAT\s*\(|SUBSTRING\s*\()",
+        r"(SLEEP\s*\(|BENCHMARK\s*\(|WAITFOR\s+DELAY)",
+        r"(0x[0-9a-fA-F]+)",  # Hex encoding
+    ]
+
+    message = _("Invalid characters detected in input. Please remove special characters.")
+    code = "sql_injection_attempt"
+
+    def __init__(self, allow_quotes: bool = False, message: Optional[str] = None):
+        """
+        Initialize the validator.
+
+        Args:
+            allow_quotes: If True, allows quote characters (', ", `)
+            message: Custom error message
+        """
+        self.allow_quotes = allow_quotes
+        self.patterns = self.DANGEROUS_PATTERNS.copy()
+        if allow_quotes:
+            # Remove the quote pattern if quotes are allowed
+            self.patterns = [p for p in self.patterns if "'" not in p or "\"" not in p]
+        if message:
+            self.message = message
+        # Compile patterns for performance
+        self._compiled_patterns: List[Pattern] = [
+            re.compile(p, re.IGNORECASE) for p in self.patterns
+        ]
+
+    def __call__(self, value: str) -> str:
+        """
+        Validate the input value.
+
+        Args:
+            value: The input string to validate
+
+        Returns:
+            The original value if valid
+
+        Raises:
+            ValidationError: If SQL injection patterns are detected
+        """
+        str_value = str(value)
+        for pattern in self._compiled_patterns:
+            if pattern.search(str_value):
+                raise ValidationError(self.message, code=self.code)
+        return value
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, SQLInjectionValidator)
+            and self.allow_quotes == other.allow_quotes
+        )
+
+
+class XSSValidator:
+    """
+    Validates and optionally sanitizes input against XSS attacks.
+
+    Detects and blocks:
+    - Script tags
+    - JavaScript URLs
+    - Event handlers (onclick, onerror, etc.)
+    - Dangerous HTML elements (iframe, object, embed, link)
+    - CSS expressions
+    - Data URLs with executable content
+
+    Usage:
+        # Validate only (raise error on dangerous input)
+        validator = XSSValidator(sanitize=False)
+
+        # Sanitize (escape dangerous characters)
+        validator = XSSValidator(sanitize=True)
+
+        # Strip all HTML
+        validator = XSSValidator(strip=True)
+    """
+
+    DANGEROUS_PATTERNS: List[str] = [
+        r"<script[^>]*>.*?</script>",
+        r"<script[^>]*>",
+        r"</script>",
+        r"javascript\s*:",
+        r"vbscript\s*:",
+        r"on\w+\s*=",
+        r"<iframe[^>]*>",
+        r"<object[^>]*>",
+        r"<embed[^>]*>",
+        r"<link[^>]*>",
+        r"<meta[^>]*>",
+        r"<form[^>]*>",
+        r"expression\s*\(",
+        r"url\s*\(",
+        r"data\s*:\s*text/html",
+        r"data\s*:\s*application/javascript",
+        r"<img[^>]+onerror",
+        r"<svg[^>]*onload",
+        r"<!--.*?-->",
+        r"<!\[CDATA\[",
+    ]
+
+    message = _("Potentially unsafe content detected. Please remove HTML or script content.")
+    code = "xss_attempt"
+
+    def __init__(
+        self,
+        sanitize: bool = True,
+        strip: bool = False,
+        message: Optional[str] = None
+    ):
+        """
+        Initialize the validator.
+
+        Args:
+            sanitize: If True, escape dangerous characters instead of raising error
+            strip: If True, strip all HTML tags
+            message: Custom error message
+        """
+        self.sanitize = sanitize
+        self.strip = strip
+        if message:
+            self.message = message
+        # Compile patterns for performance
+        self._compiled_patterns: List[Pattern] = [
+            re.compile(p, re.IGNORECASE | re.DOTALL) for p in self.DANGEROUS_PATTERNS
+        ]
+
+    def __call__(self, value: str) -> str:
+        """
+        Validate and optionally sanitize the input value.
+
+        Args:
+            value: The input string to validate
+
+        Returns:
+            The sanitized value if sanitize=True, otherwise the original value
+
+        Raises:
+            ValidationError: If XSS patterns are detected and sanitize=False
+        """
+        str_value = str(value)
+
+        # Check for dangerous patterns
+        for pattern in self._compiled_patterns:
+            if pattern.search(str_value):
+                if not self.sanitize and not self.strip:
+                    raise ValidationError(self.message, code=self.code)
+                break
+
+        # Apply sanitization
+        if self.strip:
+            return strip_tags(str_value)
+        if self.sanitize:
+            return html.escape(str_value)
+        return value
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, XSSValidator)
+            and self.sanitize == other.sanitize
+            and self.strip == other.strip
+        )
+
+
+class SafeFilenameValidator:
+    """
+    Validates filenames to prevent path traversal and injection attacks.
+
+    Blocks:
+    - Path traversal attempts (../, ..\)
+    - Null bytes
+    - Special characters that could be interpreted by shells
+    - Hidden files (starting with .)
+    """
+
+    DANGEROUS_PATTERNS: List[str] = [
+        r"\.\./",
+        r"\.\.\\",
+        r"\x00",
+        r"[<>:\"|?*]",
+        r"^\.",
+        r"[\x00-\x1f]",
+        r"(CON|PRN|AUX|NUL|COM\d|LPT\d)",  # Windows reserved names
+    ]
+
+    message = _("Invalid filename. Please use only letters, numbers, hyphens, and underscores.")
+    code = "invalid_filename"
+
+    def __init__(self, allow_hidden: bool = False, message: Optional[str] = None):
+        self.allow_hidden = allow_hidden
+        self.patterns = self.DANGEROUS_PATTERNS.copy()
+        if allow_hidden:
+            self.patterns = [p for p in self.patterns if p != r"^\."]
+        if message:
+            self.message = message
+        self._compiled_patterns = [
+            re.compile(p, re.IGNORECASE) for p in self.patterns
+        ]
+
+    def __call__(self, value: str) -> str:
+        str_value = str(value)
+        for pattern in self._compiled_patterns:
+            if pattern.search(str_value):
+                raise ValidationError(self.message, code=self.code)
+        return value
+
+
+# =============================================================================
+# Pre-configured Regex Validators
+# =============================================================================
+
+# Email validator (strict)
+email_validator = RegexValidator(
+    regex=r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    message=_('Enter a valid email address.'),
+    code='invalid_email'
+)
+
+# Phone validator (international E.164 format)
+phone_validator = RegexValidator(
+    regex=r'^\+?[1-9]\d{1,14}$',
+    message=_('Enter a valid phone number in E.164 format (e.g., +1234567890).'),
+    code='invalid_phone'
+)
+
+# Username validator (alphanumeric with underscores)
+username_validator = RegexValidator(
+    regex=r'^[a-zA-Z][a-zA-Z0-9_]{2,29}$',
+    message=_('Username must start with a letter, contain only letters, numbers, and underscores, and be 3-30 characters.'),
+    code='invalid_username'
+)
+
+# Slug validator (URL-safe)
+slug_validator = RegexValidator(
+    regex=r'^[a-z0-9]+(?:-[a-z0-9]+)*$',
+    message=_('Enter a valid slug (lowercase letters, numbers, and hyphens only).'),
+    code='invalid_slug'
+)
+
+# Password validator (strong)
+password_validator = RegexValidator(
+    regex=r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#^()_+=-])[A-Za-z\d@$!%*?&#^()_+=-]{8,128}$',
+    message=_('Password must be 8-128 characters with at least one uppercase letter, one lowercase letter, one number, and one special character.'),
+    code='weak_password'
+)
+
+# URL validator (safe, requires https)
+safe_url_validator = RegexValidator(
+    regex=r'^https://[a-zA-Z0-9][-a-zA-Z0-9]*(\.[a-zA-Z0-9][-a-zA-Z0-9]*)+(/[a-zA-Z0-9._~:/?#\[\]@!$&\'()*+,;=-]*)?$',
+    message=_('Enter a valid HTTPS URL.'),
+    code='invalid_url'
+)
+
+# Credit card number (basic format check - use payment processor for real validation)
+credit_card_validator = RegexValidator(
+    regex=r'^\d{13,19}$',
+    message=_('Enter a valid credit card number (13-19 digits).'),
+    code='invalid_card'
+)
+
+# US ZIP code
+us_zip_validator = RegexValidator(
+    regex=r'^\d{5}(-\d{4})?$',
+    message=_('Enter a valid US ZIP code (e.g., 12345 or 12345-6789).'),
+    code='invalid_zip'
+)
+
+# UUID validator
+uuid_validator = RegexValidator(
+    regex=r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+    message=_('Enter a valid UUID.'),
+    code='invalid_uuid'
+)
+
+# No HTML validator
+no_html_validator = RegexValidator(
+    regex=r'^[^<>]*$',
+    message=_('HTML tags are not allowed.'),
+    code='html_not_allowed'
+)
+
+# Alphanumeric only
+alphanumeric_validator = RegexValidator(
+    regex=r'^[a-zA-Z0-9]+$',
+    message=_('Only letters and numbers are allowed.'),
+    code='not_alphanumeric'
+)
+
+# Hex color validator
+hex_color_validator = RegexValidator(
+    regex=r'^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$',
+    message=_('Enter a valid hex color (e.g., #FF5733 or #F53).'),
+    code='invalid_hex_color'
+)
+
+# IP address validator (IPv4)
+ipv4_validator = RegexValidator(
+    regex=r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$',
+    message=_('Enter a valid IPv4 address.'),
+    code='invalid_ipv4'
+)
+
+
+# =============================================================================
+# Sanitization Functions
+# =============================================================================
+
+def sanitize_html(value: str) -> str:
+    """
+    Sanitize HTML content by escaping special characters.
+
+    Args:
+        value: The string to sanitize
+
+    Returns:
+        The sanitized string with HTML entities escaped
+    """
+    return html.escape(str(value))
+
+
+def strip_html(value: str) -> str:
+    """
+    Remove all HTML tags from a string.
+
+    Args:
+        value: The string to strip
+
+    Returns:
+        The string with all HTML tags removed
+    """
+    return strip_tags(str(value))
+
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize a filename by removing dangerous characters.
+
+    Args:
+        filename: The filename to sanitize
+
+    Returns:
+        A safe filename
+    """
+    # Remove path separators and null bytes
+    safe = re.sub(r'[/\\:\x00]', '', filename)
+    # Remove leading dots
+    safe = safe.lstrip('.')
+    # Replace spaces with underscores
+    safe = re.sub(r'\s+', '_', safe)
+    # Remove other dangerous characters
+    safe = re.sub(r'[<>:"|?*]', '', safe)
+    # Limit length
+    if len(safe) > 255:
+        name, ext = safe.rsplit('.', 1) if '.' in safe else (safe, '')
+        safe = name[:255 - len(ext) - 1] + ('.' + ext if ext else '')
+    return safe or 'unnamed'
+
+
+def validate_and_sanitize(value: str, validators: list = None) -> str:
+    """
+    Apply multiple validators and return sanitized value.
+
+    Args:
+        value: The value to validate
+        validators: List of validator instances
+
+    Returns:
+        The validated and sanitized value
+
+    Raises:
+        ValidationError: If any validator fails
+    """
+    if validators is None:
+        validators = [SQLInjectionValidator(), XSSValidator()]
+
+    result = value
+    for validator in validators:
+        result = validator(result)
+    return result

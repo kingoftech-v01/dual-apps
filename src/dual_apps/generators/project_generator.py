@@ -28,6 +28,8 @@ class ProjectGenerator(BaseGenerator):
     - 150+ tests with 88% coverage
     - GitHub Actions workflows
     - 64 pages documentation
+    - Security layer (SQL/XSS prevention, rate limiting)
+    - Multiple project types (fullstack, backend, frontend)
     """
 
     # Specialized templates and their corresponding apps
@@ -40,30 +42,60 @@ class ProjectGenerator(BaseGenerator):
         "marketplace": ["vendors", "products"],
     }
 
+    # Valid project types
+    PROJECT_TYPES = ["fullstack", "backend", "frontend"]
+
+    # Valid frontend choices
+    FRONTEND_CHOICES = ["html", "htmx", "react", "none"]
+
+    # Valid CSS frameworks
+    CSS_FRAMEWORKS = ["bootstrap", "tailwind"]
+
+    # Valid JWT storage options
+    JWT_STORAGE_OPTIONS = ["httpOnly", "localStorage"]
+
     def __init__(
         self,
         project_name: str,
+        project_type: str = "fullstack",
         apps: List[str] = None,
         template: str = "default",
         db: str = "postgres",
         auth: str = "jwt",
+        jwt_storage: str = "httpOnly",
         docker: bool = True,
         i18n: bool = False,
         celery: bool = False,
         frontend: str = "htmx",
+        css: str = "bootstrap",
         output_dir: Path = Path("."),
     ):
         super().__init__(output_dir)
 
         self.project_name = self._to_snake_case(project_name)
         self.project_name_display = self._to_title_case(project_name)
+        self.project_type = project_type
         self.template = template
         self.db = db
         self.auth = auth
+        self.jwt_storage = jwt_storage
         self.docker = docker
         self.i18n = i18n
         self.celery = celery
         self.frontend = frontend
+        self.css = css
+
+        # Adjust settings based on project type
+        if project_type == "backend":
+            self.frontend = "none"
+            self.has_frontend = False
+            self.has_api = True
+        elif project_type == "frontend":
+            self.has_frontend = True
+            self.has_api = False
+        else:  # fullstack
+            self.has_frontend = True
+            self.has_api = True
 
         # Handle specialized templates
         if template in self.SPECIALIZED_TEMPLATES:
@@ -94,21 +126,43 @@ class ProjectGenerator(BaseGenerator):
                 }
                 for app in self.apps
             ],
+            # Project type
+            "project_type": self.project_type,
+            "is_fullstack": self.project_type == "fullstack",
+            "is_backend_only": self.project_type == "backend",
+            "is_frontend_only": self.project_type == "frontend",
+            "has_frontend": self.has_frontend,
+            "has_api": self.has_api,
+            # Template
             "template": self.template,
+            "is_specialized_template": self.template in self.SPECIALIZED_TEMPLATES,
+            # Database
             "db": self.db,
-            "auth": self.auth,
-            "docker": self.docker,
-            "i18n": self.i18n,
-            "celery": self.celery,
-            "frontend": self.frontend,
             "use_postgres": self.db == "postgres",
+            "use_mysql": self.db == "mysql",
+            "use_sqlite": self.db == "sqlite",
+            # Authentication
+            "auth": self.auth,
             "use_jwt": self.auth == "jwt",
             "use_session": self.auth == "session",
             "use_allauth": self.auth == "allauth",
+            "jwt_storage": self.jwt_storage,
+            "use_httponly_jwt": self.jwt_storage == "httpOnly",
+            "use_localstorage_jwt": self.jwt_storage == "localStorage",
+            # Features
+            "docker": self.docker,
+            "i18n": self.i18n,
+            "celery": self.celery,
+            # Frontend
+            "frontend": self.frontend,
             "use_html": self.frontend == "html",
             "use_htmx": self.frontend == "htmx",
             "use_react": self.frontend == "react",
-            "is_specialized_template": self.template in self.SPECIALIZED_TEMPLATES,
+            "no_frontend": self.frontend == "none",
+            # CSS
+            "css": self.css,
+            "use_bootstrap": self.css == "bootstrap",
+            "use_tailwind": self.css == "tailwind",
         }
 
     def create_structure(self) -> None:
@@ -119,17 +173,25 @@ class ProjectGenerator(BaseGenerator):
             self.project_root / self.project_name,
             self.project_root / self.project_name / "settings",
             self.project_root / "apps",
-            self.project_root / "templates",
-            self.project_root / "staticfiles" / "css",
-            self.project_root / "staticfiles" / "js",
+            self.project_root / "apps" / "core",
+            self.project_root / "apps" / "core" / "security",
             self.project_root / "tests",
             self.project_root / "tests" / "fixtures",
+            self.project_root / "tests" / "security",
             self.project_root / "docs",
             self.project_root / "scripts",
             self.project_root / "requirements",
             self.project_root / ".github" / "workflows",
             self.project_root / ".github" / "ISSUE_TEMPLATE",
         ]
+
+        # Add templates and static only if we have frontend
+        if self.has_frontend:
+            dirs.extend([
+                self.project_root / "templates",
+                self.project_root / "staticfiles" / "css",
+                self.project_root / "staticfiles" / "js",
+            ])
 
         if self.docker:
             dirs.extend([
@@ -146,10 +208,20 @@ class ProjectGenerator(BaseGenerator):
                 self.project_root / "frontend",
                 self.project_root / "frontend" / "src",
                 self.project_root / "frontend" / "src" / "components",
+                self.project_root / "frontend" / "src" / "components" / "common",
+                self.project_root / "frontend" / "src" / "components" / "forms",
+                self.project_root / "frontend" / "src" / "components" / "layout",
                 self.project_root / "frontend" / "src" / "pages",
                 self.project_root / "frontend" / "src" / "api",
+                self.project_root / "frontend" / "src" / "auth",
+                self.project_root / "frontend" / "src" / "hooks",
+                self.project_root / "frontend" / "src" / "utils",
+                self.project_root / "frontend" / "src" / "context",
                 self.project_root / "frontend" / "public",
             ])
+
+        # E2E tests directory
+        dirs.append(self.project_root / "e2e")
 
         for d in dirs:
             self.create_directory(d)
@@ -318,6 +390,44 @@ class ProjectGenerator(BaseGenerator):
             ctx,
         )
 
+        # Security tests
+        security_tests_dir = tests_dir / "security"
+        self.write_file(security_tests_dir / "__init__.py", "")
+        self.render_and_write(
+            "tests/security/test_validators.py.j2",
+            security_tests_dir / "test_validators.py",
+            ctx,
+        )
+        self.render_and_write(
+            "tests/security/test_middleware.py.j2",
+            security_tests_dir / "test_middleware.py",
+            ctx,
+        )
+        self.render_and_write(
+            "tests/security/test_throttling.py.j2",
+            security_tests_dir / "test_throttling.py",
+            ctx,
+        )
+
+    def generate_security_module(self) -> None:
+        """Generate the core security module."""
+        ctx = self.get_context()
+        core_dir = self.project_root / "apps" / "core"
+        security_dir = core_dir / "security"
+
+        # Core app files
+        self.write_file(core_dir / "__init__.py", "")
+        self.render_and_write("core/apps.py.j2", core_dir / "apps.py", ctx)
+
+        # Security module files
+        self.write_file(security_dir / "__init__.py", '"""Security module for protection against common vulnerabilities."""\n')
+        self.render_and_write("core/security/validators.py.j2", security_dir / "validators.py", ctx)
+        self.render_and_write("core/security/middleware.py.j2", security_dir / "middleware.py", ctx)
+        self.render_and_write("core/security/throttling.py.j2", security_dir / "throttling.py", ctx)
+        self.render_and_write("core/security/mixins.py.j2", security_dir / "mixins.py", ctx)
+        self.render_and_write("core/security/decorators.py.j2", security_dir / "decorators.py", ctx)
+        self.render_and_write("core/security/utils.py.j2", security_dir / "utils.py", ctx)
+
     def generate_docker(self) -> None:
         """Generate Docker configuration."""
         ctx = self.get_context()
@@ -416,6 +526,10 @@ class ProjectGenerator(BaseGenerator):
         """Generate global templates and static files."""
         ctx = self.get_context()
 
+        # Skip templates and static files for backend-only projects
+        if not self.has_frontend:
+            return
+
         # Use frontend-specific base template if available
         frontend_base = f"frontend/{self.frontend}/base.html.j2"
         if self.template_exists(frontend_base):
@@ -513,8 +627,14 @@ class ProjectGenerator(BaseGenerator):
         """Finalize project generation."""
         ctx = self.get_context()
 
+        # Generate security module
+        self.generate_security_module()
+
         # Generate templates and static
         self.generate_templates_static()
+
+        # Generate E2E test configuration
+        self._generate_e2e_tests(ctx)
 
         # Configuration files
         self.render_and_write("project/pyproject.toml.j2", self.project_root / "pyproject.toml", ctx)
@@ -522,3 +642,21 @@ class ProjectGenerator(BaseGenerator):
         self.render_and_write("project/.gitignore.j2", self.project_root / ".gitignore", ctx)
         self.render_and_write("project/.env.example.j2", self.project_root / ".env.example", ctx)
         self.render_and_write("project/.pre-commit-config.yaml.j2", self.project_root / ".pre-commit-config.yaml", ctx)
+
+    def _generate_e2e_tests(self, ctx: Dict[str, Any]) -> None:
+        """Generate E2E test configuration with Playwright."""
+        e2e_dir = self.project_root / "e2e"
+
+        # Playwright configuration
+        self.render_and_write("e2e/playwright.config.js.j2", e2e_dir / "playwright.config.js", ctx)
+        self.render_and_write("e2e/package.json.j2", e2e_dir / "package.json", ctx)
+
+        # Test fixtures
+        fixtures_dir = e2e_dir / "fixtures"
+        self.create_directory(fixtures_dir)
+        self.render_and_write("e2e/fixtures/auth.js.j2", fixtures_dir / "auth.js", ctx)
+
+        # Base test file
+        tests_dir = e2e_dir / "tests"
+        self.create_directory(tests_dir)
+        self.render_and_write("e2e/tests/base.spec.js.j2", tests_dir / "base.spec.js", ctx)
