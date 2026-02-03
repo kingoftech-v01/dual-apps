@@ -1,0 +1,157 @@
+{% raw %}{% extends "base.html" %}
+
+{% block title %}Create Account - {{ project_name_display }}{% endblock %}
+
+{% block content %}
+<div class="{% if css_framework == 'tailwind' %}max-w-md mx-auto py-12{% else %}row justify-content-center py-5{% endif %}">
+    <div class="{% if css_framework != 'tailwind' %}col-md-6 col-lg-5{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow p-8{% else %}card{% endif %}">
+            <div class="{% if css_framework != 'tailwind' %}card-body p-4{% endif %}">
+                <h2 class="{% if css_framework == 'tailwind' %}text-2xl font-bold text-center mb-6{% else %}text-center mb-4{% endif %}">Create Account</h2>
+
+                <form hx-post="{% url 'account_signup' %}" hx-target="body" hx-push-url="true"
+                      hx-indicator="#register-loading">
+                    {% csrf_token %}
+
+                    <div class="{% if css_framework == 'tailwind' %}grid grid-cols-2 gap-4 mb-4{% else %}row g-3 mb-3{% endif %}">
+                        <div class="{% if css_framework != 'tailwind' %}col-6{% endif %}">
+                            <label for="first_name" class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-2{% else %}form-label{% endif %}">
+                                First Name
+                            </label>
+                            <input type="text" name="first_name" id="first_name" required
+                                   class="{% if css_framework == 'tailwind' %}w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500{% else %}form-control{% endif %}">
+                        </div>
+                        <div class="{% if css_framework != 'tailwind' %}col-6{% endif %}">
+                            <label for="last_name" class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-2{% else %}form-label{% endif %}">
+                                Last Name
+                            </label>
+                            <input type="text" name="last_name" id="last_name" required
+                                   class="{% if css_framework == 'tailwind' %}w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500{% else %}form-control{% endif %}">
+                        </div>
+                    </div>
+
+                    <div class="{% if css_framework == 'tailwind' %}mb-4{% else %}mb-3{% endif %}">
+                        <label for="username" class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-2{% else %}form-label{% endif %}">
+                            Username
+                        </label>
+                        <input type="text" name="username" id="username" required
+                               hx-post="{% url 'shop:check_username' %}" hx-trigger="blur"
+                               hx-target="#username-feedback" hx-swap="innerHTML"
+                               pattern="^[a-zA-Z0-9_]{3,20}$"
+                               class="{% if css_framework == 'tailwind' %}w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500{% else %}form-control{% endif %}"
+                               placeholder="Choose a username">
+                        <div id="username-feedback" class="{% if css_framework == 'tailwind' %}text-sm mt-1{% else %}small mt-1{% endif %}"></div>
+                    </div>
+
+                    <div class="{% if css_framework == 'tailwind' %}mb-4{% else %}mb-3{% endif %}">
+                        <label for="email" class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-2{% else %}form-label{% endif %}">
+                            Email Address
+                        </label>
+                        <input type="email" name="email" id="email" required
+                               hx-post="{% url 'shop:check_email' %}" hx-trigger="blur"
+                               hx-target="#email-feedback" hx-swap="innerHTML"
+                               class="{% if css_framework == 'tailwind' %}w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500{% else %}form-control{% endif %}"
+                               placeholder="you@example.com">
+                        <div id="email-feedback" class="{% if css_framework == 'tailwind' %}text-sm mt-1{% else %}small mt-1{% endif %}"></div>
+                    </div>
+
+                    <div class="{% if css_framework == 'tailwind' %}mb-4{% else %}mb-3{% endif %}">
+                        <label for="password1" class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-2{% else %}form-label{% endif %}">
+                            Password
+                        </label>
+                        <input type="password" name="password1" id="password1" required
+                               hx-post="{% url 'shop:check_password' %}" hx-trigger="keyup changed delay:300ms"
+                               hx-target="#password-strength" hx-swap="innerHTML"
+                               minlength="8"
+                               class="{% if css_framework == 'tailwind' %}w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500{% else %}form-control{% endif %}"
+                               placeholder="Create a strong password">
+                        <div id="password-strength" class="{% if css_framework == 'tailwind' %}mt-2{% else %}mt-2{% endif %}">
+                            <div class="{% if css_framework == 'tailwind' %}text-xs text-gray-500{% else %}small text-muted{% endif %}">
+                                Password must be at least 8 characters with uppercase, lowercase, number, and special character.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="{% if css_framework == 'tailwind' %}mb-6{% else %}mb-4{% endif %}">
+                        <label for="password2" class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-2{% else %}form-label{% endif %}">
+                            Confirm Password
+                        </label>
+                        <input type="password" name="password2" id="password2" required
+                               oninput="checkPasswordMatch()"
+                               class="{% if css_framework == 'tailwind' %}w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500{% else %}form-control{% endif %}"
+                               placeholder="Confirm your password">
+                        <div id="password-match" class="{% if css_framework == 'tailwind' %}text-sm mt-1{% else %}small mt-1{% endif %}"></div>
+                    </div>
+
+                    <div class="{% if css_framework == 'tailwind' %}flex items-start mb-6{% else %}form-check mb-4{% endif %}">
+                        <input type="checkbox" name="terms" id="terms" required
+                               class="{% if css_framework == 'tailwind' %}mt-1 mr-2{% else %}form-check-input{% endif %}">
+                        <label for="terms" class="{% if css_framework == 'tailwind' %}text-sm text-gray-600{% else %}form-check-label small{% endif %}">
+                            I agree to the
+                            <a href="{% url 'shop:terms' %}" class="{% if css_framework == 'tailwind' %}text-blue-600{% else %}text-primary{% endif %}">Terms of Service</a>
+                            and
+                            <a href="{% url 'shop:privacy' %}" class="{% if css_framework == 'tailwind' %}text-blue-600{% else %}text-primary{% endif %}">Privacy Policy</a>
+                        </label>
+                    </div>
+
+                    <button type="submit"
+                            class="{% if css_framework == 'tailwind' %}w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50{% else %}btn btn-primary btn-lg w-100{% endif %}">
+                        <span id="register-loading" class="htmx-indicator">Creating account...</span>
+                        <span>Create Account</span>
+                    </button>
+                </form>
+
+                <div class="{% if css_framework == 'tailwind' %}my-6 flex items-center{% else %}my-4 d-flex align-items-center{% endif %}">
+                    <hr class="{% if css_framework == 'tailwind' %}flex-1{% else %}flex-grow-1{% endif %}">
+                    <span class="{% if css_framework == 'tailwind' %}px-4 text-gray-500 text-sm{% else %}px-3 text-muted{% endif %}">or sign up with</span>
+                    <hr class="{% if css_framework == 'tailwind' %}flex-1{% else %}flex-grow-1{% endif %}">
+                </div>
+
+                <div class="{% if css_framework == 'tailwind' %}flex gap-4{% else %}d-flex gap-3{% endif %}">
+                    <a href="{% url 'social:begin' 'google-oauth2' %}"
+                       class="{% if css_framework == 'tailwind' %}flex-1 flex items-center justify-center py-3 border rounded-lg hover:bg-gray-50{% else %}btn btn-outline-secondary flex-fill{% endif %}">
+                        <span class="me-2">📱</span> Google
+                    </a>
+                    <a href="{% url 'social:begin' 'facebook' %}"
+                       class="{% if css_framework == 'tailwind' %}flex-1 flex items-center justify-center py-3 border rounded-lg hover:bg-gray-50{% else %}btn btn-outline-secondary flex-fill{% endif %}">
+                        <span class="me-2">📘</span> Facebook
+                    </a>
+                </div>
+
+                <p class="{% if css_framework == 'tailwind' %}text-center mt-6 text-gray-600{% else %}text-center mt-4 text-muted{% endif %}">
+                    Already have an account?
+                    <a href="{% url 'account_login' %}"
+                       class="{% if css_framework == 'tailwind' %}text-blue-600 hover:text-blue-800 font-semibold{% else %}text-primary fw-bold{% endif %}">
+                        Sign in
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function checkPasswordMatch() {
+    var password1 = document.getElementById('password1').value;
+    var password2 = document.getElementById('password2').value;
+    var feedback = document.getElementById('password-match');
+
+    if (password2.length > 0) {
+        if (password1 === password2) {
+            feedback.innerHTML = '<span class="{% if css_framework == "tailwind" %}text-green-600{% else %}text-success{% endif %}">✓ Passwords match</span>';
+        } else {
+            feedback.innerHTML = '<span class="{% if css_framework == "tailwind" %}text-red-600{% else %}text-danger{% endif %}">✗ Passwords do not match</span>';
+        }
+    } else {
+        feedback.innerHTML = '';
+    }
+}
+</script>
+
+<style>
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator { display: inline; }
+.htmx-request .htmx-indicator + span { display: none; }
+</style>
+{% endblock %}
+{% endraw %}

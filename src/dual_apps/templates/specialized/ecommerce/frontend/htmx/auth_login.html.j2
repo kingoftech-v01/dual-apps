@@ -1,0 +1,111 @@
+{% raw %}{% extends "base.html" %}
+
+{% block title %}Login - {{ project_name_display }}{% endblock %}
+
+{% block content %}
+<div class="{% if css_framework == 'tailwind' %}max-w-md mx-auto py-12{% else %}row justify-content-center py-5{% endif %}">
+    <div class="{% if css_framework != 'tailwind' %}col-md-6 col-lg-5{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow p-8{% else %}card{% endif %}">
+            <div class="{% if css_framework != 'tailwind' %}card-body p-4{% endif %}">
+                <h2 class="{% if css_framework == 'tailwind' %}text-2xl font-bold text-center mb-6{% else %}text-center mb-4{% endif %}">Welcome Back</h2>
+
+                {% if messages %}
+                {% for message in messages %}
+                <div class="{% if css_framework == 'tailwind' %}p-4 mb-4 rounded {% if message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}{% else %}alert alert-{{ message.tags }} alert-dismissible fade show{% endif %}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <form hx-post="{% url 'account_login' %}" hx-target="body" hx-push-url="true"
+                      hx-indicator="#login-loading">
+                    {% csrf_token %}
+
+                    <div class="{% if css_framework == 'tailwind' %}mb-4{% else %}mb-3{% endif %}">
+                        <label for="username" class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-2{% else %}form-label{% endif %}">
+                            Email or Username
+                        </label>
+                        <input type="text" name="login" id="username" required autofocus
+                               class="{% if css_framework == 'tailwind' %}w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500{% else %}form-control form-control-lg{% endif %}"
+                               placeholder="Enter your email or username">
+                    </div>
+
+                    <div class="{% if css_framework == 'tailwind' %}mb-4{% else %}mb-3{% endif %}">
+                        <div class="{% if css_framework == 'tailwind' %}flex justify-between items-center mb-2{% else %}d-flex justify-content-between align-items-center{% endif %}">
+                            <label for="password" class="{% if css_framework == 'tailwind' %}text-sm font-medium{% else %}form-label{% endif %}">
+                                Password
+                            </label>
+                            <a href="{% url 'account_reset_password' %}"
+                               class="{% if css_framework == 'tailwind' %}text-sm text-blue-600 hover:text-blue-800{% else %}small text-primary{% endif %}">
+                                Forgot password?
+                            </a>
+                        </div>
+                        <div class="{% if css_framework == 'tailwind' %}relative{% else %}position-relative{% endif %}">
+                            <input type="password" name="password" id="password" required
+                                   class="{% if css_framework == 'tailwind' %}w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500{% else %}form-control form-control-lg{% endif %}"
+                                   placeholder="Enter your password">
+                            <button type="button" onclick="togglePassword()"
+                                    class="{% if css_framework == 'tailwind' %}absolute right-3 top-1/2 -translate-y-1/2 text-gray-500{% else %}btn btn-link position-absolute end-0 top-50 translate-middle-y{% endif %}">
+                                👁️
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="{% if css_framework == 'tailwind' %}flex items-center mb-6{% else %}form-check mb-4{% endif %}">
+                        <input type="checkbox" name="remember" id="remember"
+                               class="{% if css_framework == 'tailwind' %}mr-2{% else %}form-check-input{% endif %}">
+                        <label for="remember" class="{% if css_framework == 'tailwind' %}text-sm{% else %}form-check-label{% endif %}">
+                            Remember me
+                        </label>
+                    </div>
+
+                    <button type="submit"
+                            class="{% if css_framework == 'tailwind' %}w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50{% else %}btn btn-primary btn-lg w-100{% endif %}">
+                        <span id="login-loading" class="htmx-indicator">Signing in...</span>
+                        <span>Sign In</span>
+                    </button>
+                </form>
+
+                <div class="{% if css_framework == 'tailwind' %}my-6 flex items-center{% else %}my-4 d-flex align-items-center{% endif %}">
+                    <hr class="{% if css_framework == 'tailwind' %}flex-1{% else %}flex-grow-1{% endif %}">
+                    <span class="{% if css_framework == 'tailwind' %}px-4 text-gray-500 text-sm{% else %}px-3 text-muted{% endif %}">or continue with</span>
+                    <hr class="{% if css_framework == 'tailwind' %}flex-1{% else %}flex-grow-1{% endif %}">
+                </div>
+
+                <div class="{% if css_framework == 'tailwind' %}flex gap-4{% else %}d-flex gap-3{% endif %}">
+                    <a href="{% url 'social:begin' 'google-oauth2' %}"
+                       class="{% if css_framework == 'tailwind' %}flex-1 flex items-center justify-center py-3 border rounded-lg hover:bg-gray-50{% else %}btn btn-outline-secondary flex-fill{% endif %}">
+                        <span class="me-2">📱</span> Google
+                    </a>
+                    <a href="{% url 'social:begin' 'facebook' %}"
+                       class="{% if css_framework == 'tailwind' %}flex-1 flex items-center justify-center py-3 border rounded-lg hover:bg-gray-50{% else %}btn btn-outline-secondary flex-fill{% endif %}">
+                        <span class="me-2">📘</span> Facebook
+                    </a>
+                </div>
+
+                <p class="{% if css_framework == 'tailwind' %}text-center mt-6 text-gray-600{% else %}text-center mt-4 text-muted{% endif %}">
+                    Don't have an account?
+                    <a href="{% url 'account_signup' %}"
+                       class="{% if css_framework == 'tailwind' %}text-blue-600 hover:text-blue-800 font-semibold{% else %}text-primary fw-bold{% endif %}">
+                        Sign up
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePassword() {
+    var input = document.getElementById('password');
+    input.type = input.type === 'password' ? 'text' : 'password';
+}
+</script>
+
+<style>
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator { display: inline; }
+.htmx-request .htmx-indicator + span { display: none; }
+</style>
+{% endblock %}
+{% endraw %}

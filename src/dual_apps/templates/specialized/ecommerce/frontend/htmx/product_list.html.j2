@@ -1,0 +1,263 @@
+{% raw %}{% extends "base.html" %}
+
+{% block title %}Products - {{ project_name_display }}{% endblock %}
+
+{% block content %}
+<div class="{% if css_framework == 'tailwind' %}flex flex-col md:flex-row gap-8{% else %}row{% endif %}">
+    <!-- Sidebar Filters -->
+    <aside class="{% if css_framework == 'tailwind' %}w-full md:w-64 shrink-0{% else %}col-lg-3{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow p-6{% else %}card{% endif %}">
+            <div class="{% if css_framework != 'tailwind' %}card-body{% endif %}">
+                <h5 class="{% if css_framework == 'tailwind' %}text-lg font-bold mb-4{% else %}card-title{% endif %}">Filters</h5>
+
+                <form hx-get="{% url 'shop:product_list' %}" hx-target="#product-grid" hx-push-url="true"
+                      hx-trigger="change delay:300ms" id="filter-form">
+
+                    <!-- Categories -->
+                    <div class="{% if css_framework == 'tailwind' %}mb-6{% else %}mb-4{% endif %}">
+                        <h6 class="{% if css_framework == 'tailwind' %}font-semibold mb-3{% else %}fw-bold mb-2{% endif %}">Categories</h6>
+                        <div id="category-filters" hx-get="{% url 'shop:filter_categories' %}" hx-trigger="load">
+                            <!-- Categories loaded via HTMX -->
+                        </div>
+                    </div>
+
+                    <!-- Price Range -->
+                    <div class="{% if css_framework == 'tailwind' %}mb-6{% else %}mb-4{% endif %}">
+                        <h6 class="{% if css_framework == 'tailwind' %}font-semibold mb-3{% else %}fw-bold mb-2{% endif %}">Price Range</h6>
+                        <div class="{% if css_framework == 'tailwind' %}flex gap-2{% else %}row g-2{% endif %}">
+                            <div class="{% if css_framework != 'tailwind' %}col-6{% endif %}">
+                                <input type="number" name="min_price" placeholder="Min"
+                                       class="{% if css_framework == 'tailwind' %}w-full px-3 py-2 border rounded{% else %}form-control form-control-sm{% endif %}"
+                                       value="{{ request.GET.min_price }}" min="0">
+                            </div>
+                            <div class="{% if css_framework != 'tailwind' %}col-6{% endif %}">
+                                <input type="number" name="max_price" placeholder="Max"
+                                       class="{% if css_framework == 'tailwind' %}w-full px-3 py-2 border rounded{% else %}form-control form-control-sm{% endif %}"
+                                       value="{{ request.GET.max_price }}" min="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rating Filter -->
+                    <div class="{% if css_framework == 'tailwind' %}mb-6{% else %}mb-4{% endif %}">
+                        <h6 class="{% if css_framework == 'tailwind' %}font-semibold mb-3{% else %}fw-bold mb-2{% endif %}">Rating</h6>
+                        {% for i in "54321" %}
+                        <div class="{% if css_framework == 'tailwind' %}flex items-center mb-2{% else %}form-check{% endif %}">
+                            <input type="radio" name="rating" value="{{ i }}" id="rating_{{ i }}"
+                                   class="{% if css_framework == 'tailwind' %}mr-2{% else %}form-check-input{% endif %}"
+                                   {% if request.GET.rating == i %}checked{% endif %}>
+                            <label for="rating_{{ i }}" class="{% if css_framework == 'tailwind' %}text-yellow-500{% else %}form-check-label{% endif %}">
+                                {% for j in "12345" %}{% if forloop.counter <= i|add:0 %}★{% else %}☆{% endif %}{% endfor %} & up
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Availability -->
+                    <div class="{% if css_framework == 'tailwind' %}mb-6{% else %}mb-4{% endif %}">
+                        <h6 class="{% if css_framework == 'tailwind' %}font-semibold mb-3{% else %}fw-bold mb-2{% endif %}">Availability</h6>
+                        <div class="{% if css_framework == 'tailwind' %}flex items-center mb-2{% else %}form-check{% endif %}">
+                            <input type="checkbox" name="in_stock" value="1" id="in_stock"
+                                   class="{% if css_framework == 'tailwind' %}mr-2{% else %}form-check-input{% endif %}"
+                                   {% if request.GET.in_stock %}checked{% endif %}>
+                            <label for="in_stock" class="{% if css_framework != 'tailwind' %}form-check-label{% endif %}">In Stock Only</label>
+                        </div>
+                        <div class="{% if css_framework == 'tailwind' %}flex items-center{% else %}form-check{% endif %}">
+                            <input type="checkbox" name="on_sale" value="1" id="on_sale"
+                                   class="{% if css_framework == 'tailwind' %}mr-2{% else %}form-check-input{% endif %}"
+                                   {% if request.GET.on_sale %}checked{% endif %}>
+                            <label for="on_sale" class="{% if css_framework != 'tailwind' %}form-check-label{% endif %}">On Sale</label>
+                        </div>
+                    </div>
+
+                    <button type="button" onclick="clearFilters()"
+                            class="{% if css_framework == 'tailwind' %}w-full py-2 text-gray-600 border rounded hover:bg-gray-50{% else %}btn btn-outline-secondary w-100{% endif %}">
+                        Clear Filters
+                    </button>
+                </form>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Product Grid -->
+    <div class="{% if css_framework == 'tailwind' %}flex-1{% else %}col-lg-9{% endif %}">
+        <!-- Sort & View Controls -->
+        <div class="{% if css_framework == 'tailwind' %}flex justify-between items-center mb-6{% else %}d-flex justify-content-between align-items-center mb-4{% endif %}">
+            <div>
+                <span id="product-count" class="{% if css_framework == 'tailwind' %}text-gray-600{% else %}text-muted{% endif %}">
+                    {{ products.paginator.count }} products
+                </span>
+            </div>
+            <div class="{% if css_framework == 'tailwind' %}flex items-center gap-4{% else %}d-flex align-items-center gap-3{% endif %}">
+                <select name="sort" form="filter-form"
+                        class="{% if css_framework == 'tailwind' %}px-4 py-2 border rounded{% else %}form-select{% endif %}"
+                        hx-get="{% url 'shop:product_list' %}" hx-target="#product-grid" hx-include="#filter-form">
+                    <option value="newest" {% if request.GET.sort == 'newest' %}selected{% endif %}>Newest</option>
+                    <option value="price_low" {% if request.GET.sort == 'price_low' %}selected{% endif %}>Price: Low to High</option>
+                    <option value="price_high" {% if request.GET.sort == 'price_high' %}selected{% endif %}>Price: High to Low</option>
+                    <option value="popular" {% if request.GET.sort == 'popular' %}selected{% endif %}>Most Popular</option>
+                    <option value="rating" {% if request.GET.sort == 'rating' %}selected{% endif %}>Highest Rated</option>
+                </select>
+
+                <!-- View Toggle -->
+                <div class="{% if css_framework == 'tailwind' %}flex border rounded{% else %}btn-group{% endif %}">
+                    <button type="button" onclick="setView('grid')" id="view-grid"
+                            class="{% if css_framework == 'tailwind' %}px-3 py-2 bg-gray-100{% else %}btn btn-outline-secondary active{% endif %}">
+                        ⊞
+                    </button>
+                    <button type="button" onclick="setView('list')" id="view-list"
+                            class="{% if css_framework == 'tailwind' %}px-3 py-2{% else %}btn btn-outline-secondary{% endif %}">
+                        ☰
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Products -->
+        <div id="product-grid" class="{% if css_framework == 'tailwind' %}grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6{% else %}row{% endif %}">
+            {% for product in products %}
+            <div class="product-card {% if css_framework != 'tailwind' %}col-md-6 col-lg-4 mb-4{% endif %}">
+                <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow{% else %}card h-100{% endif %}">
+                    <div class="{% if css_framework == 'tailwind' %}relative{% else %}position-relative{% endif %}">
+                        {% if product.image %}
+                        <a href="{% url 'shop:product_detail' product.slug %}">
+                            <img src="{{ product.image.url }}" alt="{{ product.name }}"
+                                 class="{% if css_framework == 'tailwind' %}w-full h-48 object-cover{% else %}card-img-top{% endif %}"
+                                 loading="lazy" style="{% if css_framework != 'tailwind' %}height: 200px; object-fit: cover;{% endif %}">
+                        </a>
+                        {% endif %}
+                        {% if product.sale_price %}
+                        <span class="{% if css_framework == 'tailwind' %}absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded{% else %}badge bg-danger position-absolute top-0 start-0 m-2{% endif %}">
+                            Sale
+                        </span>
+                        {% endif %}
+                        <button type="button"
+                                hx-post="{% url 'shop:wishlist_toggle' product.pk %}"
+                                hx-swap="none"
+                                hx-on::after-request="htmx.trigger(document.body, 'wishlistUpdated')"
+                                class="{% if css_framework == 'tailwind' %}absolute top-2 right-2 p-2 bg-white rounded-full shadow hover:bg-gray-100{% else %}btn btn-sm btn-light position-absolute top-0 end-0 m-2{% endif %}">
+                            ❤️
+                        </button>
+                    </div>
+                    <div class="{% if css_framework == 'tailwind' %}p-4{% else %}card-body{% endif %}">
+                        <a href="{% url 'shop:product_detail' product.slug %}"
+                           class="{% if css_framework == 'tailwind' %}text-lg font-semibold text-gray-900 hover:text-blue-600{% else %}h6 card-title text-decoration-none{% endif %}">
+                            {{ product.name }}
+                        </a>
+                        <div class="{% if css_framework == 'tailwind' %}flex items-center mt-2{% else %}mt-2{% endif %}">
+                            <span class="{% if css_framework == 'tailwind' %}text-yellow-400{% else %}text-warning{% endif %}">
+                                {% for i in "12345" %}{% if forloop.counter <= product.avg_rating %}★{% else %}☆{% endif %}{% endfor %}
+                            </span>
+                            <span class="{% if css_framework == 'tailwind' %}text-gray-500 text-sm ml-2{% else %}text-muted small ms-2{% endif %}">
+                                ({{ product.review_count }})
+                            </span>
+                        </div>
+                        <div class="{% if css_framework == 'tailwind' %}flex items-center justify-between mt-4{% else %}d-flex justify-content-between align-items-center mt-3{% endif %}">
+                            <div>
+                                {% if product.sale_price %}
+                                <span class="{% if css_framework == 'tailwind' %}text-lg font-bold text-gray-900{% else %}h5 mb-0{% endif %}">${{ product.sale_price }}</span>
+                                <span class="{% if css_framework == 'tailwind' %}text-sm text-gray-500 line-through ml-2{% else %}text-muted text-decoration-line-through small ms-2{% endif %}">${{ product.price }}</span>
+                                {% else %}
+                                <span class="{% if css_framework == 'tailwind' %}text-lg font-bold text-gray-900{% else %}h5 mb-0{% endif %}">${{ product.price }}</span>
+                                {% endif %}
+                            </div>
+                            {% if product.in_stock %}
+                            <button type="button"
+                                    hx-post="{% url 'shop:cart_add' product.pk %}"
+                                    hx-vals='{"quantity": 1}'
+                                    hx-swap="none"
+                                    hx-on::after-request="htmx.trigger(document.body, 'cartUpdated')"
+                                    class="{% if css_framework == 'tailwind' %}bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700{% else %}btn btn-primary btn-sm{% endif %}">
+                                Add
+                            </button>
+                            {% else %}
+                            <span class="{% if css_framework == 'tailwind' %}text-gray-500 text-sm{% else %}badge bg-secondary{% endif %}">Out of Stock</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="{% if css_framework == 'tailwind' %}col-span-full text-center py-12{% else %}col-12 text-center py-5{% endif %}">
+                <div class="{% if css_framework == 'tailwind' %}text-6xl mb-4{% else %}mb-4{% endif %}" style="font-size: 5rem;">🔍</div>
+                <h3>No products found</h3>
+                <p class="{% if css_framework == 'tailwind' %}text-gray-500{% else %}text-muted{% endif %}">Try adjusting your filters</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if products.has_other_pages %}
+        <nav class="{% if css_framework == 'tailwind' %}flex justify-center mt-8{% else %}d-flex justify-content-center mt-4{% endif %}">
+            <div class="{% if css_framework == 'tailwind' %}flex gap-2{% else %}pagination{% endif %}"
+                 hx-target="#product-grid" hx-swap="innerHTML" hx-push-url="true">
+                {% if products.has_previous %}
+                <a hx-get="{% url 'shop:product_list' %}?page={{ products.previous_page_number }}"
+                   class="{% if css_framework == 'tailwind' %}px-4 py-2 border rounded hover:bg-gray-100{% else %}page-link{% endif %}">
+                    Previous
+                </a>
+                {% endif %}
+                {% for num in products.paginator.page_range %}
+                {% if num == products.number %}
+                <span class="{% if css_framework == 'tailwind' %}px-4 py-2 bg-blue-600 text-white rounded{% else %}page-item active{% endif %}">
+                    <span class="{% if css_framework != 'tailwind' %}page-link{% endif %}">{{ num }}</span>
+                </span>
+                {% elif num > products.number|add:'-3' and num < products.number|add:'3' %}
+                <a hx-get="{% url 'shop:product_list' %}?page={{ num }}"
+                   class="{% if css_framework == 'tailwind' %}px-4 py-2 border rounded hover:bg-gray-100{% else %}page-link{% endif %}">
+                    {{ num }}
+                </a>
+                {% endif %}
+                {% endfor %}
+                {% if products.has_next %}
+                <a hx-get="{% url 'shop:product_list' %}?page={{ products.next_page_number }}"
+                   class="{% if css_framework == 'tailwind' %}px-4 py-2 border rounded hover:bg-gray-100{% else %}page-link{% endif %}">
+                    Next
+                </a>
+                {% endif %}
+            </div>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function clearFilters() {
+    document.getElementById('filter-form').reset();
+    htmx.ajax('GET', '{% url "shop:product_list" %}', '#product-grid');
+}
+
+function setView(view) {
+    var grid = document.getElementById('product-grid');
+    var cards = grid.querySelectorAll('.product-card');
+
+    document.getElementById('view-grid').classList.toggle('{% if css_framework == "tailwind" %}bg-gray-100{% else %}active{% endif %}', view === 'grid');
+    document.getElementById('view-list').classList.toggle('{% if css_framework == "tailwind" %}bg-gray-100{% else %}active{% endif %}', view === 'list');
+
+    if (view === 'list') {
+        {% if css_framework == 'tailwind' %}
+        grid.className = 'flex flex-col gap-4';
+        cards.forEach(function(card) {
+            card.className = 'product-card';
+            card.querySelector('.{% if css_framework == "tailwind" %}bg-white{% else %}card{% endif %}').className = 'bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow flex';
+        });
+        {% else %}
+        grid.className = 'row';
+        cards.forEach(function(card) {
+            card.className = 'product-card col-12 mb-3';
+        });
+        {% endif %}
+    } else {
+        {% if css_framework == 'tailwind' %}
+        grid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6';
+        {% else %}
+        grid.className = 'row';
+        cards.forEach(function(card) {
+            card.className = 'product-card col-md-6 col-lg-4 mb-4';
+        });
+        {% endif %}
+    }
+}
+</script>
+{% endblock %}
+{% endraw %}

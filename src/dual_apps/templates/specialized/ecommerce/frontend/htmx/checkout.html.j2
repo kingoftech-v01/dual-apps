@@ -1,0 +1,338 @@
+{% raw %}{% extends "base.html" %}
+
+{% block title %}Checkout - {{ project_name_display }}{% endblock %}
+
+{% block content %}
+<h1 class="{% if css_framework == 'tailwind' %}text-2xl font-bold mb-6{% else %}mb-4{% endif %}">Checkout</h1>
+
+<form hx-post="{% url 'shop:checkout_process' %}" hx-indicator="#checkout-loading"
+      hx-disabled-elt="#submit-btn" class="{% if css_framework == 'tailwind' %}grid grid-cols-1 lg:grid-cols-3 gap-8{% else %}row{% endif %}">
+    {% csrf_token %}
+
+    <div class="{% if css_framework == 'tailwind' %}lg:col-span-2 space-y-6{% else %}col-lg-8{% endif %}">
+        <!-- Contact Information -->
+        <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow p-6{% else %}card mb-4{% endif %}">
+            <div class="{% if css_framework != 'tailwind' %}card-body{% endif %}">
+                <h5 class="{% if css_framework == 'tailwind' %}text-lg font-bold mb-4{% else %}card-title{% endif %}">Contact Information</h5>
+
+                <div class="{% if css_framework == 'tailwind' %}grid grid-cols-1 md:grid-cols-2 gap-4{% else %}row g-3{% endif %}">
+                    <div class="{% if css_framework != 'tailwind' %}col-md-6{% endif %}">
+                        <label class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-1{% else %}form-label{% endif %}">Email *</label>
+                        <input type="email" name="email" required
+                               value="{{ user.email|default:'' }}"
+                               hx-post="{% url 'shop:validate_email' %}" hx-trigger="blur"
+                               hx-target="#email-validation" hx-swap="innerHTML"
+                               class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded focus:ring-2 focus:ring-blue-500{% else %}form-control{% endif %}">
+                        <div id="email-validation"></div>
+                    </div>
+                    <div class="{% if css_framework != 'tailwind' %}col-md-6{% endif %}">
+                        <label class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-1{% else %}form-label{% endif %}">Phone *</label>
+                        <input type="tel" name="phone" required
+                               value="{{ user.profile.phone|default:'' }}"
+                               pattern="[0-9+\-\s()]{7,20}"
+                               class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded focus:ring-2 focus:ring-blue-500{% else %}form-control{% endif %}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shipping Address -->
+        <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow p-6{% else %}card mb-4{% endif %}">
+            <div class="{% if css_framework != 'tailwind' %}card-body{% endif %}">
+                <div class="{% if css_framework == 'tailwind' %}flex justify-between items-center mb-4{% else %}d-flex justify-content-between align-items-center mb-3{% endif %}">
+                    <h5 class="{% if css_framework == 'tailwind' %}text-lg font-bold{% else %}card-title mb-0{% endif %}">Shipping Address</h5>
+                    {% if user.is_authenticated and saved_addresses %}
+                    <select hx-get="{% url 'shop:load_address' %}" hx-target="#shipping-fields" hx-trigger="change"
+                            name="saved_address"
+                            class="{% if css_framework == 'tailwind' %}px-3 py-2 border rounded{% else %}form-select{% endif %}" style="width: auto;">
+                        <option value="">Select saved address</option>
+                        {% for addr in saved_addresses %}
+                        <option value="{{ addr.pk }}">{{ addr.label|default:"Address" }} - {{ addr.city }}</option>
+                        {% endfor %}
+                    </select>
+                    {% endif %}
+                </div>
+
+                <div id="shipping-fields" class="{% if css_framework == 'tailwind' %}space-y-4{% else %}{% endif %}">
+                    <div class="{% if css_framework == 'tailwind' %}grid grid-cols-1 md:grid-cols-2 gap-4{% else %}row g-3{% endif %}">
+                        <div class="{% if css_framework != 'tailwind' %}col-md-6{% endif %}">
+                            <label class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-1{% else %}form-label{% endif %}">First Name *</label>
+                            <input type="text" name="shipping_first_name" required
+                                   value="{{ user.first_name|default:'' }}"
+                                   class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded{% else %}form-control{% endif %}">
+                        </div>
+                        <div class="{% if css_framework != 'tailwind' %}col-md-6{% endif %}">
+                            <label class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-1{% else %}form-label{% endif %}">Last Name *</label>
+                            <input type="text" name="shipping_last_name" required
+                                   value="{{ user.last_name|default:'' }}"
+                                   class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded{% else %}form-control{% endif %}">
+                        </div>
+                    </div>
+
+                    <div class="{% if css_framework != 'tailwind' %}mb-3{% endif %}">
+                        <label class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-1{% else %}form-label{% endif %}">Street Address *</label>
+                        <input type="text" name="shipping_address" required
+                               class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded{% else %}form-control{% endif %}">
+                    </div>
+
+                    <div class="{% if css_framework != 'tailwind' %}mb-3{% endif %}">
+                        <label class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-1{% else %}form-label{% endif %}">Apartment, Suite, etc.</label>
+                        <input type="text" name="shipping_address2"
+                               class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded{% else %}form-control{% endif %}">
+                    </div>
+
+                    <div class="{% if css_framework == 'tailwind' %}grid grid-cols-2 md:grid-cols-4 gap-4{% else %}row g-3{% endif %}">
+                        <div class="{% if css_framework == 'tailwind' %}col-span-2 md:col-span-1{% else %}col-md-3{% endif %}">
+                            <label class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-1{% else %}form-label{% endif %}">City *</label>
+                            <input type="text" name="shipping_city" required
+                                   class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded{% else %}form-control{% endif %}">
+                        </div>
+                        <div class="{% if css_framework != 'tailwind' %}col-md-3{% endif %}">
+                            <label class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-1{% else %}form-label{% endif %}">State *</label>
+                            <input type="text" name="shipping_state" required
+                                   class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded{% else %}form-control{% endif %}">
+                        </div>
+                        <div class="{% if css_framework != 'tailwind' %}col-md-3{% endif %}">
+                            <label class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-1{% else %}form-label{% endif %}">ZIP Code *</label>
+                            <input type="text" name="shipping_zip" required
+                                   hx-post="{% url 'shop:calculate_shipping' %}" hx-trigger="blur"
+                                   hx-target="#shipping-options" hx-include="[name='shipping_country']"
+                                   class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded{% else %}form-control{% endif %}">
+                        </div>
+                        <div class="{% if css_framework != 'tailwind' %}col-md-3{% endif %}">
+                            <label class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-1{% else %}form-label{% endif %}">Country *</label>
+                            <select name="shipping_country" required
+                                    class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded{% else %}form-select{% endif %}">
+                                <option value="US">United States</option>
+                                <option value="CA">Canada</option>
+                                <option value="GB">United Kingdom</option>
+                                <option value="AU">Australia</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {% if user.is_authenticated %}
+                    <div class="{% if css_framework == 'tailwind' %}flex items-center mt-2{% else %}form-check mt-2{% endif %}">
+                        <input type="checkbox" name="save_address" id="save_address"
+                               class="{% if css_framework == 'tailwind' %}mr-2{% else %}form-check-input{% endif %}">
+                        <label for="save_address" class="{% if css_framework != 'tailwind' %}form-check-label{% endif %}">
+                            Save this address for future orders
+                        </label>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Shipping Method -->
+        <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow p-6{% else %}card mb-4{% endif %}">
+            <div class="{% if css_framework != 'tailwind' %}card-body{% endif %}">
+                <h5 class="{% if css_framework == 'tailwind' %}text-lg font-bold mb-4{% else %}card-title{% endif %}">Shipping Method</h5>
+
+                <div id="shipping-options" class="{% if css_framework == 'tailwind' %}space-y-3{% else %}{% endif %}">
+                    <label class="{% if css_framework == 'tailwind' %}flex items-center p-4 border rounded cursor-pointer hover:border-blue-500{% else %}d-flex align-items-center p-3 border rounded mb-2{% endif %}">
+                        <input type="radio" name="shipping_method" value="standard" required checked
+                               hx-post="{% url 'shop:update_shipping' %}" hx-target="#order-summary"
+                               class="{% if css_framework == 'tailwind' %}mr-3{% else %}form-check-input me-3{% endif %}">
+                        <div class="{% if css_framework == 'tailwind' %}flex-1{% else %}flex-grow-1{% endif %}">
+                            <strong>Standard Shipping</strong>
+                            <p class="{% if css_framework == 'tailwind' %}text-sm text-gray-500{% else %}small text-muted mb-0{% endif %}">5-7 business days</p>
+                        </div>
+                        <span class="{% if css_framework == 'tailwind' %}font-semibold{% else %}fw-bold{% endif %}">$5.99</span>
+                    </label>
+
+                    <label class="{% if css_framework == 'tailwind' %}flex items-center p-4 border rounded cursor-pointer hover:border-blue-500{% else %}d-flex align-items-center p-3 border rounded mb-2{% endif %}">
+                        <input type="radio" name="shipping_method" value="express"
+                               hx-post="{% url 'shop:update_shipping' %}" hx-target="#order-summary"
+                               class="{% if css_framework == 'tailwind' %}mr-3{% else %}form-check-input me-3{% endif %}">
+                        <div class="{% if css_framework == 'tailwind' %}flex-1{% else %}flex-grow-1{% endif %}">
+                            <strong>Express Shipping</strong>
+                            <p class="{% if css_framework == 'tailwind' %}text-sm text-gray-500{% else %}small text-muted mb-0{% endif %}">2-3 business days</p>
+                        </div>
+                        <span class="{% if css_framework == 'tailwind' %}font-semibold{% else %}fw-bold{% endif %}">$14.99</span>
+                    </label>
+
+                    <label class="{% if css_framework == 'tailwind' %}flex items-center p-4 border rounded cursor-pointer hover:border-blue-500{% else %}d-flex align-items-center p-3 border rounded{% endif %}">
+                        <input type="radio" name="shipping_method" value="overnight"
+                               hx-post="{% url 'shop:update_shipping' %}" hx-target="#order-summary"
+                               class="{% if css_framework == 'tailwind' %}mr-3{% else %}form-check-input me-3{% endif %}">
+                        <div class="{% if css_framework == 'tailwind' %}flex-1{% else %}flex-grow-1{% endif %}">
+                            <strong>Overnight Shipping</strong>
+                            <p class="{% if css_framework == 'tailwind' %}text-sm text-gray-500{% else %}small text-muted mb-0{% endif %}">Next business day</p>
+                        </div>
+                        <span class="{% if css_framework == 'tailwind' %}font-semibold{% else %}fw-bold{% endif %}">$29.99</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Method -->
+        <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow p-6{% else %}card{% endif %}">
+            <div class="{% if css_framework != 'tailwind' %}card-body{% endif %}">
+                <h5 class="{% if css_framework == 'tailwind' %}text-lg font-bold mb-4{% else %}card-title{% endif %}">Payment Method</h5>
+
+                <div class="{% if css_framework == 'tailwind' %}space-y-4{% else %}{% endif %}">
+                    <div class="{% if css_framework == 'tailwind' %}flex gap-4 mb-4{% else %}d-flex gap-3 mb-3{% endif %}">
+                        <label class="{% if css_framework == 'tailwind' %}flex-1 flex items-center justify-center p-4 border rounded cursor-pointer hover:border-blue-500{% else %}flex-fill{% endif %}">
+                            <input type="radio" name="payment_method" value="card" required checked
+                                   onclick="showPaymentFields('card')"
+                                   class="{% if css_framework == 'tailwind' %}mr-2{% else %}form-check-input me-2{% endif %}">
+                            💳 Credit Card
+                        </label>
+                        <label class="{% if css_framework == 'tailwind' %}flex-1 flex items-center justify-center p-4 border rounded cursor-pointer hover:border-blue-500{% else %}flex-fill{% endif %}">
+                            <input type="radio" name="payment_method" value="paypal"
+                                   onclick="showPaymentFields('paypal')"
+                                   class="{% if css_framework == 'tailwind' %}mr-2{% else %}form-check-input me-2{% endif %}">
+                            PayPal
+                        </label>
+                    </div>
+
+                    <!-- Credit Card Fields -->
+                    <div id="card-fields" class="{% if css_framework == 'tailwind' %}space-y-4{% else %}{% endif %}">
+                        <div class="{% if css_framework != 'tailwind' %}mb-3{% endif %}">
+                            <label class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-1{% else %}form-label{% endif %}">Card Number *</label>
+                            <input type="text" name="card_number" placeholder="1234 5678 9012 3456"
+                                   pattern="[0-9\s]{13,19}" maxlength="19"
+                                   class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded{% else %}form-control{% endif %}">
+                        </div>
+                        <div class="{% if css_framework == 'tailwind' %}grid grid-cols-3 gap-4{% else %}row g-3{% endif %}">
+                            <div class="{% if css_framework != 'tailwind' %}col-md-4{% endif %}">
+                                <label class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-1{% else %}form-label{% endif %}">Expiry *</label>
+                                <input type="text" name="card_expiry" placeholder="MM/YY"
+                                       pattern="(0[1-9]|1[0-2])\/([0-9]{2})" maxlength="5"
+                                       class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded{% else %}form-control{% endif %}">
+                            </div>
+                            <div class="{% if css_framework != 'tailwind' %}col-md-4{% endif %}">
+                                <label class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-1{% else %}form-label{% endif %}">CVV *</label>
+                                <input type="text" name="card_cvv" placeholder="123"
+                                       pattern="[0-9]{3,4}" maxlength="4"
+                                       class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded{% else %}form-control{% endif %}">
+                            </div>
+                            <div class="{% if css_framework != 'tailwind' %}col-md-4{% endif %}">
+                                <label class="{% if css_framework == 'tailwind' %}block text-sm font-medium mb-1{% else %}form-label{% endif %}">Name on Card *</label>
+                                <input type="text" name="card_name"
+                                       class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded{% else %}form-control{% endif %}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PayPal Fields (hidden by default) -->
+                    <div id="paypal-fields" class="hidden {% if css_framework == 'tailwind' %}text-center py-8{% else %}text-center py-4{% endif %}">
+                        <p class="{% if css_framework == 'tailwind' %}text-gray-500{% else %}text-muted{% endif %}">You will be redirected to PayPal to complete your payment.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Summary -->
+    <div class="{% if css_framework != 'tailwind' %}col-lg-4{% endif %}">
+        <div id="order-summary" class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow p-6 sticky top-4{% else %}card{% endif %}">
+            <div class="{% if css_framework != 'tailwind' %}card-body{% endif %}">
+                <h5 class="{% if css_framework == 'tailwind' %}text-lg font-bold mb-4{% else %}card-title{% endif %}">Order Summary</h5>
+
+                <!-- Cart Items -->
+                <div class="{% if css_framework == 'tailwind' %}space-y-3 mb-4{% else %}mb-3{% endif %}">
+                    {% for item in cart_items %}
+                    <div class="{% if css_framework == 'tailwind' %}flex items-center gap-3{% else %}d-flex align-items-center mb-2{% endif %}">
+                        {% if item.product.image %}
+                        <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}"
+                             class="{% if css_framework == 'tailwind' %}w-12 h-12 object-cover rounded{% endif %}"
+                             style="width: 50px; height: 50px; object-fit: cover;">
+                        {% endif %}
+                        <div class="{% if css_framework == 'tailwind' %}flex-1{% else %}flex-grow-1{% endif %}">
+                            <p class="{% if css_framework == 'tailwind' %}text-sm font-medium{% else %}mb-0 small{% endif %}">{{ item.product.name }}</p>
+                            <p class="{% if css_framework == 'tailwind' %}text-xs text-gray-500{% else %}mb-0 small text-muted{% endif %}">Qty: {{ item.quantity }}</p>
+                        </div>
+                        <span class="{% if css_framework == 'tailwind' %}text-sm font-medium{% else %}small{% endif %}">${{ item.total }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <hr class="{% if css_framework == 'tailwind' %}my-4{% else %}my-3{% endif %}">
+
+                <div class="{% if css_framework == 'tailwind' %}space-y-2{% else %}{% endif %}">
+                    <div class="{% if css_framework == 'tailwind' %}flex justify-between{% else %}d-flex justify-content-between mb-2{% endif %}">
+                        <span class="{% if css_framework == 'tailwind' %}text-gray-600{% else %}text-muted{% endif %}">Subtotal</span>
+                        <span>${{ cart.subtotal }}</span>
+                    </div>
+                    <div class="{% if css_framework == 'tailwind' %}flex justify-between{% else %}d-flex justify-content-between mb-2{% endif %}">
+                        <span class="{% if css_framework == 'tailwind' %}text-gray-600{% else %}text-muted{% endif %}">Shipping</span>
+                        <span id="summary-shipping">$5.99</span>
+                    </div>
+                    <div class="{% if css_framework == 'tailwind' %}flex justify-between{% else %}d-flex justify-content-between mb-2{% endif %}">
+                        <span class="{% if css_framework == 'tailwind' %}text-gray-600{% else %}text-muted{% endif %}">Tax</span>
+                        <span>${{ cart.tax }}</span>
+                    </div>
+                    {% if cart.discount %}
+                    <div class="{% if css_framework == 'tailwind' %}flex justify-between text-green-600{% else %}d-flex justify-content-between mb-2 text-success{% endif %}">
+                        <span>Discount</span>
+                        <span>-${{ cart.discount }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <hr class="{% if css_framework == 'tailwind' %}my-4{% else %}my-3{% endif %}">
+
+                <div class="{% if css_framework == 'tailwind' %}flex justify-between text-lg font-bold{% else %}d-flex justify-content-between{% endif %}">
+                    <span>Total</span>
+                    <span id="summary-total" class="{% if css_framework != 'tailwind' %}h4 mb-0{% endif %}">${{ cart.total }}</span>
+                </div>
+
+                <button type="submit" id="submit-btn"
+                        class="{% if css_framework == 'tailwind' %}w-full mt-6 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-50{% else %}btn btn-primary btn-lg w-100 mt-4{% endif %}">
+                    <span id="checkout-loading" class="htmx-indicator">Processing...</span>
+                    <span>Place Order</span>
+                </button>
+
+                <p class="{% if css_framework == 'tailwind' %}text-center text-xs text-gray-500 mt-4{% else %}text-center small text-muted mt-3{% endif %}">
+                    By placing your order, you agree to our
+                    <a href="{% url 'shop:terms' %}" class="{% if css_framework == 'tailwind' %}text-blue-600{% else %}text-primary{% endif %}">Terms of Service</a>
+                    and
+                    <a href="{% url 'shop:privacy' %}" class="{% if css_framework == 'tailwind' %}text-blue-600{% else %}text-primary{% endif %}">Privacy Policy</a>.
+                </p>
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+function showPaymentFields(method) {
+    document.getElementById('card-fields').classList.toggle('hidden', method !== 'card');
+    document.getElementById('paypal-fields').classList.toggle('hidden', method !== 'paypal');
+
+    // Toggle required on card fields
+    var cardInputs = document.querySelectorAll('#card-fields input');
+    cardInputs.forEach(function(input) {
+        if (method === 'card') {
+            input.setAttribute('required', '');
+        } else {
+            input.removeAttribute('required');
+        }
+    });
+}
+
+// Format card number with spaces
+document.querySelector('[name="card_number"]').addEventListener('input', function(e) {
+    var value = e.target.value.replace(/\s/g, '').replace(/(\d{4})/g, '$1 ').trim();
+    e.target.value = value;
+});
+
+// Format expiry date
+document.querySelector('[name="card_expiry"]').addEventListener('input', function(e) {
+    var value = e.target.value.replace(/\D/g, '');
+    if (value.length >= 2) {
+        value = value.substring(0, 2) + '/' + value.substring(2, 4);
+    }
+    e.target.value = value;
+});
+</script>
+
+<style>
+.hidden { display: none !important; }
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator { display: inline; }
+.htmx-request .htmx-indicator + span { display: none; }
+</style>
+{% endblock %}
+{% endraw %}

@@ -1,0 +1,198 @@
+{% raw %}{% extends "base.html" %}
+
+{% block title %}Shopping Cart - {{ project_name_display }}{% endblock %}
+
+{% block content %}
+<h1 class="{% if css_framework == 'tailwind' %}text-2xl font-bold mb-6{% else %}mb-4{% endif %}">Shopping Cart</h1>
+
+<div class="{% if css_framework == 'tailwind' %}grid grid-cols-1 lg:grid-cols-3 gap-8{% else %}row{% endif %}">
+    <!-- Cart Items -->
+    <div class="{% if css_framework == 'tailwind' %}lg:col-span-2{% else %}col-lg-8{% endif %}">
+        <div id="cart-items" class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow{% else %}card{% endif %}">
+            {% if cart_items %}
+            <div class="{% if css_framework == 'tailwind' %}divide-y{% else %}list-group list-group-flush{% endif %}">
+                {% for item in cart_items %}
+                <div class="cart-item {% if css_framework == 'tailwind' %}flex items-center p-4 gap-4{% else %}list-group-item{% endif %}"
+                     id="cart-item-{{ item.pk }}">
+                    {% if item.product.image %}
+                    <a href="{% url 'shop:product_detail' item.product.slug %}">
+                        <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}"
+                             class="{% if css_framework == 'tailwind' %}w-24 h-24 object-cover rounded{% else %}{% endif %}"
+                             style="width: 100px; height: 100px; object-fit: cover;">
+                    </a>
+                    {% endif %}
+
+                    <div class="{% if css_framework == 'tailwind' %}flex-1{% else %}flex-grow-1 ms-3{% endif %}">
+                        <a href="{% url 'shop:product_detail' item.product.slug %}"
+                           class="{% if css_framework == 'tailwind' %}font-semibold text-gray-900 hover:text-blue-600{% else %}h6 text-decoration-none{% endif %}">
+                            {{ item.product.name }}
+                        </a>
+                        {% if item.variant %}
+                        <p class="{% if css_framework == 'tailwind' %}text-sm text-gray-500{% else %}small text-muted{% endif %}">
+                            {{ item.variant.name }}
+                        </p>
+                        {% endif %}
+                        <p class="{% if css_framework == 'tailwind' %}text-lg font-bold mt-1{% else %}h6 mb-0 mt-2{% endif %}">
+                            ${{ item.unit_price }}
+                        </p>
+                    </div>
+
+                    <!-- Quantity -->
+                    <div class="{% if css_framework == 'tailwind' %}flex items-center{% else %}d-flex align-items-center{% endif %}">
+                        <button type="button"
+                                hx-post="{% url 'shop:cart_update' item.pk %}"
+                                hx-vals='{"quantity": {{ item.quantity|add:"-1" }}}'
+                                hx-target="#cart-items"
+                                hx-swap="innerHTML"
+                                class="{% if css_framework == 'tailwind' %}w-8 h-8 border rounded-l flex items-center justify-center hover:bg-gray-100{% else %}btn btn-outline-secondary btn-sm{% endif %}"
+                                {% if item.quantity <= 1 %}disabled{% endif %}>
+                            -
+                        </button>
+                        <input type="number" value="{{ item.quantity }}" min="1" readonly
+                               class="{% if css_framework == 'tailwind' %}w-12 h-8 border-t border-b text-center text-sm{% else %}form-control form-control-sm text-center{% endif %}"
+                               style="{% if css_framework != 'tailwind' %}width: 50px;{% endif %}">
+                        <button type="button"
+                                hx-post="{% url 'shop:cart_update' item.pk %}"
+                                hx-vals='{"quantity": {{ item.quantity|add:"1" }}}'
+                                hx-target="#cart-items"
+                                hx-swap="innerHTML"
+                                class="{% if css_framework == 'tailwind' %}w-8 h-8 border rounded-r flex items-center justify-center hover:bg-gray-100{% else %}btn btn-outline-secondary btn-sm{% endif %}">
+                            +
+                        </button>
+                    </div>
+
+                    <!-- Item Total -->
+                    <div class="{% if css_framework == 'tailwind' %}w-24 text-right{% else %}text-end{% endif %}" style="{% if css_framework != 'tailwind' %}min-width: 100px;{% endif %}">
+                        <span class="{% if css_framework == 'tailwind' %}font-bold{% else %}fw-bold{% endif %}">
+                            ${{ item.total }}
+                        </span>
+                    </div>
+
+                    <!-- Remove Button -->
+                    <button type="button"
+                            hx-delete="{% url 'shop:cart_remove' item.pk %}"
+                            hx-target="#cart-item-{{ item.pk }}"
+                            hx-swap="outerHTML"
+                            hx-on::after-request="htmx.trigger(document.body, 'cartUpdated'); updateCartSummary();"
+                            class="{% if css_framework == 'tailwind' %}text-gray-400 hover:text-red-600{% else %}btn btn-link text-danger{% endif %}">
+                        🗑️
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="{% if css_framework == 'tailwind' %}text-center py-12{% else %}card-body text-center py-5{% endif %}">
+                <div class="{% if css_framework == 'tailwind' %}text-6xl mb-4{% else %}mb-4{% endif %}" style="font-size: 5rem;">🛒</div>
+                <h3>Your cart is empty</h3>
+                <p class="{% if css_framework == 'tailwind' %}text-gray-500 mb-6{% else %}text-muted mb-4{% endif %}">Add some products to your cart to get started.</p>
+                <a href="{% url 'shop:product_list' %}"
+                   class="{% if css_framework == 'tailwind' %}inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700{% else %}btn btn-primary btn-lg{% endif %}">
+                    Browse Products
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if cart_items %}
+        <div class="{% if css_framework == 'tailwind' %}flex justify-between items-center mt-4{% else %}d-flex justify-content-between align-items-center mt-3{% endif %}">
+            <a href="{% url 'shop:product_list' %}"
+               class="{% if css_framework == 'tailwind' %}text-blue-600 hover:text-blue-800{% else %}btn btn-outline-primary{% endif %}">
+                ← Continue Shopping
+            </a>
+            <button type="button"
+                    hx-delete="{% url 'shop:cart_clear' %}"
+                    hx-target="#cart-items"
+                    hx-confirm="Clear your entire cart?"
+                    class="{% if css_framework == 'tailwind' %}text-red-600 hover:text-red-800{% else %}btn btn-outline-danger{% endif %}">
+                Clear Cart
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Order Summary -->
+    {% if cart_items %}
+    <div class="{% if css_framework != 'tailwind' %}col-lg-4{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow p-6 sticky top-4{% else %}card{% endif %}" id="cart-summary">
+            <div class="{% if css_framework != 'tailwind' %}card-body{% endif %}">
+                <h5 class="{% if css_framework == 'tailwind' %}text-lg font-bold mb-4{% else %}card-title{% endif %}">Order Summary</h5>
+
+                <div class="{% if css_framework == 'tailwind' %}space-y-3{% else %}{% endif %}">
+                    <div class="{% if css_framework == 'tailwind' %}flex justify-between{% else %}d-flex justify-content-between mb-2{% endif %}">
+                        <span class="{% if css_framework == 'tailwind' %}text-gray-600{% else %}text-muted{% endif %}">Subtotal</span>
+                        <span id="summary-subtotal">${{ cart.subtotal }}</span>
+                    </div>
+                    <div class="{% if css_framework == 'tailwind' %}flex justify-between{% else %}d-flex justify-content-between mb-2{% endif %}">
+                        <span class="{% if css_framework == 'tailwind' %}text-gray-600{% else %}text-muted{% endif %}">Shipping</span>
+                        <span id="summary-shipping">{% if cart.shipping %}${{ cart.shipping }}{% else %}Calculated at checkout{% endif %}</span>
+                    </div>
+                    {% if cart.discount %}
+                    <div class="{% if css_framework == 'tailwind' %}flex justify-between text-green-600{% else %}d-flex justify-content-between mb-2 text-success{% endif %}">
+                        <span>Discount</span>
+                        <span id="summary-discount">-${{ cart.discount }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Coupon Code -->
+                <div class="{% if css_framework == 'tailwind' %}mt-4 pt-4 border-t{% else %}mt-3 pt-3 border-top{% endif %}">
+                    <form hx-post="{% url 'shop:apply_coupon' %}" hx-target="#cart-summary" hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <div class="{% if css_framework == 'tailwind' %}flex gap-2{% else %}input-group{% endif %}">
+                            <input type="text" name="code" placeholder="Coupon code"
+                                   class="{% if css_framework == 'tailwind' %}flex-1 px-3 py-2 border rounded{% else %}form-control{% endif %}"
+                                   value="{{ cart.coupon_code }}">
+                            <button type="submit"
+                                    class="{% if css_framework == 'tailwind' %}px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-900{% else %}btn btn-dark{% endif %}">
+                                Apply
+                            </button>
+                        </div>
+                        {% if coupon_error %}
+                        <p class="{% if css_framework == 'tailwind' %}text-red-600 text-sm mt-2{% else %}text-danger small mt-2{% endif %}">{{ coupon_error }}</p>
+                        {% endif %}
+                    </form>
+                </div>
+
+                <div class="{% if css_framework == 'tailwind' %}mt-4 pt-4 border-t{% else %}mt-3 pt-3 border-top{% endif %}">
+                    <div class="{% if css_framework == 'tailwind' %}flex justify-between text-lg font-bold{% else %}d-flex justify-content-between{% endif %}">
+                        <span>Total</span>
+                        <span id="summary-total" class="{% if css_framework != 'tailwind' %}h4 mb-0{% endif %}">${{ cart.total }}</span>
+                    </div>
+                </div>
+
+                <a href="{% url 'shop:checkout' %}"
+                   class="{% if css_framework == 'tailwind' %}block w-full mt-6 bg-blue-600 text-white text-center py-3 rounded-lg hover:bg-blue-700 font-semibold{% else %}btn btn-primary btn-lg w-100 mt-4{% endif %}">
+                    Proceed to Checkout
+                </a>
+
+                <div class="{% if css_framework == 'tailwind' %}mt-6 text-center text-sm text-gray-500{% else %}mt-4 text-center small text-muted{% endif %}">
+                    <p>🔒 Secure checkout</p>
+                    <p class="{% if css_framework == 'tailwind' %}mt-2{% endif %}">We accept:</p>
+                    <div class="{% if css_framework == 'tailwind' %}flex justify-center gap-2 mt-2{% else %}d-flex justify-content-center gap-2 mt-2{% endif %}">
+                        <span>💳</span> <span>Visa</span>
+                        <span>Mastercard</span>
+                        <span>PayPal</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function updateCartSummary() {
+    // Refresh the cart summary
+    htmx.ajax('GET', '{% url "shop:cart_summary" %}', '#cart-summary');
+}
+
+// Listen for cart updates to refresh summary
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target.id === 'cart-items') {
+        updateCartSummary();
+        htmx.trigger(document.body, 'cartUpdated');
+    }
+});
+</script>
+{% endblock %}
+{% endraw %}

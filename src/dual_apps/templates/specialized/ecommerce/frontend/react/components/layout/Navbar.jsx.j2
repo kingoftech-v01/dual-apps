@@ -1,0 +1,340 @@
+{% raw %}/**
+ * Navbar Component for {{ project_name_display }}
+ */
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
+import { apiHelpers } from '../../utils/api';
+
+function Navbar() {
+  const { user, isAuthenticated, logout } = useAuth();
+  const { itemCount } = useCart();
+  const navigate = useNavigate();
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  const searchRef = useRef(null);
+  const userMenuRef = useRef(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch search suggestions
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (searchQuery.length < 2) {
+        setSearchSuggestions([]);
+        return;
+      }
+
+      try {
+        const response = await apiHelpers.getSearchSuggestions(searchQuery);
+        setSearchSuggestions(response.data);
+      } catch (err) {
+        console.error('Failed to fetch suggestions:', err);
+      }
+    };
+
+    const debounce = setTimeout(fetchSuggestions, 300);
+    return () => clearTimeout(debounce);
+  }, [searchQuery]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
+
+  return (
+{% if css_framework == 'tailwind' %}
+    <nav className="bg-white shadow-sm sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo */}
+          <Link to="/" className="text-xl font-bold text-gray-900">
+            {{ project_name_display }}
+          </Link>
+
+          {/* Search Bar */}
+          <div className="flex-1 max-w-xl mx-8" ref={searchRef}>
+            <form onSubmit={handleSearch} className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                placeholder="Search products..."
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+              <button
+                type="submit"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                🔍
+              </button>
+
+              {/* Search Suggestions */}
+              {showSuggestions && searchSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 bg-white border rounded-lg shadow-lg mt-1 z-50">
+                  {searchSuggestions.map((suggestion, index) => (
+                    <Link
+                      key={index}
+                      to={`/products/${suggestion.slug}`}
+                      className="flex items-center px-4 py-2 hover:bg-gray-50"
+                      onClick={() => setShowSuggestions(false)}
+                    >
+                      {suggestion.image && (
+                        <img
+                          src={suggestion.image}
+                          alt={suggestion.name}
+                          className="w-10 h-10 object-cover rounded mr-3"
+                        />
+                      )}
+                      <div>
+                        <p className="font-medium">{suggestion.name}</p>
+                        <p className="text-sm text-gray-500">${suggestion.price}</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </form>
+          </div>
+
+          {/* Navigation Links */}
+          <div className="flex items-center space-x-6">
+            {/* Wishlist */}
+            <Link to="/wishlist" className="text-gray-600 hover:text-gray-900">
+              ❤️
+            </Link>
+
+            {/* Cart */}
+            <Link to="/cart" className="relative text-gray-600 hover:text-gray-900">
+              🛒
+              {itemCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                  {itemCount > 99 ? '99+' : itemCount}
+                </span>
+              )}
+            </Link>
+
+            {/* User Menu */}
+            {isAuthenticated ? (
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+                >
+                  <span>{user?.first_name || user?.username}</span>
+                  <span>▼</span>
+                </button>
+
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50">
+                    <Link
+                      to="/account"
+                      className="block px-4 py-2 hover:bg-gray-50"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      My Account
+                    </Link>
+                    <Link
+                      to="/orders"
+                      className="block px-4 py-2 hover:bg-gray-50"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      Orders
+                    </Link>
+                    <Link
+                      to="/wishlist"
+                      className="block px-4 py-2 hover:bg-gray-50"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      Wishlist
+                    </Link>
+                    <hr className="my-2" />
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-50"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center space-x-4">
+                <Link to="/login" className="text-gray-600 hover:text-gray-900">
+                  Login
+                </Link>
+                <Link
+                  to="/register"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            )}
+
+            {/* Mobile Menu Toggle */}
+            <button
+              className="md:hidden text-gray-600"
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+            >
+              ☰
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Menu */}
+      {showMobileMenu && (
+        <div className="md:hidden bg-white border-t py-4">
+          <div className="max-w-7xl mx-auto px-4 space-y-4">
+            <Link to="/products" className="block text-gray-600">All Products</Link>
+            <Link to="/cart" className="block text-gray-600">Cart ({itemCount})</Link>
+            {isAuthenticated ? (
+              <>
+                <Link to="/account" className="block text-gray-600">Account</Link>
+                <Link to="/orders" className="block text-gray-600">Orders</Link>
+                <button onClick={handleLogout} className="block text-red-600">Logout</button>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="block text-gray-600">Login</Link>
+                <Link to="/register" className="block text-blue-600">Sign Up</Link>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </nav>
+{% else %}
+    <nav className="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+      <div className="container">
+        <Link className="navbar-brand fw-bold" to="/">{{ project_name_display }}</Link>
+
+        <button
+          className="navbar-toggler"
+          type="button"
+          onClick={() => setShowMobileMenu(!showMobileMenu)}
+        >
+          <span className="navbar-toggler-icon"></span>
+        </button>
+
+        <div className={`collapse navbar-collapse ${showMobileMenu ? 'show' : ''}`}>
+          {/* Search */}
+          <form onSubmit={handleSearch} className="d-flex flex-grow-1 mx-4" ref={searchRef}>
+            <div className="input-group">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+              />
+              <button className="btn btn-outline-secondary" type="submit">🔍</button>
+            </div>
+            {showSuggestions && searchSuggestions.length > 0 && (
+              <div className="position-absolute bg-white border rounded shadow-lg mt-5 w-100" style={{ zIndex: 1000 }}>
+                {searchSuggestions.map((suggestion, index) => (
+                  <Link
+                    key={index}
+                    to={`/products/${suggestion.slug}`}
+                    className="d-flex align-items-center p-2 text-decoration-none hover-bg-light"
+                    onClick={() => setShowSuggestions(false)}
+                  >
+                    {suggestion.image && (
+                      <img src={suggestion.image} alt={suggestion.name} className="me-2" style={{ width: 40, height: 40, objectFit: 'cover' }} />
+                    )}
+                    <div>
+                      <div className="fw-medium">{suggestion.name}</div>
+                      <small className="text-muted">${suggestion.price}</small>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </form>
+
+          <ul className="navbar-nav ms-auto align-items-center">
+            <li className="nav-item">
+              <Link className="nav-link" to="/wishlist">❤️</Link>
+            </li>
+            <li className="nav-item">
+              <Link className="nav-link position-relative" to="/cart">
+                🛒
+                {itemCount > 0 && (
+                  <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                    {itemCount > 99 ? '99+' : itemCount}
+                  </span>
+                )}
+              </Link>
+            </li>
+            {isAuthenticated ? (
+              <li className="nav-item dropdown" ref={userMenuRef}>
+                <button
+                  className="nav-link dropdown-toggle"
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                >
+                  {user?.first_name || user?.username}
+                </button>
+                <ul className={`dropdown-menu dropdown-menu-end ${showUserMenu ? 'show' : ''}`}>
+                  <li><Link className="dropdown-item" to="/account">My Account</Link></li>
+                  <li><Link className="dropdown-item" to="/orders">Orders</Link></li>
+                  <li><Link className="dropdown-item" to="/wishlist">Wishlist</Link></li>
+                  <li><hr className="dropdown-divider" /></li>
+                  <li><button className="dropdown-item text-danger" onClick={handleLogout}>Logout</button></li>
+                </ul>
+              </li>
+            ) : (
+              <>
+                <li className="nav-item">
+                  <Link className="nav-link" to="/login">Login</Link>
+                </li>
+                <li className="nav-item">
+                  <Link className="btn btn-primary ms-2" to="/register">Sign Up</Link>
+                </li>
+              </>
+            )}
+          </ul>
+        </div>
+      </div>
+    </nav>
+{% endif %}
+  );
+}
+
+export default Navbar;
+{% endraw %}

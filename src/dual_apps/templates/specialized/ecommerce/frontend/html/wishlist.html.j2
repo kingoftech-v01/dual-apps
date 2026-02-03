@@ -1,0 +1,119 @@
+{% raw %}{% extends "base.html" %}
+
+{% block title %}My Wishlist - {{ project_name_display }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">My Wishlist</h1>
+
+    {% if wishlist_items %}
+    <div class="row">
+        {% for item in wishlist_items %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100">
+                {% if item.product.image %}
+                <a href="{% url 'shop:product_detail' item.product.slug %}">
+                    <img src="{{ item.product.image.url }}" class="card-img-top"
+                         alt="{{ item.product.name }}" style="height: 200px; object-fit: cover;">
+                </a>
+                {% endif %}
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <a href="{% url 'shop:product_detail' item.product.slug %}" class="text-decoration-none">
+                            {{ item.product.name }}
+                        </a>
+                    </h5>
+                    <p class="card-text text-muted">
+                        {{ item.product.short_description|truncatewords:15 }}
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            {% if item.product.sale_price %}
+                            <span class="h5 mb-0">${{ item.product.sale_price }}</span>
+                            <small class="text-muted text-decoration-line-through ms-2">
+                                ${{ item.product.price }}
+                            </small>
+                            {% else %}
+                            <span class="h5 mb-0">${{ item.product.price }}</span>
+                            {% endif %}
+                        </div>
+                        {% if item.product.in_stock %}
+                        <span class="badge bg-success">In Stock</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Out of Stock</span>
+                        {% endif %}
+                    </div>
+                    <small class="text-muted">Added {{ item.created_at|date:"M d, Y" }}</small>
+                </div>
+                <div class="card-footer bg-white border-top-0">
+                    <div class="d-grid gap-2">
+                        {% if item.product.in_stock %}
+                        <form method="post" action="{% url 'shop:cart_add' item.product.pk %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="quantity" value="1">
+                            <button type="submit" class="btn btn-primary w-100">
+                                Add to Cart
+                            </button>
+                        </form>
+                        {% else %}
+                        <button class="btn btn-secondary" disabled>Out of Stock</button>
+                        {% endif %}
+                        <form method="post" action="{% url 'shop:wishlist_remove' item.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger w-100">
+                                Remove from Wishlist
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if wishlist_items.has_other_pages %}
+    <nav aria-label="Wishlist pagination">
+        <ul class="pagination justify-content-center">
+            {% if wishlist_items.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ wishlist_items.previous_page_number }}">Previous</a>
+            </li>
+            {% endif %}
+            {% for num in wishlist_items.paginator.page_range %}
+            <li class="page-item {% if wishlist_items.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+            {% if wishlist_items.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ wishlist_items.next_page_number }}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    <div class="text-center mt-4">
+        <form method="post" action="{% url 'shop:wishlist_clear' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger"
+                    onclick="return confirm('Clear your entire wishlist?')">
+                Clear Wishlist
+            </button>
+        </form>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <span style="font-size: 5rem;">❤️</span>
+        </div>
+        <h3>Your wishlist is empty</h3>
+        <p class="text-muted">Save items you love to your wishlist.</p>
+        <a href="{% url 'shop:product_list' %}" class="btn btn-primary btn-lg">
+            Browse Products
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+{% endraw %}

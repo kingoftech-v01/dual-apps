@@ -1,0 +1,92 @@
+{% raw %}{% extends "base.html" %}
+
+{% block title %}My Orders - {{ project_name_display }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">My Orders</h1>
+
+    {% if orders %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Order #</th>
+                    <th>Date</th>
+                    <th>Items</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>
+                        <a href="{% url 'shop:order_detail' order.pk %}">#{{ order.order_number }}</a>
+                    </td>
+                    <td>{{ order.created_at|date:"M d, Y" }}</td>
+                    <td>{{ order.items.count }} item{% if order.items.count != 1 %}s{% endif %}</td>
+                    <td>${{ order.total }}</td>
+                    <td>
+                        <span class="badge
+                            {% if order.status == 'completed' %}bg-success
+                            {% elif order.status == 'processing' %}bg-primary
+                            {% elif order.status == 'shipped' %}bg-info
+                            {% elif order.status == 'cancelled' %}bg-danger
+                            {% else %}bg-secondary{% endif %}">
+                            {{ order.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{% url 'shop:order_detail' order.pk %}" class="btn btn-sm btn-outline-primary">
+                            View Details
+                        </a>
+                        {% if order.status == 'shipped' and order.tracking_number %}
+                        <a href="{% url 'shop:order_track' order.pk %}" class="btn btn-sm btn-outline-secondary">
+                            Track
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if orders.has_other_pages %}
+    <nav aria-label="Order pagination">
+        <ul class="pagination justify-content-center">
+            {% if orders.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ orders.previous_page_number }}">Previous</a>
+            </li>
+            {% endif %}
+            {% for num in orders.paginator.page_range %}
+            <li class="page-item {% if orders.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+            {% if orders.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ orders.next_page_number }}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    {% else %}
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <span style="font-size: 5rem;">📦</span>
+        </div>
+        <h3>No orders yet</h3>
+        <p class="text-muted">Start shopping to see your orders here.</p>
+        <a href="{% url 'shop:product_list' %}" class="btn btn-primary btn-lg">
+            Browse Products
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+{% endraw %}

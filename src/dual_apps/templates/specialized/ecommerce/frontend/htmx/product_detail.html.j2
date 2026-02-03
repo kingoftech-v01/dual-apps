@@ -1,0 +1,275 @@
+{% raw %}{% extends "base.html" %}
+
+{% block title %}{{ product.name }} - {{ project_name_display }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="{% if css_framework == 'tailwind' %}mb-6{% else %}mb-4{% endif %}">
+    <ol class="{% if css_framework == 'tailwind' %}flex text-gray-500 text-sm{% else %}breadcrumb{% endif %}">
+        <li class="{% if css_framework != 'tailwind' %}breadcrumb-item{% endif %}"><a href="{% url 'shop:home' %}">Home</a></li>
+        <li class="{% if css_framework == 'tailwind' %}mx-2{% endif %}">/</li>
+        <li class="{% if css_framework != 'tailwind' %}breadcrumb-item{% endif %}"><a href="{% url 'shop:product_list' %}">Products</a></li>
+        <li class="{% if css_framework == 'tailwind' %}mx-2{% endif %}">/</li>
+        <li class="{% if css_framework == 'tailwind' %}text-gray-900{% else %}breadcrumb-item active{% endif %}">{{ product.name }}</li>
+    </ol>
+</nav>
+
+<div class="{% if css_framework == 'tailwind' %}grid grid-cols-1 lg:grid-cols-2 gap-8{% else %}row{% endif %}">
+    <!-- Product Images -->
+    <div class="{% if css_framework != 'tailwind' %}col-lg-6{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow overflow-hidden{% else %}card{% endif %}">
+            <div id="main-image" class="{% if css_framework == 'tailwind' %}aspect-square{% else %}ratio ratio-1x1{% endif %}">
+                {% if product.image %}
+                <img src="{{ product.image.url }}" alt="{{ product.name }}"
+                     class="{% if css_framework == 'tailwind' %}w-full h-full object-contain{% else %}img-fluid{% endif %}" id="product-main-image">
+                {% endif %}
+            </div>
+            {% if product.images.count > 1 %}
+            <div class="{% if css_framework == 'tailwind' %}flex gap-2 p-4{% else %}d-flex gap-2 p-3{% endif %}">
+                {% for image in product.images.all %}
+                <button type="button" onclick="changeImage('{{ image.url }}')"
+                        class="{% if css_framework == 'tailwind' %}w-16 h-16 border-2 rounded overflow-hidden hover:border-blue-500{% else %}btn p-1 border{% endif %}">
+                    <img src="{{ image.url }}" alt="{{ product.name }}"
+                         class="{% if css_framework == 'tailwind' %}w-full h-full object-cover{% else %}img-fluid{% endif %}" style="{% if css_framework != 'tailwind' %}width: 60px; height: 60px; object-fit: cover;{% endif %}">
+                </button>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Product Info -->
+    <div class="{% if css_framework != 'tailwind' %}col-lg-6{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow p-6{% else %}card{% endif %}">
+            <div class="{% if css_framework != 'tailwind' %}card-body{% endif %}">
+                <h1 class="{% if css_framework == 'tailwind' %}text-2xl font-bold mb-2{% else %}h2 mb-2{% endif %}">{{ product.name }}</h1>
+
+                <!-- Rating -->
+                <div class="{% if css_framework == 'tailwind' %}flex items-center mb-4{% else %}d-flex align-items-center mb-3{% endif %}">
+                    <span class="{% if css_framework == 'tailwind' %}text-yellow-400 text-lg{% else %}text-warning{% endif %}">
+                        {% for i in "12345" %}{% if forloop.counter <= product.avg_rating %}★{% else %}☆{% endif %}{% endfor %}
+                    </span>
+                    <a href="#reviews" class="{% if css_framework == 'tailwind' %}ml-2 text-gray-500 hover:text-blue-600{% else %}ms-2 text-muted{% endif %}">
+                        {{ product.review_count }} reviews
+                    </a>
+                    {% if product.in_stock %}
+                    <span class="{% if css_framework == 'tailwind' %}ml-4 px-2 py-1 bg-green-100 text-green-800 text-sm rounded{% else %}badge bg-success ms-3{% endif %}">In Stock</span>
+                    {% else %}
+                    <span class="{% if css_framework == 'tailwind' %}ml-4 px-2 py-1 bg-gray-100 text-gray-800 text-sm rounded{% else %}badge bg-secondary ms-3{% endif %}">Out of Stock</span>
+                    {% endif %}
+                </div>
+
+                <!-- Price -->
+                <div class="{% if css_framework == 'tailwind' %}mb-6{% else %}mb-4{% endif %}">
+                    {% if product.sale_price %}
+                    <span class="{% if css_framework == 'tailwind' %}text-3xl font-bold text-gray-900{% else %}h2 mb-0{% endif %}">${{ product.sale_price }}</span>
+                    <span class="{% if css_framework == 'tailwind' %}text-xl text-gray-500 line-through ml-3{% else %}h4 text-muted text-decoration-line-through ms-3{% endif %}">${{ product.price }}</span>
+                    <span class="{% if css_framework == 'tailwind' %}ml-2 px-2 py-1 bg-red-100 text-red-800 text-sm rounded{% else %}badge bg-danger ms-2{% endif %}">
+                        Save {{ product.discount_percent }}%
+                    </span>
+                    {% else %}
+                    <span class="{% if css_framework == 'tailwind' %}text-3xl font-bold text-gray-900{% else %}h2 mb-0{% endif %}">${{ product.price }}</span>
+                    {% endif %}
+                </div>
+
+                <!-- Description -->
+                <p class="{% if css_framework == 'tailwind' %}text-gray-600 mb-6{% else %}text-muted mb-4{% endif %}">
+                    {{ product.short_description }}
+                </p>
+
+                <!-- Add to Cart Form -->
+                <form hx-post="{% url 'shop:cart_add' product.pk %}" hx-swap="none"
+                      hx-on::after-request="htmx.trigger(document.body, 'cartUpdated'); showToast('Added to cart!')">
+                    {% csrf_token %}
+
+                    <!-- Variants -->
+                    {% if product.variants.exists %}
+                    <div class="{% if css_framework == 'tailwind' %}mb-4{% else %}mb-3{% endif %}">
+                        <label class="{% if css_framework == 'tailwind' %}block font-semibold mb-2{% else %}form-label fw-bold{% endif %}">
+                            {{ product.variant_type|default:"Options" }}
+                        </label>
+                        <div class="{% if css_framework == 'tailwind' %}flex flex-wrap gap-2{% else %}d-flex flex-wrap gap-2{% endif %}">
+                            {% for variant in product.variants.all %}
+                            <label class="{% if css_framework == 'tailwind' %}cursor-pointer{% endif %}">
+                                <input type="radio" name="variant" value="{{ variant.pk }}" class="{% if css_framework == 'tailwind' %}peer sr-only{% else %}btn-check{% endif %}"
+                                       {% if forloop.first %}checked{% endif %} {% if not variant.in_stock %}disabled{% endif %}>
+                                <span class="{% if css_framework == 'tailwind' %}inline-block px-4 py-2 border rounded peer-checked:border-blue-500 peer-checked:bg-blue-50 {% if not variant.in_stock %}opacity-50{% endif %}{% else %}btn btn-outline-secondary{% endif %}">
+                                    {{ variant.name }}
+                                    {% if variant.price_modifier %}(+${{ variant.price_modifier }}){% endif %}
+                                </span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Quantity -->
+                    <div class="{% if css_framework == 'tailwind' %}mb-6{% else %}mb-4{% endif %}">
+                        <label class="{% if css_framework == 'tailwind' %}block font-semibold mb-2{% else %}form-label fw-bold{% endif %}">Quantity</label>
+                        <div class="{% if css_framework == 'tailwind' %}flex items-center{% else %}input-group{% endif %}" style="{% if css_framework != 'tailwind' %}width: 150px;{% endif %}">
+                            <button type="button" onclick="updateQuantity(-1)"
+                                    class="{% if css_framework == 'tailwind' %}w-10 h-10 border rounded-l flex items-center justify-center hover:bg-gray-100{% else %}btn btn-outline-secondary{% endif %}">
+                                -
+                            </button>
+                            <input type="number" name="quantity" value="1" min="1" max="{{ product.stock_quantity }}" id="quantity"
+                                   class="{% if css_framework == 'tailwind' %}w-16 h-10 border-t border-b text-center{% else %}form-control text-center{% endif %}">
+                            <button type="button" onclick="updateQuantity(1)"
+                                    class="{% if css_framework == 'tailwind' %}w-10 h-10 border rounded-r flex items-center justify-center hover:bg-gray-100{% else %}btn btn-outline-secondary{% endif %}">
+                                +
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="{% if css_framework == 'tailwind' %}flex gap-4{% else %}d-flex gap-3{% endif %}">
+                        {% if product.in_stock %}
+                        <button type="submit"
+                                class="{% if css_framework == 'tailwind' %}flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 font-semibold{% else %}btn btn-primary btn-lg flex-grow-1{% endif %}">
+                            Add to Cart
+                        </button>
+                        {% else %}
+                        <button type="button" disabled
+                                class="{% if css_framework == 'tailwind' %}flex-1 bg-gray-300 text-gray-500 py-3 px-6 rounded-lg cursor-not-allowed{% else %}btn btn-secondary btn-lg flex-grow-1{% endif %}">
+                            Out of Stock
+                        </button>
+                        {% endif %}
+                        <button type="button"
+                                hx-post="{% url 'shop:wishlist_toggle' product.pk %}"
+                                hx-swap="none"
+                                hx-on::after-request="htmx.trigger(document.body, 'wishlistUpdated')"
+                                class="{% if css_framework == 'tailwind' %}w-14 h-14 border rounded-lg flex items-center justify-center hover:bg-gray-100{% else %}btn btn-outline-danger btn-lg{% endif %}">
+                            ❤️
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Product Meta -->
+                <div class="{% if css_framework == 'tailwind' %}mt-6 pt-6 border-t{% else %}mt-4 pt-3 border-top{% endif %}">
+                    <p class="{% if css_framework == 'tailwind' %}text-sm text-gray-500{% else %}small text-muted{% endif %}">
+                        <strong>SKU:</strong> {{ product.sku }}<br>
+                        <strong>Category:</strong> <a href="{% url 'shop:category' product.category.slug %}">{{ product.category.name }}</a><br>
+                        {% if product.tags.exists %}
+                        <strong>Tags:</strong>
+                        {% for tag in product.tags.all %}
+                        <a href="{% url 'shop:tag' tag.slug %}" class="{% if css_framework == 'tailwind' %}text-blue-600{% else %}text-primary{% endif %}">{{ tag.name }}</a>{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs: Description, Reviews, Shipping -->
+<div class="{% if css_framework == 'tailwind' %}mt-8{% else %}mt-5{% endif %}">
+    <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow{% else %}card{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}border-b{% else %}card-header{% endif %}">
+            <nav class="{% if css_framework == 'tailwind' %}flex{% else %}nav nav-tabs card-header-tabs{% endif %}" id="product-tabs">
+                <button type="button" onclick="showTab('description')"
+                        class="tab-btn {% if css_framework == 'tailwind' %}px-6 py-4 font-semibold border-b-2 border-blue-600 text-blue-600{% else %}nav-link active{% endif %}"
+                        data-tab="description">
+                    Description
+                </button>
+                <button type="button" onclick="showTab('reviews')"
+                        class="tab-btn {% if css_framework == 'tailwind' %}px-6 py-4 font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700{% else %}nav-link{% endif %}"
+                        data-tab="reviews">
+                    Reviews ({{ product.review_count }})
+                </button>
+                <button type="button" onclick="showTab('shipping')"
+                        class="tab-btn {% if css_framework == 'tailwind' %}px-6 py-4 font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700{% else %}nav-link{% endif %}"
+                        data-tab="shipping">
+                    Shipping
+                </button>
+            </nav>
+        </div>
+
+        <div class="{% if css_framework == 'tailwind' %}p-6{% else %}card-body{% endif %}">
+            <!-- Description Tab -->
+            <div id="tab-description" class="tab-content">
+                {{ product.description|safe }}
+            </div>
+
+            <!-- Reviews Tab -->
+            <div id="tab-reviews" class="tab-content hidden" hx-get="{% url 'shop:product_reviews' product.pk %}" hx-trigger="revealed">
+                <div class="{% if css_framework == 'tailwind' %}text-center py-8{% else %}text-center py-4{% endif %}">
+                    Loading reviews...
+                </div>
+            </div>
+
+            <!-- Shipping Tab -->
+            <div id="tab-shipping" class="tab-content hidden">
+                <h5 class="{% if css_framework == 'tailwind' %}font-semibold mb-4{% else %}mb-3{% endif %}">Shipping Information</h5>
+                <ul class="{% if css_framework == 'tailwind' %}space-y-2 text-gray-600{% else %}list-unstyled text-muted{% endif %}">
+                    <li>✓ Free shipping on orders over $50</li>
+                    <li>✓ Standard shipping: 5-7 business days</li>
+                    <li>✓ Express shipping: 2-3 business days</li>
+                    <li>✓ International shipping available</li>
+                </ul>
+                <h5 class="{% if css_framework == 'tailwind' %}font-semibold mt-6 mb-4{% else %}mt-4 mb-3{% endif %}">Return Policy</h5>
+                <p class="{% if css_framework == 'tailwind' %}text-gray-600{% else %}text-muted{% endif %}">
+                    30-day return policy. Items must be unused and in original packaging.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Related Products -->
+<div class="{% if css_framework == 'tailwind' %}mt-8{% else %}mt-5{% endif %}">
+    <h3 class="{% if css_framework == 'tailwind' %}text-xl font-bold mb-6{% else %}mb-4{% endif %}">Related Products</h3>
+    <div hx-get="{% url 'shop:related_products' product.pk %}" hx-trigger="load"
+         class="{% if css_framework == 'tailwind' %}grid grid-cols-2 md:grid-cols-4 gap-4{% else %}row{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}col-span-full{% else %}col-12{% endif %} text-center py-4">
+            Loading related products...
+        </div>
+    </div>
+</div>
+
+<script>
+function changeImage(url) {
+    document.getElementById('product-main-image').src = url;
+}
+
+function updateQuantity(delta) {
+    var input = document.getElementById('quantity');
+    var newVal = parseInt(input.value) + delta;
+    if (newVal >= 1 && newVal <= parseInt(input.max)) {
+        input.value = newVal;
+    }
+}
+
+function showTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(function(tab) {
+        tab.classList.add('hidden');
+        {% if css_framework != 'tailwind' %}tab.style.display = 'none';{% endif %}
+    });
+    // Remove active state from buttons
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        {% if css_framework == 'tailwind' %}
+        btn.classList.remove('border-blue-600', 'text-blue-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+        {% else %}
+        btn.classList.remove('active');
+        {% endif %}
+    });
+    // Show selected tab
+    var tab = document.getElementById('tab-' + tabName);
+    tab.classList.remove('hidden');
+    {% if css_framework != 'tailwind' %}tab.style.display = 'block';{% endif %}
+    // Set active button
+    var btn = document.querySelector('[data-tab="' + tabName + '"]');
+    {% if css_framework == 'tailwind' %}
+    btn.classList.add('border-blue-600', 'text-blue-600');
+    btn.classList.remove('border-transparent', 'text-gray-500');
+    {% else %}
+    btn.classList.add('active');
+    {% endif %}
+}
+</script>
+
+<style>
+.hidden { display: none; }
+</style>
+{% endblock %}
+{% endraw %}

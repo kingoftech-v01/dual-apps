@@ -1,0 +1,68 @@
+{% raw %}{# Reusable cart item partial for HTMX updates #}
+<div class="cart-item {% if css_framework == 'tailwind' %}flex items-center p-4 gap-4 border-b{% else %}list-group-item{% endif %}"
+     id="cart-item-{{ item.pk }}">
+    {% if item.product.image %}
+    <a href="{% url 'shop:product_detail' item.product.slug %}">
+        <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}"
+             class="{% if css_framework == 'tailwind' %}w-24 h-24 object-cover rounded{% endif %}"
+             style="width: 100px; height: 100px; object-fit: cover;">
+    </a>
+    {% endif %}
+
+    <div class="{% if css_framework == 'tailwind' %}flex-1{% else %}flex-grow-1 ms-3{% endif %}">
+        <a href="{% url 'shop:product_detail' item.product.slug %}"
+           class="{% if css_framework == 'tailwind' %}font-semibold text-gray-900 hover:text-blue-600{% else %}h6 text-decoration-none{% endif %}">
+            {{ item.product.name }}
+        </a>
+        {% if item.variant %}
+        <p class="{% if css_framework == 'tailwind' %}text-sm text-gray-500{% else %}small text-muted{% endif %}">
+            {{ item.variant.name }}
+        </p>
+        {% endif %}
+        <p class="{% if css_framework == 'tailwind' %}text-lg font-bold mt-1{% else %}h6 mb-0 mt-2{% endif %}">
+            ${{ item.unit_price }}
+        </p>
+    </div>
+
+    <!-- Quantity -->
+    <div class="{% if css_framework == 'tailwind' %}flex items-center{% else %}d-flex align-items-center{% endif %}">
+        <button type="button"
+                hx-post="{% url 'shop:cart_update' item.pk %}"
+                hx-vals='{"quantity": {{ item.quantity|add:"-1" }}}'
+                hx-target="#cart-item-{{ item.pk }}"
+                hx-swap="outerHTML"
+                class="{% if css_framework == 'tailwind' %}w-8 h-8 border rounded-l flex items-center justify-center hover:bg-gray-100{% else %}btn btn-outline-secondary btn-sm{% endif %}"
+                {% if item.quantity <= 1 %}disabled{% endif %}>
+            -
+        </button>
+        <span class="{% if css_framework == 'tailwind' %}w-12 h-8 border-t border-b flex items-center justify-center text-sm{% else %}px-3{% endif %}">
+            {{ item.quantity }}
+        </span>
+        <button type="button"
+                hx-post="{% url 'shop:cart_update' item.pk %}"
+                hx-vals='{"quantity": {{ item.quantity|add:"1" }}}'
+                hx-target="#cart-item-{{ item.pk }}"
+                hx-swap="outerHTML"
+                class="{% if css_framework == 'tailwind' %}w-8 h-8 border rounded-r flex items-center justify-center hover:bg-gray-100{% else %}btn btn-outline-secondary btn-sm{% endif %}">
+            +
+        </button>
+    </div>
+
+    <!-- Item Total -->
+    <div class="{% if css_framework == 'tailwind' %}w-24 text-right{% else %}text-end{% endif %}" style="min-width: 100px;">
+        <span class="{% if css_framework == 'tailwind' %}font-bold{% else %}fw-bold{% endif %}">
+            ${{ item.total }}
+        </span>
+    </div>
+
+    <!-- Remove Button -->
+    <button type="button"
+            hx-delete="{% url 'shop:cart_remove' item.pk %}"
+            hx-target="#cart-item-{{ item.pk }}"
+            hx-swap="outerHTML"
+            hx-on::after-request="htmx.trigger(document.body, 'cartUpdated')"
+            class="{% if css_framework == 'tailwind' %}text-gray-400 hover:text-red-600{% else %}btn btn-link text-danger{% endif %}">
+        🗑️
+    </button>
+</div>
+{% endraw %}

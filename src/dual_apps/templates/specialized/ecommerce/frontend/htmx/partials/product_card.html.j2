@@ -1,0 +1,63 @@
+{% raw %}{# Reusable product card partial for HTMX updates #}
+<div class="product-card {% if css_framework != 'tailwind' %}col-md-6 col-lg-4 mb-4{% endif %}" id="product-{{ product.pk }}">
+    <div class="{% if css_framework == 'tailwind' %}bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow{% else %}card h-100{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}relative{% else %}position-relative{% endif %}">
+            {% if product.image %}
+            <a href="{% url 'shop:product_detail' product.slug %}">
+                <img src="{{ product.image.url }}" alt="{{ product.name }}"
+                     class="{% if css_framework == 'tailwind' %}w-full h-48 object-cover{% else %}card-img-top{% endif %}"
+                     loading="lazy" style="{% if css_framework != 'tailwind' %}height: 200px; object-fit: cover;{% endif %}">
+            </a>
+            {% endif %}
+            {% if product.sale_price %}
+            <span class="{% if css_framework == 'tailwind' %}absolute top-2 left-2 bg-red-500 text-white text-xs px-2 py-1 rounded{% else %}badge bg-danger position-absolute top-0 start-0 m-2{% endif %}">
+                Sale
+            </span>
+            {% endif %}
+            <button type="button"
+                    hx-post="{% url 'shop:wishlist_toggle' product.pk %}"
+                    hx-swap="none"
+                    hx-on::after-request="htmx.trigger(document.body, 'wishlistUpdated')"
+                    class="{% if css_framework == 'tailwind' %}absolute top-2 right-2 p-2 bg-white rounded-full shadow hover:bg-gray-100{% else %}btn btn-sm btn-light position-absolute top-0 end-0 m-2{% endif %}">
+                ❤️
+            </button>
+        </div>
+        <div class="{% if css_framework == 'tailwind' %}p-4{% else %}card-body{% endif %}">
+            <a href="{% url 'shop:product_detail' product.slug %}"
+               class="{% if css_framework == 'tailwind' %}text-lg font-semibold text-gray-900 hover:text-blue-600{% else %}h6 card-title text-decoration-none{% endif %}">
+                {{ product.name }}
+            </a>
+            <div class="{% if css_framework == 'tailwind' %}flex items-center mt-2{% else %}mt-2{% endif %}">
+                <span class="{% if css_framework == 'tailwind' %}text-yellow-400{% else %}text-warning{% endif %}">
+                    {% for i in "12345" %}{% if forloop.counter <= product.avg_rating %}★{% else %}☆{% endif %}{% endfor %}
+                </span>
+                <span class="{% if css_framework == 'tailwind' %}text-gray-500 text-sm ml-2{% else %}text-muted small ms-2{% endif %}">
+                    ({{ product.review_count }})
+                </span>
+            </div>
+            <div class="{% if css_framework == 'tailwind' %}flex items-center justify-between mt-4{% else %}d-flex justify-content-between align-items-center mt-3{% endif %}">
+                <div>
+                    {% if product.sale_price %}
+                    <span class="{% if css_framework == 'tailwind' %}text-lg font-bold text-gray-900{% else %}h5 mb-0{% endif %}">${{ product.sale_price }}</span>
+                    <span class="{% if css_framework == 'tailwind' %}text-sm text-gray-500 line-through ml-2{% else %}text-muted text-decoration-line-through small ms-2{% endif %}">${{ product.price }}</span>
+                    {% else %}
+                    <span class="{% if css_framework == 'tailwind' %}text-lg font-bold text-gray-900{% else %}h5 mb-0{% endif %}">${{ product.price }}</span>
+                    {% endif %}
+                </div>
+                {% if product.in_stock %}
+                <button type="button"
+                        hx-post="{% url 'shop:cart_add' product.pk %}"
+                        hx-vals='{"quantity": 1}'
+                        hx-swap="none"
+                        hx-on::after-request="htmx.trigger(document.body, 'cartUpdated')"
+                        class="{% if css_framework == 'tailwind' %}bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700{% else %}btn btn-primary btn-sm{% endif %}">
+                    Add
+                </button>
+                {% else %}
+                <span class="{% if css_framework == 'tailwind' %}text-gray-500 text-sm{% else %}badge bg-secondary{% endif %}">Out of Stock</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endraw %}

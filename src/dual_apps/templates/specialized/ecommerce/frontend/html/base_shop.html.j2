@@ -1,0 +1,120 @@
+{% raw %}{% extends "base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    .product-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: box-shadow 0.2s;
+    }
+    .product-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .product-image {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        border-radius: 4px;
+    }
+    .price {
+        font-size: 1.25rem;
+        font-weight: bold;
+        color: #2563eb;
+    }
+    .old-price {
+        text-decoration: line-through;
+        color: #9ca3af;
+        font-size: 0.875rem;
+    }
+    .badge-sale {
+        background-color: #dc2626;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+    .cart-count {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background-color: #dc2626;
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        font-size: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .rating {
+        color: #fbbf24;
+    }
+    .filter-sidebar {
+        background-color: #f9fafb;
+        padding: 1rem;
+        border-radius: 8px;
+    }
+    .category-link {
+        display: block;
+        padding: 0.5rem;
+        color: #374151;
+        text-decoration: none;
+    }
+    .category-link:hover, .category-link.active {
+        background-color: #e5e7eb;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <nav aria-label="breadcrumb" class="my-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+            {% block breadcrumb %}{% endblock %}
+        </ol>
+    </nav>
+
+    <div class="row">
+        {% block shop_sidebar %}
+        <aside class="col-md-3">
+            <div class="filter-sidebar">
+                <h5>Categories</h5>
+                <nav>
+                    {% for category in categories %}
+                    <a href="{% url 'shop:category' category.slug %}" class="category-link {% if current_category == category %}active{% endif %}">
+                        {{ category.name }}
+                    </a>
+                    {% empty %}
+                    <p class="text-muted">No categories</p>
+                    {% endfor %}
+                </nav>
+
+                <hr>
+
+                <h5>Price Range</h5>
+                <form method="get" action="" class="mb-3">
+                    <div class="mb-2">
+                        <input type="number" name="min_price" class="form-control form-control-sm" placeholder="Min" value="{{ request.GET.min_price }}">
+                    </div>
+                    <div class="mb-2">
+                        <input type="number" name="max_price" class="form-control form-control-sm" placeholder="Max" value="{{ request.GET.max_price }}">
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-outline-primary w-100">Apply Filter</button>
+                </form>
+            </div>
+        </aside>
+        {% endblock %}
+
+        <main class="col-md-9">
+            {% block shop_content %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% endblock %}
+{% endraw %}

@@ -1,0 +1,150 @@
+{% raw %}/**
+ * Wishlist Context for {{ project_name_display }}
+ */
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import api from '../utils/api';
+import { useAuth } from './AuthContext';
+
+const WishlistContext = createContext(null);
+
+export function useWishlist() {
+  const context = useContext(WishlistContext);
+  if (!context) {
+    throw new Error('useWishlist must be used within a WishlistProvider');
+  }
+  return context;
+}
+
+export function WishlistProvider({ children }) {
+  const { isAuthenticated } = useAuth();
+  const [wishlist, setWishlist] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const WISHLIST_KEY = '{{ project_name }}_wishlist';
+
+  // Load wishlist
+  const loadWishlist = useCallback(async () => {
+    setLoading(true);
+    try {
+      if (isAuthenticated) {
+        const response = await api.get('/api/v1/wishlist/');
+        setWishlist(response.data.results || response.data);
+      } else {
+        const saved = localStorage.getItem(WISHLIST_KEY);
+        if (saved) {
+          setWishlist(JSON.parse(saved));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load wishlist:', err);
+      setError('Failed to load wishlist');
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    loadWishlist();
+  }, [loadWishlist]);
+
+  // Save guest wishlist
+  const saveGuestWishlist = useCallback((items) => {
+    localStorage.setItem(WISHLIST_KEY, JSON.stringify(items));
+  }, []);
+
+  // Check if product is in wishlist
+  const isInWishlist = useCallback((productId) => {
+    return wishlist.some(item => item.product_id === productId || item.id === productId);
+  }, [wishlist]);
+
+  // Toggle wishlist item
+  const toggleWishlist = useCallback(async (productId) => {
+    setError(null);
+    const isInList = isInWishlist(productId);
+
+    try {
+      if (isAuthenticated) {
+        if (isInList) {
+          await api.delete(`/api/v1/wishlist/${productId}/`);
+          setWishlist(prev => prev.filter(item => item.product_id !== productId && item.id !== productId));
+        } else {
+          const response = await api.post('/api/v1/wishlist/', { product_id: productId });
+          setWishlist(prev => [...prev, response.data]);
+        }
+      } else {
+        if (isInList) {
+          const newList = wishlist.filter(item => item.product_id !== productId);
+          setWishlist(newList);
+          saveGuestWishlist(newList);
+        } else {
+          const newItem = { product_id: productId, added_at: new Date().toISOString() };
+          const newList = [...wishlist, newItem];
+          setWishlist(newList);
+          saveGuestWishlist(newList);
+        }
+      }
+      return { success: true, added: !isInList };
+    } catch (err) {
+      const message = err.response?.data?.detail || 'Failed to update wishlist';
+      setError(message);
+      return { success: false, error: message };
+    }
+  }, [isAuthenticated, wishlist, isInWishlist, saveGuestWishlist]);
+
+  // Clear wishlist
+  const clearWishlist = useCallback(async () => {
+    try {
+      if (isAuthenticated) {
+        await api.delete('/api/v1/wishlist/');
+      }
+      setWishlist([]);
+      saveGuestWishlist([]);
+      return { success: true };
+    } catch (err) {
+      const message = err.response?.data?.detail || 'Failed to clear wishlist';
+      setError(message);
+      return { success: false, error: message };
+    }
+  }, [isAuthenticated, saveGuestWishlist]);
+
+  // Merge guest wishlist after login
+  const mergeGuestWishlist = useCallback(async () => {
+    const saved = localStorage.getItem(WISHLIST_KEY);
+    if (!saved) return;
+
+    const guestWishlist = JSON.parse(saved);
+    if (guestWishlist.length === 0) return;
+
+    try {
+      await api.post('/api/v1/wishlist/merge/', {
+        product_ids: guestWishlist.map(item => item.product_id)
+      });
+      localStorage.removeItem(WISHLIST_KEY);
+      await loadWishlist();
+    } catch (err) {
+      console.error('Failed to merge wishlist:', err);
+    }
+  }, [loadWishlist]);
+
+  const value = {
+    wishlist,
+    loading,
+    error,
+    itemCount: wishlist.length,
+    isInWishlist,
+    toggleWishlist,
+    clearWishlist,
+    loadWishlist,
+    mergeGuestWishlist,
+  };
+
+  return (
+    <WishlistContext.Provider value={value}>
+      {children}
+    </WishlistContext.Provider>
+  );
+}
+
+export default WishlistContext;
+{% endraw %}

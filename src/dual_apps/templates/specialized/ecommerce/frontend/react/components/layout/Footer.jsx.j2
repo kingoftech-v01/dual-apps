@@ -1,0 +1,181 @@
+{% raw %}/**
+ * Footer Component for {{ project_name_display }}
+ */
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import api from '../../utils/api';
+
+function Footer() {
+  const [email, setEmail] = useState('');
+  const [subscribed, setSubscribed] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleNewsletterSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      await api.post('/api/v1/newsletter/subscribe/', { email });
+      setSubscribed(true);
+      setEmail('');
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Subscription failed');
+    }
+  };
+
+  const currentYear = new Date().getFullYear();
+
+  return (
+{% if css_framework == 'tailwind' %}
+    <footer className="bg-gray-900 text-white py-12">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          {/* About */}
+          <div>
+            <h5 className="text-lg font-bold mb-4">{{ project_name_display }}</h5>
+            <p className="text-gray-400">
+              Your one-stop shop for amazing products. Quality, service, and value.
+            </p>
+          </div>
+
+          {/* Shop Links */}
+          <div>
+            <h6 className="text-sm font-semibold uppercase mb-4">Shop</h6>
+            <ul className="space-y-2">
+              <li><Link to="/products" className="text-gray-400 hover:text-white">All Products</Link></li>
+              <li><Link to="/products?on_sale=1" className="text-gray-400 hover:text-white">On Sale</Link></li>
+              <li><Link to="/products?sort=newest" className="text-gray-400 hover:text-white">New Arrivals</Link></li>
+              <li><Link to="/products?sort=popular" className="text-gray-400 hover:text-white">Best Sellers</Link></li>
+            </ul>
+          </div>
+
+          {/* Account Links */}
+          <div>
+            <h6 className="text-sm font-semibold uppercase mb-4">Account</h6>
+            <ul className="space-y-2">
+              <li><Link to="/account" className="text-gray-400 hover:text-white">My Account</Link></li>
+              <li><Link to="/orders" className="text-gray-400 hover:text-white">Order History</Link></li>
+              <li><Link to="/wishlist" className="text-gray-400 hover:text-white">Wishlist</Link></li>
+              <li><Link to="/cart" className="text-gray-400 hover:text-white">Shopping Cart</Link></li>
+            </ul>
+          </div>
+
+          {/* Newsletter */}
+          <div>
+            <h6 className="text-sm font-semibold uppercase mb-4">Newsletter</h6>
+            {subscribed ? (
+              <p className="text-green-400">Thanks for subscribing!</p>
+            ) : (
+              <form onSubmit={handleNewsletterSubmit}>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Your email"
+                  required
+                  className="w-full px-4 py-2 rounded bg-gray-800 text-white mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="submit"
+                  className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                  Subscribe
+                </button>
+                {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
+              </form>
+            )}
+          </div>
+        </div>
+
+        <hr className="my-8 border-gray-700" />
+
+        <div className="flex flex-col md:flex-row justify-between items-center">
+          <p className="text-gray-400 text-sm">
+            © {currentYear} {{ project_name_display }}. All rights reserved.
+          </p>
+          <div className="flex space-x-4 mt-4 md:mt-0">
+            <Link to="/privacy" className="text-gray-400 hover:text-white text-sm">Privacy Policy</Link>
+            <Link to="/terms" className="text-gray-400 hover:text-white text-sm">Terms of Service</Link>
+            <Link to="/contact" className="text-gray-400 hover:text-white text-sm">Contact Us</Link>
+          </div>
+        </div>
+      </div>
+    </footer>
+{% else %}
+    <footer className="bg-dark text-white py-5">
+      <div className="container">
+        <div className="row">
+          {/* About */}
+          <div className="col-md-3 mb-4">
+            <h5>{{ project_name_display }}</h5>
+            <p className="text-muted">
+              Your one-stop shop for amazing products. Quality, service, and value.
+            </p>
+          </div>
+
+          {/* Shop Links */}
+          <div className="col-md-3 mb-4">
+            <h6 className="text-uppercase mb-3">Shop</h6>
+            <ul className="list-unstyled">
+              <li><Link to="/products" className="text-muted">All Products</Link></li>
+              <li><Link to="/products?on_sale=1" className="text-muted">On Sale</Link></li>
+              <li><Link to="/products?sort=newest" className="text-muted">New Arrivals</Link></li>
+              <li><Link to="/products?sort=popular" className="text-muted">Best Sellers</Link></li>
+            </ul>
+          </div>
+
+          {/* Account Links */}
+          <div className="col-md-3 mb-4">
+            <h6 className="text-uppercase mb-3">Account</h6>
+            <ul className="list-unstyled">
+              <li><Link to="/account" className="text-muted">My Account</Link></li>
+              <li><Link to="/orders" className="text-muted">Order History</Link></li>
+              <li><Link to="/wishlist" className="text-muted">Wishlist</Link></li>
+              <li><Link to="/cart" className="text-muted">Shopping Cart</Link></li>
+            </ul>
+          </div>
+
+          {/* Newsletter */}
+          <div className="col-md-3 mb-4">
+            <h6 className="text-uppercase mb-3">Newsletter</h6>
+            {subscribed ? (
+              <p className="text-success">Thanks for subscribing!</p>
+            ) : (
+              <form onSubmit={handleNewsletterSubmit}>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Your email"
+                  required
+                  className="form-control mb-2"
+                />
+                <button type="submit" className="btn btn-primary w-100">
+                  Subscribe
+                </button>
+                {error && <p className="text-danger small mt-2">{error}</p>}
+              </form>
+            )}
+          </div>
+        </div>
+
+        <hr className="my-4" />
+
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center">
+          <p className="text-muted small mb-0">
+            © {currentYear} {{ project_name_display }}. All rights reserved.
+          </p>
+          <div className="d-flex gap-3 mt-3 mt-md-0">
+            <Link to="/privacy" className="text-muted small">Privacy Policy</Link>
+            <Link to="/terms" className="text-muted small">Terms of Service</Link>
+            <Link to="/contact" className="text-muted small">Contact Us</Link>
+          </div>
+        </div>
+      </div>
+    </footer>
+{% endif %}
+  );
+}
+
+export default Footer;
+{% endraw %}

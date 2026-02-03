@@ -1,0 +1,188 @@
+{% raw %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ project_name_display }}{% endblock %}</title>
+    {% if css_framework == 'tailwind' %}
+    <script src="https://cdn.tailwindcss.com"></script>
+    {% else %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    {% endif %}
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
+    <meta name="htmx-config" content='{"defaultSwapStyle":"innerHTML"}'>
+    {% block extra_head %}{% endblock %}
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <!-- Navigation -->
+    <nav class="{% if css_framework == 'tailwind' %}bg-white shadow{% else %}navbar navbar-expand-lg navbar-light bg-white shadow-sm{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}max-w-7xl mx-auto px-4{% else %}container{% endif %}">
+            <div class="{% if css_framework == 'tailwind' %}flex justify-between h-16{% else %}d-flex justify-content-between align-items-center{% endif %}">
+                <a href="{% url 'shop:home' %}" class="{% if css_framework == 'tailwind' %}flex items-center text-xl font-bold text-gray-900{% else %}navbar-brand fw-bold{% endif %}">
+                    {{ project_name_display }}
+                </a>
+
+                <!-- Search Bar -->
+                <div class="{% if css_framework == 'tailwind' %}flex-1 mx-8{% else %}flex-grow-1 mx-4{% endif %}">
+                    <form hx-get="{% url 'shop:search' %}" hx-target="#search-results" hx-trigger="keyup changed delay:300ms"
+                          class="{% if css_framework == 'tailwind' %}relative{% else %}position-relative{% endif %}">
+                        <input type="text" name="q" placeholder="Search products..."
+                               class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500{% else %}form-control{% endif %}"
+                               autocomplete="off">
+                        <div id="search-results" class="{% if css_framework == 'tailwind' %}absolute z-50 w-full mt-1 bg-white rounded-lg shadow-lg{% else %}position-absolute w-100 mt-1 bg-white rounded shadow-lg{% endif %}" style="display: none;"></div>
+                    </form>
+                </div>
+
+                <div class="{% if css_framework == 'tailwind' %}flex items-center space-x-4{% else %}d-flex align-items-center{% endif %}">
+                    <!-- Wishlist -->
+                    <a href="{% url 'shop:wishlist' %}" class="{% if css_framework == 'tailwind' %}text-gray-600 hover:text-gray-900{% else %}btn btn-link text-dark{% endif %}">
+                        ❤️ <span id="wishlist-count" class="{% if css_framework == 'tailwind' %}text-sm{% else %}badge bg-secondary{% endif %}"
+                                 hx-get="{% url 'shop:wishlist_count' %}" hx-trigger="load, wishlistUpdated from:body">{{ wishlist_count|default:0 }}</span>
+                    </a>
+
+                    <!-- Cart -->
+                    <a href="{% url 'shop:cart' %}" class="{% if css_framework == 'tailwind' %}text-gray-600 hover:text-gray-900 relative{% else %}btn btn-link text-dark position-relative{% endif %}">
+                        🛒 <span id="cart-count" class="{% if css_framework == 'tailwind' %}absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-2{% else %}badge bg-danger position-absolute{% endif %}"
+                                 hx-get="{% url 'shop:cart_count' %}" hx-trigger="load, cartUpdated from:body">{{ cart_count|default:0 }}</span>
+                    </a>
+
+                    <!-- User Menu -->
+                    {% if user.is_authenticated %}
+                    <div class="{% if css_framework == 'tailwind' %}relative{% else %}dropdown{% endif %}">
+                        <button class="{% if css_framework == 'tailwind' %}flex items-center text-gray-600 hover:text-gray-900{% else %}btn btn-link text-dark dropdown-toggle{% endif %}"
+                                {% if css_framework == 'tailwind' %}onclick="this.nextElementSibling.classList.toggle('hidden')"{% else %}data-bs-toggle="dropdown"{% endif %}>
+                            {{ user.first_name|default:user.username }}
+                        </button>
+                        <div class="{% if css_framework == 'tailwind' %}hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2{% else %}dropdown-menu dropdown-menu-end{% endif %}">
+                            <a href="{% url 'shop:account_profile' %}" class="{% if css_framework == 'tailwind' %}block px-4 py-2 hover:bg-gray-100{% else %}dropdown-item{% endif %}">My Account</a>
+                            <a href="{% url 'shop:order_list' %}" class="{% if css_framework == 'tailwind' %}block px-4 py-2 hover:bg-gray-100{% else %}dropdown-item{% endif %}">Orders</a>
+                            <a href="{% url 'shop:wishlist' %}" class="{% if css_framework == 'tailwind' %}block px-4 py-2 hover:bg-gray-100{% else %}dropdown-item{% endif %}">Wishlist</a>
+                            <hr class="{% if css_framework == 'tailwind' %}my-2{% else %}dropdown-divider{% endif %}">
+                            <a href="{% url 'account_logout' %}" class="{% if css_framework == 'tailwind' %}block px-4 py-2 hover:bg-gray-100 text-red-600{% else %}dropdown-item text-danger{% endif %}">Logout</a>
+                        </div>
+                    </div>
+                    {% else %}
+                    <a href="{% url 'account_login' %}" class="{% if css_framework == 'tailwind' %}text-gray-600 hover:text-gray-900{% else %}btn btn-outline-primary{% endif %}">Login</a>
+                    <a href="{% url 'account_signup' %}" class="{% if css_framework == 'tailwind' %}ml-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700{% else %}btn btn-primary ms-2{% endif %}">Sign Up</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Categories Bar -->
+    <div class="{% if css_framework == 'tailwind' %}bg-gray-100 py-2{% else %}bg-light py-2{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}max-w-7xl mx-auto px-4{% else %}container{% endif %}">
+            <div class="{% if css_framework == 'tailwind' %}flex space-x-6 overflow-x-auto{% else %}d-flex gap-4 overflow-auto{% endif %}"
+                 hx-get="{% url 'shop:categories' %}" hx-trigger="load" hx-swap="innerHTML">
+                <!-- Categories loaded via HTMX -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Flash Messages -->
+    <div id="messages" class="{% if css_framework == 'tailwind' %}max-w-7xl mx-auto px-4{% else %}container{% endif %}">
+        {% for message in messages %}
+        <div class="{% if css_framework == 'tailwind' %}mt-4 p-4 rounded-lg {% if message.tags == 'error' %}bg-red-100 text-red-700{% elif message.tags == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}{% else %}alert alert-{{ message.tags }} alert-dismissible fade show mt-3{% endif %}"
+             role="alert">
+            {{ message }}
+            <button type="button" class="{% if css_framework == 'tailwind' %}float-right{% else %}btn-close{% endif %}"
+                    {% if css_framework == 'tailwind' %}onclick="this.parentElement.remove()"{% else %}data-bs-dismiss="alert"{% endif %}>
+                {% if css_framework == 'tailwind' %}×{% endif %}
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Main Content -->
+    <main class="{% if css_framework == 'tailwind' %}max-w-7xl mx-auto px-4 py-8{% else %}container py-4{% endif %}">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="{% if css_framework == 'tailwind' %}bg-gray-900 text-white py-12{% else %}bg-dark text-white py-5{% endif %}">
+        <div class="{% if css_framework == 'tailwind' %}max-w-7xl mx-auto px-4{% else %}container{% endif %}">
+            <div class="{% if css_framework == 'tailwind' %}grid grid-cols-1 md:grid-cols-4 gap-8{% else %}row{% endif %}">
+                <div class="{% if css_framework != 'tailwind' %}col-md-3{% endif %}">
+                    <h5 class="{% if css_framework == 'tailwind' %}text-lg font-bold mb-4{% else %}mb-3{% endif %}">{{ project_name_display }}</h5>
+                    <p class="{% if css_framework == 'tailwind' %}text-gray-400{% else %}text-muted{% endif %}">Your one-stop shop for amazing products.</p>
+                </div>
+                <div class="{% if css_framework != 'tailwind' %}col-md-3{% endif %}">
+                    <h6 class="{% if css_framework == 'tailwind' %}text-sm font-semibold uppercase mb-4{% else %}mb-3{% endif %}">Shop</h6>
+                    <ul class="{% if css_framework == 'tailwind' %}space-y-2{% else %}list-unstyled{% endif %}">
+                        <li><a href="{% url 'shop:product_list' %}" class="{% if css_framework == 'tailwind' %}text-gray-400 hover:text-white{% else %}text-muted{% endif %}">All Products</a></li>
+                        <li><a href="{% url 'shop:product_list' %}?sale=1" class="{% if css_framework == 'tailwind' %}text-gray-400 hover:text-white{% else %}text-muted{% endif %}">On Sale</a></li>
+                        <li><a href="{% url 'shop:product_list' %}?new=1" class="{% if css_framework == 'tailwind' %}text-gray-400 hover:text-white{% else %}text-muted{% endif %}">New Arrivals</a></li>
+                    </ul>
+                </div>
+                <div class="{% if css_framework != 'tailwind' %}col-md-3{% endif %}">
+                    <h6 class="{% if css_framework == 'tailwind' %}text-sm font-semibold uppercase mb-4{% else %}mb-3{% endif %}">Account</h6>
+                    <ul class="{% if css_framework == 'tailwind' %}space-y-2{% else %}list-unstyled{% endif %}">
+                        <li><a href="{% url 'shop:account_profile' %}" class="{% if css_framework == 'tailwind' %}text-gray-400 hover:text-white{% else %}text-muted{% endif %}">My Account</a></li>
+                        <li><a href="{% url 'shop:order_list' %}" class="{% if css_framework == 'tailwind' %}text-gray-400 hover:text-white{% else %}text-muted{% endif %}">Orders</a></li>
+                        <li><a href="{% url 'shop:wishlist' %}" class="{% if css_framework == 'tailwind' %}text-gray-400 hover:text-white{% else %}text-muted{% endif %}">Wishlist</a></li>
+                    </ul>
+                </div>
+                <div class="{% if css_framework != 'tailwind' %}col-md-3{% endif %}">
+                    <h6 class="{% if css_framework == 'tailwind' %}text-sm font-semibold uppercase mb-4{% else %}mb-3{% endif %}">Newsletter</h6>
+                    <form hx-post="{% url 'shop:newsletter_subscribe' %}" hx-swap="outerHTML">
+                        <input type="email" name="email" placeholder="Your email"
+                               class="{% if css_framework == 'tailwind' %}w-full px-4 py-2 rounded bg-gray-800 text-white mb-2{% else %}form-control mb-2{% endif %}" required>
+                        <button type="submit" class="{% if css_framework == 'tailwind' %}w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700{% else %}btn btn-primary w-100{% endif %}">Subscribe</button>
+                    </form>
+                </div>
+            </div>
+            <hr class="{% if css_framework == 'tailwind' %}my-8 border-gray-700{% else %}my-4{% endif %}">
+            <p class="{% if css_framework == 'tailwind' %}text-center text-gray-400{% else %}text-center text-muted{% endif %}">© {{ current_year }} {{ project_name_display }}. All rights reserved.</p>
+        </div>
+    </footer>
+
+    {% if css_framework != 'tailwind' %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% endif %}
+
+    <script>
+        // HTMX event handlers
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            // Handle search results display
+            if (evt.detail.target.id === 'search-results') {
+                evt.detail.target.style.display = evt.detail.target.innerHTML.trim() ? 'block' : 'none';
+            }
+        });
+
+        // Hide search results when clicking outside
+        document.addEventListener('click', function(e) {
+            var searchResults = document.getElementById('search-results');
+            if (searchResults && !e.target.closest('form')) {
+                searchResults.style.display = 'none';
+            }
+        });
+
+        // Toast notification helper
+        function showToast(message, type = 'success') {
+            var messagesDiv = document.getElementById('messages');
+            var alertClass = type === 'error' ? 'alert-danger' : 'alert-success';
+            {% if css_framework == 'tailwind' %}
+            var bgClass = type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
+            messagesDiv.innerHTML = '<div class="mt-4 p-4 rounded-lg ' + bgClass + '">' + message + '</div>';
+            {% else %}
+            messagesDiv.innerHTML = '<div class="alert ' + alertClass + ' alert-dismissible fade show mt-3">' + message + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+            {% endif %}
+            setTimeout(function() { messagesDiv.innerHTML = ''; }, 5000);
+        }
+
+        // Listen for custom events
+        document.body.addEventListener('cartUpdated', function() {
+            showToast('Cart updated!');
+        });
+
+        document.body.addEventListener('wishlistUpdated', function() {
+            showToast('Wishlist updated!');
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
+{% endraw %}
