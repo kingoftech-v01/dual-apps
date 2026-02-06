@@ -1,15 +1,8 @@
 """
-Main CLI for dual-apps using Typer.
+CLI entry point for dual-apps.
 
-Provides commands for generating Django apps and projects with
-dual-layer architecture (Frontend HTMX + API DRF).
-
-Commands:
-    dual_apps init app <name>      Generate a standalone Django app
-    dual_apps init project <name>  Generate a complete Django project
-    dual_apps add app <name>       Add app to existing project
-    dual_apps config               Generate config file
-    dual_apps version              Show version
+Uses Typer for command parsing and Rich for terminal output.
+See CLI-REFERENCE.md for complete usage documentation.
 """
 
 import typer
@@ -25,7 +18,7 @@ import yaml
 import json
 import sys
 
-# Valid choices for CLI options
+# These constants are used for CLI validation and interactive prompts
 PROJECT_TYPES = ["fullstack", "backend", "frontend"]
 FRONTEND_CHOICES = ["html", "htmx", "react"]
 CSS_FRAMEWORKS = ["bootstrap", "tailwind"]
@@ -38,7 +31,6 @@ from dual_apps import __version__
 from dual_apps.generators.app_generator import AppGenerator
 from dual_apps.generators.project_generator import ProjectGenerator
 
-# Initialize Typer app
 app = typer.Typer(
     name="dual_apps",
     help="Django App & Project Generator with Dual-Layer Architecture",
@@ -46,7 +38,6 @@ app = typer.Typer(
     rich_markup_mode="rich",
 )
 
-# Sub-commands
 init_app = typer.Typer(help="Initialize a new app or project")
 add_app = typer.Typer(help="Add components to existing project")
 app.add_typer(init_app, name="init")
@@ -54,10 +45,6 @@ app.add_typer(add_app, name="add")
 
 console = Console()
 
-
-# =============================================================================
-# Utility Functions
-# =============================================================================
 
 def version_callback(value: bool):
     """Show version and exit."""
@@ -81,10 +68,10 @@ def load_config(config_path: Path) -> dict:
 
 def _parse_fields(fields_str: str) -> list:
     """
-    Parse fields string into list of tuples.
+    Parse CLI fields string into structured field definitions.
 
-    Input: "title:CharField,status:CharField(choices)"
-    Output: [("title", "CharField", {}), ("status", "CharField", {"choices": True})]
+    Example: "title:CharField,status:CharField(choices)"
+           → [("title", "CharField", {}), ("status", "CharField", {"options": "choices"})]
     """
     if not fields_str:
         return []
@@ -99,7 +86,6 @@ def _parse_fields(fields_str: str) -> list:
         name = name.strip()
         field_type = field_type.strip()
 
-        # Parse field options
         options = {}
         if "(" in field_type:
             base_type = field_type[:field_type.index("(")]
@@ -111,10 +97,6 @@ def _parse_fields(fields_str: str) -> list:
 
     return fields
 
-
-# =============================================================================
-# Interactive Mode
-# =============================================================================
 
 def interactive_app_setup() -> dict:
     """Interactive wizard for app generation."""
@@ -254,10 +236,6 @@ def interactive_project_setup() -> dict:
     return config
 
 
-# =============================================================================
-# Main App Callback
-# =============================================================================
-
 @app.callback()
 def main(
     version: bool = typer.Option(
@@ -285,10 +263,6 @@ def main(
     """
     pass
 
-
-# =============================================================================
-# Init App Command
-# =============================================================================
 
 @init_app.command("app")
 def init_app_command(
@@ -366,7 +340,6 @@ def init_app_command(
         dual_apps init app myapp --interactive
         dual_apps init app myapp --config=dual-apps.yaml
     """
-    # Interactive mode
     if interactive or name is None:
         cfg = interactive_app_setup()
         name = cfg.get('name', name)
@@ -378,7 +351,6 @@ def init_app_command(
         api_only = cfg.get('api_only', api_only)
         frontend_only = cfg.get('frontend_only', frontend_only)
 
-    # Config file
     if config:
         file_config = load_config(config)
         if 'app' in file_config:
@@ -451,10 +423,6 @@ def init_app_command(
 
     _print_success_app(name, output_dir)
 
-
-# =============================================================================
-# Init Project Command
-# =============================================================================
 
 @init_app.command("project")
 def init_project_command(
@@ -550,7 +518,6 @@ def init_project_command(
         dual_apps init project myproject --interactive
         dual_apps init project myproject --config=dual-apps.yaml
     """
-    # Interactive mode
     if interactive or name is None:
         cfg = interactive_project_setup()
         name = cfg.get('name', name)
@@ -566,7 +533,6 @@ def init_project_command(
         frontend = cfg.get('frontend', frontend)
         css = cfg.get('css', css)
 
-    # Config file
     if config:
         file_config = load_config(config)
         if 'project' in file_config:
@@ -589,7 +555,6 @@ def init_project_command(
         console.print("[red]Error: Project name is required[/]")
         raise typer.Exit(1)
 
-    # Validate options
     if project_type not in PROJECT_TYPES:
         console.print(f"[red]Error: Invalid project type '{project_type}'. Choose from: {', '.join(PROJECT_TYPES)}[/]")
         raise typer.Exit(1)
@@ -602,15 +567,16 @@ def init_project_command(
         console.print(f"[red]Error: Invalid CSS framework '{css}'. Choose from: {', '.join(CSS_FRAMEWORKS)}[/]")
         raise typer.Exit(1)
 
-    # Default jwt_storage if not specified (don't prompt - just use default)
+    # Default to httpOnly for security - localStorage is opt-in
     if jwt_storage is None:
         jwt_storage = "httpOnly"
 
-    # Adjust settings based on project type
+    # Project type determines which layers are generated
     if project_type == "backend":
-        frontend = "none"  # No frontend for backend-only
+        frontend = "none"
     elif project_type == "frontend":
-        auth = "none"  # No auth processing for frontend-only (connects to external API)
+        # Frontend-only projects connect to external APIs, no auth processing needed
+        auth = "none"
 
     console.print(Panel.fit(
         f"[bold green]Creating Django Project:[/] [cyan]{name}[/]",
@@ -677,10 +643,6 @@ def init_project_command(
 
     _print_success_project(name, apps_list, output_dir, auth)
 
-
-# =============================================================================
-# Add App Command
-# =============================================================================
 
 @add_app.command("app")
 def add_app_command(
@@ -766,10 +728,6 @@ def add_app_command(
     console.print(f"4. Run: [yellow]python manage.py migrate[/]")
 
 
-# =============================================================================
-# Config Command
-# =============================================================================
-
 @app.command("config")
 def config_command(
     output: Path = typer.Option(
@@ -839,10 +797,6 @@ def config_command(
     console.print(f"  dual_apps init project myproject --config={output}")
 
 
-# =============================================================================
-# Info Command
-# =============================================================================
-
 @app.command("info")
 def info_command():
     """
@@ -873,10 +827,6 @@ def info_command():
     for feature in features:
         console.print(f"  [green]{feature}[/]")
 
-
-# =============================================================================
-# Help Command
-# =============================================================================
 
 @app.command("help")
 def help_command(
@@ -1216,10 +1166,6 @@ def _show_help_examples():
         console.print(f"  [green]{command}[/]")
         console.print(f"  [dim]{description}[/]\n")
 
-
-# =============================================================================
-# Success Messages
-# =============================================================================
 
 def _print_success_app(name: str, output_dir: Path):
     """Print success message for app generation."""

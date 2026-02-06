@@ -1,13 +1,7 @@
 """
-App Generator for dual-apps.
+Generates standalone Django apps with dual-layer architecture.
 
-Generates a standalone Django app with dual-layer architecture:
-- Frontend views (HTMX + Alpine.js)
-- API views (DRF ViewSets)
-- Models with UUID PK
-- Complete test suite
-- Docker configuration
-- Documentation
+Can create apps either as standalone packages or within a project.
 """
 
 from pathlib import Path
@@ -17,16 +11,7 @@ from dual_apps.generators.base import BaseGenerator
 
 
 class AppGenerator(BaseGenerator):
-    """
-    Generate a standalone Django app with dual-layer architecture.
-
-    Features:
-    - Dual layer (Frontend + API) mandatory
-    - 45+ tests with 88% coverage
-    - Docker support
-    - Complete documentation
-    - OWASP security built-in
-    """
+    """Generate a Django app with dual-layer architecture (Frontend + API)."""
 
     def __init__(
         self,
@@ -54,12 +39,10 @@ class AppGenerator(BaseGenerator):
         self.i18n = i18n
         self.celery = celery
         self.auth_required = auth_required
-        # Full app name for Django AppConfig (e.g., 'apps.jobs' when inside a project)
+        # Used for Django AppConfig.name when app lives in apps/ directory
         self.app_full_name = app_full_name
-        # Whether this is a standalone app or part of a project
+        # Standalone apps get package structure (app_name/app_name/), project apps are flat
         self.standalone = standalone
-
-        # App root directory
         self.app_root = Path(self.app_name)
 
     def _get_default_fields(self) -> List[Tuple[str, str, Dict]]:
@@ -101,7 +84,6 @@ class AppGenerator(BaseGenerator):
             "has_frontend": not self.api_only,
             "has_api": not self.frontend_only,
         }
-        # Add full app name if provided (for apps within a project)
         if self.app_full_name:
             ctx["app_full_name"] = self.app_full_name
         return ctx
@@ -111,7 +93,7 @@ class AppGenerator(BaseGenerator):
         ctx = self.get_context()
 
         if self.standalone:
-            # Standalone app: app_name/app_name/... structure
+            # Standalone apps are installable packages: myapp/myapp/models.py
             dirs = [
                 self.app_root,
                 self.app_root / self.app_name,
@@ -122,7 +104,6 @@ class AppGenerator(BaseGenerator):
                 self.app_root / "docs",
             ]
 
-            # Frontend directories
             if ctx["has_frontend"]:
                 dirs.extend([
                     self.app_root / "templates" / self.app_name,
@@ -130,15 +111,13 @@ class AppGenerator(BaseGenerator):
                     self.app_root / "static" / self.app_name / "js",
                 ])
 
-            # Docker directory
             if self.docker:
                 dirs.append(self.app_root / "docker")
 
-            # i18n directory
             if self.i18n:
                 dirs.append(self.app_root / "locale")
         else:
-            # Project app: flat structure directly in app_name/
+            # Project apps live in apps/: apps/myapp/models.py
             dirs = [
                 self.app_root,
                 self.app_root / "migrations",
@@ -159,10 +138,8 @@ class AppGenerator(BaseGenerator):
     def generate_django_files(self) -> None:
         """Generate all Django app files."""
         ctx = self.get_context()
-        # For standalone apps: app_root/app_name/, for project apps: app_root/
         app_dir = self.app_root / self.app_name if self.standalone else self.app_root
 
-        # Core Django files
         self.render_and_write("app/__init__.py.j2", app_dir / "__init__.py", ctx)
         self.render_and_write("app/apps.py.j2", app_dir / "apps.py", ctx)
         self.render_and_write("app/models.py.j2", app_dir / "models.py", ctx)
@@ -171,14 +148,12 @@ class AppGenerator(BaseGenerator):
         self.render_and_write("app/urls.py.j2", app_dir / "urls.py", ctx)
         self.render_and_write("app/permissions.py.j2", app_dir / "permissions.py", ctx)
 
-        # Migrations
         self.render_and_write(
             "app/migrations/__init__.py.j2",
             app_dir / "migrations" / "__init__.py",
             ctx,
         )
 
-        # Management commands
         self.render_and_write(
             "app/management/__init__.py.j2",
             app_dir / "management" / "__init__.py",
@@ -195,19 +170,16 @@ class AppGenerator(BaseGenerator):
             ctx,
         )
 
-        # API files (if not frontend-only)
         if ctx["has_api"]:
             self.render_and_write("app/views_api.py.j2", app_dir / "views_api.py", ctx)
             self.render_and_write("app/serializers.py.j2", app_dir / "serializers.py", ctx)
 
-        # Frontend files (if not api-only)
         if ctx["has_frontend"]:
             self.render_and_write("app/views_frontend.py.j2", app_dir / "views_frontend.py", ctx)
             self._generate_templates(ctx)
             if self.standalone:
                 self._generate_static_files(ctx)
 
-        # Celery tasks
         if self.celery:
             self.render_and_write("app/tasks.py.j2", app_dir / "tasks.py", ctx)
 
@@ -270,7 +242,6 @@ class AppGenerator(BaseGenerator):
         """Generate documentation files."""
         ctx = self.get_context()
 
-        # Root documentation files
         docs = [
             ("docs/README.md.j2", "README.md"),
             ("docs/CHANGELOG.md.j2", "CHANGELOG.md"),
@@ -285,7 +256,6 @@ class AppGenerator(BaseGenerator):
         for template, output in docs:
             self.render_and_write(template, self.app_root / output, ctx)
 
-        # App-specific docs
         self.render_and_write(
             "docs/API.md.j2",
             self.app_root / "docs" / f"API-{self.app_name}.md",
@@ -293,16 +263,13 @@ class AppGenerator(BaseGenerator):
         )
 
     def finalize(self) -> None:
-        """Finalize app generation with config files."""
+        """Generate package config files (pyproject.toml, .gitignore, etc.)."""
         ctx = self.get_context()
 
-        # Python package files
         self.render_and_write("app/pyproject.toml.j2", self.app_root / "pyproject.toml", ctx)
         self.render_and_write("app/pytest.ini.j2", self.app_root / "pytest.ini", ctx)
         self.render_and_write("app/.gitignore.j2", self.app_root / ".gitignore", ctx)
         self.render_and_write("app/.env.example.j2", self.app_root / ".env.example", ctx)
-
-        # Pre-commit config
         self.render_and_write(
             "app/.pre-commit-config.yaml.j2",
             self.app_root / ".pre-commit-config.yaml",

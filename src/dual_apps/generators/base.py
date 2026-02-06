@@ -1,8 +1,7 @@
 """
-Base generator class with common functionality.
+Base generator providing Jinja2 rendering and file operations.
 
-Provides shared methods for file generation, template rendering,
-and directory management used by both AppGenerator and ProjectGenerator.
+Subclassed by AppGenerator and ProjectGenerator.
 """
 
 from pathlib import Path
@@ -14,22 +13,14 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 
 class BaseGenerator:
-    """
-    Base class for all generators.
-
-    Provides:
-    - Jinja2 template rendering
-    - Directory creation
-    - File writing with proper permissions
-    - Common context variables
-    """
+    """Base class providing template rendering and file operations."""
 
     def __init__(self, output_dir: Path = Path(".")):
         self.output_dir = Path(output_dir)
         self.created_files: list = []
         self.created_dirs: list = []
 
-        # Setup Jinja2 environment
+        # trim_blocks/lstrip_blocks prevent extra whitespace in generated Python
         self.env = Environment(
             loader=PackageLoader("dual_apps", "templates"),
             autoescape=select_autoescape(["html", "xml"]),
@@ -38,7 +29,7 @@ class BaseGenerator:
             keep_trailing_newline=True,
         )
 
-        # Register custom filters
+        # Custom filters available in all templates as |snake_case, |pascal_case, etc.
         self.env.filters["snake_case"] = self._to_snake_case
         self.env.filters["pascal_case"] = self._to_pascal_case
         self.env.filters["kebab_case"] = self._to_kebab_case
