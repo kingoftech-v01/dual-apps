@@ -99,25 +99,23 @@ def _parse_fields(fields_str: str) -> list:
 
 
 def interactive_app_setup() -> dict:
-    """Interactive wizard for app generation."""
+    """Prompt user for app configuration via interactive wizard."""
     console.print("\n[bold cyan]🧙 Interactive App Generator[/]\n")
 
     config = {}
 
-    # App name
     config['name'] = Prompt.ask(
         "[yellow]App name[/] (snake_case)",
         default="myapp"
     )
 
-    # Model name
+    # Derive PascalCase model name from snake_case app name
     default_model = config['name'].replace('_', ' ').title().replace(' ', '')
     config['model'] = Prompt.ask(
         "[yellow]Main model name[/]",
         default=default_model
     )
 
-    # Fields
     console.print("\n[dim]Enter model fields (comma-separated, format: name:type)[/]")
     console.print("[dim]Types: str, text, int, decimal, bool, date, datetime, uuid, email, url[/]")
     config['fields'] = Prompt.ask(
@@ -125,13 +123,11 @@ def interactive_app_setup() -> dict:
         default="title:str,description:text,is_active:bool"
     )
 
-    # Options
     console.print("\n[bold]Options:[/]")
     config['docker'] = Confirm.ask("[yellow]Include Docker files?[/]", default=True)
     config['celery'] = Confirm.ask("[yellow]Include Celery support?[/]", default=False)
     config['i18n'] = Confirm.ask("[yellow]Include i18n support?[/]", default=False)
 
-    # API/Frontend
     console.print("\n[bold]Layer selection:[/]")
     layer = Prompt.ask(
         "[yellow]Generate[/]",
@@ -145,18 +141,16 @@ def interactive_app_setup() -> dict:
 
 
 def interactive_project_setup() -> dict:
-    """Interactive wizard for project generation."""
+    """Prompt user for project configuration via interactive wizard."""
     console.print("\n[bold cyan]🧙 Interactive Project Generator[/]\n")
 
     config = {}
 
-    # Project name
     config['name'] = Prompt.ask(
         "[yellow]Project name[/]",
         default="myproject"
     )
 
-    # Project type
     console.print("\n[bold]Project Type:[/]")
     console.print("[dim]  fullstack - Full stack with API + Frontend (default)[/]")
     console.print("[dim]  backend   - API only (DRF ViewSets, no templates)[/]")
@@ -167,14 +161,12 @@ def interactive_project_setup() -> dict:
         default="fullstack"
     )
 
-    # Template
     config['template'] = Prompt.ask(
         "[yellow]Project template[/]",
         choices=TEMPLATE_CHOICES,
         default="default"
     )
 
-    # Apps
     console.print("\n[dim]Enter apps to generate (comma-separated)[/]")
     apps_str = Prompt.ask(
         "[yellow]Apps[/]",
@@ -182,21 +174,19 @@ def interactive_project_setup() -> dict:
     )
     config['apps'] = [a.strip() for a in apps_str.split(",")]
 
-    # Database
     config['db'] = Prompt.ask(
         "[yellow]Database[/]",
         choices=DB_CHOICES,
         default="postgres"
     )
 
-    # Authentication
     config['auth'] = Prompt.ask(
         "[yellow]Authentication[/]",
         choices=AUTH_CHOICES,
         default="jwt"
     )
 
-    # JWT Storage (only if using JWT)
+    # JWT storage option only relevant when using JWT auth
     if config['auth'] == 'jwt':
         console.print("\n[bold]JWT Token Storage:[/]")
         console.print("[dim]  httpOnly     - Secure httpOnly cookies (recommended)[/]")
@@ -207,7 +197,7 @@ def interactive_project_setup() -> dict:
             default="httpOnly"
         )
 
-    # Frontend framework (only if not backend-only)
+    # Frontend options only relevant for fullstack/frontend projects
     if config['project_type'] != 'backend':
         console.print("\n[bold]Frontend Framework:[/]")
         console.print("[dim]  html  - Basic Django templates, server-side rendering[/]")
@@ -219,7 +209,6 @@ def interactive_project_setup() -> dict:
             default="htmx"
         )
 
-        # CSS Framework
         console.print("\n[bold]CSS Framework:[/]")
         config['css'] = Prompt.ask(
             "[yellow]CSS framework[/]",
@@ -227,7 +216,6 @@ def interactive_project_setup() -> dict:
             default="bootstrap"
         )
 
-    # Options
     console.print("\n[bold]Options:[/]")
     config['docker'] = Confirm.ask("[yellow]Include Docker files?[/]", default=True)
     config['celery'] = Confirm.ask("[yellow]Include Celery support?[/]", default=False)
@@ -372,10 +360,9 @@ def init_app_command(
         border_style="green",
     ))
 
-    # Parse fields if provided
     parsed_fields = _parse_fields(fields) if fields else None
 
-    # Set default model name
+    # Derive PascalCase model name from snake_case app name if not specified
     if not model:
         model = f"{name.replace('_', ' ').title().replace(' ', '')}"
 
@@ -584,7 +571,6 @@ def init_project_command(
         border_style="green",
     ))
 
-    # Parse apps list
     apps_list = [a.strip() for a in apps.split(",") if a.strip()]
 
     with Progress(
